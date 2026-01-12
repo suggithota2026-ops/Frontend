@@ -74,9 +74,17 @@ const initialProducts: Product[] = [];
 
 const getImageUrl = (path: string) => {
   if (!path) return "";
-  if (path.startsWith('data:')) return path;
+  if (path.startsWith('data:')) return path; // Base64 images
+  if (path.startsWith('http')) return path; // Full URLs
+
   const cleanPath = path.replace(/^uploads\//, '');
-  return `/uploads/${cleanPath}`;
+  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  if (isDev) {
+    return `/uploads/${cleanPath}`;
+  } else {
+    return `https://prk-smile-backend.onrender.com/uploads/${cleanPath}`;
+  }
 };
 const Products = () => {
   // State
