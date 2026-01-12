@@ -15,6 +15,7 @@ import Profile from "./pages/Profile";
 import Staff from "./pages/Staff";
 import Drivers from "./pages/Drivers";
 import Settings from "./pages/Settings";
+import Enquiry from "./pages/Enquiry";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import { useAuth, AuthProvider } from "./context/AuthContext";
@@ -42,6 +43,7 @@ const AppRoutes = () => (
       <Route path="/hotels" element={<Hotels />} />
       <Route path="/billing" element={<Billing />} />
       <Route path="/notifications" element={<Notifications />} />
+      <Route path="/enquiry" element={<Enquiry />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/staff" element={<Staff />} />

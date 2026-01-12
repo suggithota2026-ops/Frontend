@@ -14,6 +14,7 @@ import {
   Zap,
   Users,
   Truck,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -27,6 +28,7 @@ const menuItems = [
   { icon: Users, label: "Staff", path: "/staff" },
   { icon: Truck, label: "Drivers", path: "/drivers" },
   { icon: CreditCard, label: "Billing", path: "/billing" },
+  { icon: MessageSquare, label: "Enquiry", path: "/enquiry" },
   { icon: Bell, label: "Notifications", path: "/notifications" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
