@@ -1,20 +1,19 @@
 import axios from 'axios';
 
-// Hardcoded backend URL for production (Vercel env vars not working)
-const PRODUCTION_API_URL = 'https://prk-smile-backend.onrender.com/api';
-
-const isProduction = import.meta.env.PROD;
+// Backend URL - use Render for deployed builds, /api for local dev
+const BACKEND_URL = 'https://prk-smile-backend.onrender.com/api';
+const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 const api = axios.create({
-    baseURL: isProduction ? PRODUCTION_API_URL : '/api',
+    baseURL: isDev ? '/api' : BACKEND_URL,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
 console.log('--- API DEBUG ---');
-console.log('Mode:', import.meta.env.MODE);
-console.log('Is Production:', isProduction);
+console.log('Hostname:', window.location.hostname);
+console.log('Is Dev:', isDev);
 console.log('Active BaseURL:', api.defaults.baseURL);
 console.log('-----------------');
 
