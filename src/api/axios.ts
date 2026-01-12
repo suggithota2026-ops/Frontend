@@ -7,6 +7,8 @@ const api = axios.create({
     },
 });
 
+console.log('API Base URL:', api.defaults.baseURL);
+
 // Response interceptor
 api.interceptors.response.use(
     (response) => response,
