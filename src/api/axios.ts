@@ -1,10 +1,17 @@
 import axios from 'axios';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+// Use import.meta.env for Vite, with a fallback to process.env if needed
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || (typeof process !== 'undefined' ? process.env.VITE_API_BASE_URL : undefined);
 const isProduction = import.meta.env.PROD;
 
+// Ensure the URL ends with /api if it's an external URL
+let finalBaseUrl = '/api';
+if (isProduction && rawBaseUrl) {
+    finalBaseUrl = rawBaseUrl.endsWith('/api') ? rawBaseUrl : `${rawBaseUrl.replace(/\/$/, '')}/api`;
+}
+
 const api = axios.create({
-    baseURL: (isProduction && apiBaseUrl) ? apiBaseUrl : '/api',
+    baseURL: finalBaseUrl,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -12,9 +19,8 @@ const api = axios.create({
 
 console.log('--- API DEBUG ---');
 console.log('Mode:', import.meta.env.MODE);
-console.log('Is Production:', isProduction);
-console.log('Env VITE_API_BASE_URL:', apiBaseUrl);
-console.log('Active BaseURL:', api.defaults.baseURL);
+console.log('Raw Env Value:', rawBaseUrl);
+console.log('Resolved BaseURL:', api.defaults.baseURL);
 console.log('-----------------');
 
 // Response interceptor
