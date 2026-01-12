@@ -83,7 +83,7 @@ const getImageUrl = (path: string) => {
   if (isDev) {
     return `/uploads/${cleanPath}`;
   } else {
-    return `https://prk-smile-backend.onrender.com/uploads/${cleanPath}`;
+    return `https://prk-smile-backend-2cqu.onrender.com/uploads/${cleanPath}`;
   }
 };
 const Products = () => {
