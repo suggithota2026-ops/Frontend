@@ -113,16 +113,38 @@ const Hotels = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this hotel?")) {
+    const hotel = hotels.find(h => h.id === id);
+    if (!hotel) return;
+
+    // Enhanced confirmation with warning
+    const confirmMessage = 
+      "⚠️ WARNING: Delete Hotel Account?\n\n" +
+      `Hotel: ${hotel.hotelName}\n\n` +
+      "NOTE: Hotels with existing orders cannot be deleted due to data integrity requirements.\n\n" +
+      "If this hotel has orders, consider BLOCKING instead of deleting.\n\n" +
+      "Do you want to proceed with deletion?";
+
+    if (!confirm(confirmMessage)) {
       return;
     }
+
     try {
       await api.delete(`/admin/hotels/${id}`);
       toast.success("Hotel deleted successfully");
       fetchHotels();
     } catch (error: any) {
       console.error("Error deleting hotel:", error);
-      toast.error(error.response?.data?.message || "Failed to delete hotel");
+      const errorMessage = error.response?.data?.message || "Failed to delete hotel";
+      
+      // Provide helpful guidance for the common case
+      if (errorMessage.includes("existing orders")) {
+        toast.error(
+          "Cannot delete hotel with existing orders. Use the Block option instead to prevent new orders while preserving order history.",
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 

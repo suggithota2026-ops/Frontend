@@ -18,6 +18,7 @@ const LoginPage: React.FC = () => {
     const [mobileNumber, setMobileNumber] = useState('');
     const [otp, setOtp] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isResending, setIsResending] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
@@ -93,6 +94,34 @@ const LoginPage: React.FC = () => {
         }
     };
 
+    const handleResendOtp = async () => {
+        setIsResending(true);
+        try {
+            const response = await api.post('/admin/auth/resend-otp', { mobileNumber });
+            const { code } = response.data.data;
+            toast({
+                title: "OTP Resent",
+                description: (
+                    <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <p className="text-sm text-foreground mb-1">New verification code sent to {mobileNumber}</p>
+                        <p className="text-2xl font-bold tracking-[0.5em] text-primary">
+                            {code}
+                        </p>
+                    </div>
+                ),
+                duration: 10000,
+            });
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.response?.data?.message || "Failed to resend OTP. Please try again.",
+            });
+        } finally {
+            setIsResending(false);
+        }
+    };
+
     return (
         <div className="min-h-screen w-full flex items-center justify-center bg-background p-4 sm:p-6 lg:p-8">
             <div className="absolute top-0 left-0 w-full h-1 bg-primary/20">
@@ -165,16 +194,35 @@ const LoginPage: React.FC = () => {
                                         <InputOTPSlot index={5} className="w-10 h-12 sm:w-12 sm:h-14 text-lg font-bold border-border shadow-sm rounded-lg" />
                                     </InputOTPGroup>
                                 </InputOTP>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                                    onClick={() => setStep('mobile')}
-                                    disabled={isLoading}
-                                >
-                                    Change mobile number?
-                                </Button>
+                                <div className="flex flex-col gap-2 w-full">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                                        onClick={() => setStep('mobile')}
+                                        disabled={isLoading || isResending}
+                                    >
+                                        Change mobile number?
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs transition-colors"
+                                        onClick={handleResendOtp}
+                                        disabled={isLoading || isResending}
+                                    >
+                                        {isResending ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                                Resending...
+                                            </>
+                                        ) : (
+                                            "Resend OTP"
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
                             <Button
                                 type="submit"
