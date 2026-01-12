@@ -1,0 +1,368 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Nebula Theme - Light Mode */
+    /* Background: #F8F9FA (210 40% 98%) - Clean, slightly cool off-white */
+    --background: 210 40% 98%;
+    /* Text Main: #0F172A (222 47% 11%) - High contrast navy-black for readability on light bg */
+    --foreground: 222 47% 11%;
+
+    /* Surface/Card: #FFFFFF (0 0% 100%) - Pure white with soft shadows */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary Blue: #3B82F6 (217 91% 60%) - Main CTA buttons, active states, focus rings */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Deep Navy: #0F172A (222 47% 11%) - Secondary buttons */
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Text Muted: #64748B (215 16% 47%) - Readable slate grey */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Accent - Darker Navy for active states */
+    --accent: 222 47% 14%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Status Colors */
+    /* Success: #22C55E (142 71% 45%) - Completed actions, positive trends */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning: #F59E0B (38 92% 50%) - Pending states, alerts */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Error: #EF4444 (0 84% 60%) - Destructive actions, failures */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Border: #E2E8F0 (Light grey border) */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    /* Focus ring: Primary Blue */
+    --ring: 217 91% 60%;
+
+    /* Border Radius: 0.75rem (12px) - Friendly, modern soft corners */
+    --radius: 0.75rem;
+
+    /* Sidebar - Deep Navy: #0F172A (222 47% 11%) */
+    --sidebar-background: 222 47% 11%;
+    /* Active Item: bg-accent (Darker Navy) + text-primary (Blue) */
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 47% 14%;
+    --sidebar-accent-foreground: 217 91% 60%;
+    --sidebar-border: 222 47% 14%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Chart Colors - Diverse Palette */
+    --chart-1: 217 91% 60%;
+    /* Primary Blue */
+    --chart-2: 142 71% 45%;
+    /* Success Green */
+    --chart-3: 38 92% 50%;
+    /* Warning Orange */
+    --chart-4: 0 84% 60%;
+    /* Error Red */
+    --chart-5: 262 83% 58%;
+    /* Purple */
+
+    /* Shadows */
+    /* Card: 0 1px 3px rgba(0,0,0,0.04) */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    /* Hover: 0 4px 6px rgba(0,0,0,0.07) - Soft lift effect */
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04);
+  }
+
+  .dark {
+    /* Nebula Theme - Dark Mode */
+    /* Background: #0F172A (222 47% 11%) - Deep rich navy */
+    --background: 222 47% 11%;
+    /* Text Main: #F8F9FA (210 40% 98%) - Bright cool white */
+    --foreground: 210 40% 98%;
+
+    /* Surface/Card: #131C31 (222 47% 14%) - Slightly lighter navy for separation */
+    --card: 222 47% 14%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 14%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary Blue: #3B82F6 (217 91% 60%) */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Deep Navy */
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Text Muted: #94A3B8 (215 20% 65%) - Light slate */
+    --muted: 222 47% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    /* Accent - Lighter navy for active states */
+    --accent: 222 47% 18%;
+    --accent-foreground: 217 91% 60%;
+
+    /* Status Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 47% 18%;
+    --input: 222 47% 18%;
+    --ring: 217 91% 60%;
+
+    /* Sidebar - Deep Navy: #0F172A (222 47% 11%) */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 215 20% 65%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 47% 18%;
+    --sidebar-accent-foreground: 217 91% 60%;
+    --sidebar-border: 222 47% 18%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold;
+    font-weight: 600;
+  }
+
+  h1 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  h2 {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  h3 {
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  label,
+  .label {
+    font-size: 12px;
+    @apply text-muted-foreground;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@layer utilities {
+  .shadow-card {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
+  }
+
+  .shadow-card-hover {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  }
+}
+
+@layer components {
+  .dashboard-card {
+    @apply bg-card rounded-[14px] p-4 md:p-6 shadow-card transition-all duration-200 hover:shadow-lg;
+  }
+
+  .stat-card {
+    @apply dashboard-card flex flex-col gap-3;
+  }
+
+  .sidebar-item {
+    @apply relative flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sm;
+  }
+
+  .sidebar-item-active {
+    @apply bg-sidebar-accent text-sidebar-accent-foreground font-medium;
+  }
+
+  .sidebar-item-active::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center text-xs font-medium;
+  }
+
+  .status-pending {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  .status-confirmed {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .status-delivered {
+    @apply bg-success/10 text-success;
+  }
+
+  .nav-search {
+    @apply flex items-center gap-2 bg-muted rounded-lg px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm text-muted-foreground transition-all duration-200 focus-within:ring-2 focus-within:ring-primary/20;
+  }
+}
+
+/* Custom Scrollbar - Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
+/* Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out forwards;
+}
+
+@keyframes roll-in {
+  from {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(-15deg) translateY(20px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(1000px) rotateX(0deg) translateY(0) scale(1);
+  }
+}
+
+.animate-roll-in {
+  animation: roll-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bob {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-bob {
+  animation: bob 2s ease-in-out infinite;
+}
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Button hover animations */
+button:hover {
+  transform: scale(1.03);
+  transition: transform 0.15s ease;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Card hover elevation */
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .dashboard-card {
+    @apply p-3;
+  }
+
+  .stat-card {
+    @apply gap-2;
+  }
+}
