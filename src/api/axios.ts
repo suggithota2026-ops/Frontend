@@ -1,17 +1,12 @@
 import axios from 'axios';
 
-// Use import.meta.env for Vite, with a fallback to process.env if needed
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || (typeof process !== 'undefined' ? process.env.VITE_API_BASE_URL : undefined);
+// Hardcoded backend URL for production (Vercel env vars not working)
+const PRODUCTION_API_URL = 'https://prk-smile-backend.onrender.com/api';
+
 const isProduction = import.meta.env.PROD;
 
-// Ensure the URL ends with /api if it's an external URL
-let finalBaseUrl = '/api';
-if (isProduction && rawBaseUrl) {
-    finalBaseUrl = rawBaseUrl.endsWith('/api') ? rawBaseUrl : `${rawBaseUrl.replace(/\/$/, '')}/api`;
-}
-
 const api = axios.create({
-    baseURL: finalBaseUrl,
+    baseURL: isProduction ? PRODUCTION_API_URL : '/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -19,8 +14,8 @@ const api = axios.create({
 
 console.log('--- API DEBUG ---');
 console.log('Mode:', import.meta.env.MODE);
-console.log('Raw Env Value:', rawBaseUrl);
-console.log('Resolved BaseURL:', api.defaults.baseURL);
+console.log('Is Production:', isProduction);
+console.log('Active BaseURL:', api.defaults.baseURL);
 console.log('-----------------');
 
 // Response interceptor
