@@ -83,7 +83,29 @@ const getImageUrl = (path: string) => {
   if (isDev) {
     return `/uploads/${cleanPath}`;
   } else {
-    return `https://prk-smile-backend.onrender.com/uploads/${cleanPath}`;
+    // For production, derive the backend URL from the API's baseURL
+    // Get the API base URL and extract the backend domain
+    let apiBase = 'https://prk-smile-backend.onrender.com';
+    
+    // Try to get the actual API base URL from the imported api module
+    try {
+      if (api.defaults && api.defaults.baseURL) {
+        const baseURL = api.defaults.baseURL;
+        if (baseURL && !baseURL.startsWith('/')) {
+          // If baseURL is a full URL, extract the origin
+          const urlObj = new URL(baseURL);
+          apiBase = `${urlObj.protocol}//${urlObj.host}`;
+        } else if (baseURL === '/api') {
+          // If using proxy, use the current host
+          apiBase = `${window.location.protocol}//${window.location.host}`;
+        }
+      }
+    } catch (e) {
+      // Fallback to default if URL parsing fails
+      console.warn('Could not parse API base URL, using default:', e);
+    }
+    
+    return `${apiBase}/uploads/${cleanPath}`;
   }
 };
 const Products = () => {
