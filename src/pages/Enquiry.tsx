@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Eye, MoreHorizontal, Trash2, Phone, Mail, MapPin, MessageSquare, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Search, Eye, MoreHorizontal, Trash2, Phone, Mail, MapPin, MessageSquare, Loader2, CheckCircle, XCircle, Edit, Save } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/api/axios";
 
@@ -66,6 +66,10 @@ const Enquiry = () => {
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState("");
+  const [updateNotes, setUpdateNotes] = useState("");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -186,6 +190,36 @@ This will:
       toast.error(error.response?.data?.message || "Failed to reject enquiry");
     } finally {
       setIsRejecting(false);
+    }
+  };
+
+  const handleUpdateClick = (message: ContactMessage) => {
+    setSelectedMessage(message);
+    setUpdateStatus(message.status);
+    setUpdateNotes(message.notes || "");
+    setShowUpdateDialog(true);
+  };
+
+  const handleUpdateConfirm = async () => {
+    if (!selectedMessage) return;
+
+    setIsUpdating(true);
+    try {
+      const response = await api.put(`/admin/contact-messages/${selectedMessage.id}`, {
+        status: updateStatus,
+        notes: updateNotes,
+      });
+      if (response.data.success) {
+        toast.success("Enquiry updated successfully");
+        fetchMessages();
+        setShowUpdateDialog(false);
+        if (isViewOpen) setIsViewOpen(false);
+      }
+    } catch (error: any) {
+      console.error("Error updating enquiry:", error);
+      toast.error(error.response?.data?.message || "Failed to update enquiry");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -321,6 +355,9 @@ This will:
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleViewDetails(message)}>
                             <Eye className="w-4 h-4 mr-2" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUpdateClick(message)}>
+                            <Edit className="w-4 h-4 mr-2" /> Update
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -539,6 +576,73 @@ This will:
                 <>
                   <XCircle className="w-4 h-4 mr-2" />
                   Confirm Reject
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Enquiry Dialog */}
+      <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              Update Enquiry
+            </DialogTitle>
+            <DialogDescription>
+              Update status and add internal notes for this enquiry from 
+              <span className="font-semibold">{selectedMessage?.hotelName}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="update-status">Status</Label>
+              <Select value={updateStatus} onValueChange={setUpdateStatus}>
+                <SelectTrigger id="update-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="update-notes">Internal Notes</Label>
+              <Textarea
+                id="update-notes"
+                placeholder="Add internal notes about this enquiry..."
+                value={updateNotes}
+                onChange={(e) => setUpdateNotes(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowUpdateDialog(false)}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateConfirm}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Update Enquiry
                 </>
               )}
             </Button>

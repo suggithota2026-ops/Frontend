@@ -51,10 +51,34 @@ const Notifications = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [selectedSubcategoryNames, setSelectedSubcategoryNames] = useState<string[]>([]);
+  const [offerData, setOfferData] = useState({
+    title: "",
+    promoCode: "",
+    discountType: "percentage" as "percentage" | "flat",
+    discountValue: "",
+    validUntil: "",
+    description: ""
+  });
 
   useEffect(() => {
     fetchNotifications();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/admin/categories');
+      if (response.data.success) {
+        setCategories(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast.error("Failed to fetch categories");
+    }
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -71,9 +95,39 @@ const Notifications = () => {
     }
   };
 
-  const handlePushOffer = (e: React.FormEvent) => {
+  const handlePushOffer = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Offer pushed to selected users!");
+    
+    try {
+      const response = await api.post('/admin/notifications/promotional-offer', {
+        title: offerData.title,
+        description: offerData.description,
+        promoCode: offerData.promoCode,
+        discountType: offerData.discountType,
+        discountValue: parseFloat(offerData.discountValue),
+        validUntil: offerData.validUntil,
+        categoryIds: selectedCategoryIds,
+        subcategoryNames: selectedSubcategoryNames
+      });
+      
+      if (response.data.success) {
+        toast.success("Promotional offer pushed successfully!");
+        // Reset form
+        setOfferData({
+          title: "",
+          promoCode: "",
+          discountType: "percentage",
+          discountValue: "",
+          validUntil: "",
+          description: ""
+        });
+        setSelectedCategoryIds([]);
+        setSelectedSubcategoryNames([]);
+      }
+    } catch (error) {
+      console.error('Error pushing promotional offer:', error);
+      toast.error("Failed to push promotional offer");
+    }
   };
 
   const toggleSetting = (id: string) => {
@@ -333,17 +387,30 @@ const Notifications = () => {
               <form onSubmit={handlePushOffer} className="space-y-6 max-w-2xl">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Offer Title</label>
-                  <Input placeholder="e.g., Monsoon Flash Sale" required />
+                  <Input 
+                    placeholder="e.g., Monsoon Flash Sale" 
+                    required 
+                    value={offerData.title}
+                    onChange={(e) => setOfferData({...offerData, title: e.target.value})}
+                  />
                 </div>
-
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Promo Code</label>
-                    <Input placeholder="e.g., WELCOME50" className="font-mono uppercase" />
+                    <Input 
+                      placeholder="e.g., WELCOME50" 
+                      className="font-mono uppercase"
+                      value={offerData.promoCode}
+                      onChange={(e) => setOfferData({...offerData, promoCode: e.target.value})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Discount Type</label>
-                    <Select defaultValue="percentage">
+                    <Select 
+                      value={offerData.discountType}
+                      onValueChange={(value) => setOfferData({...offerData, discountType: value as "percentage" | "flat"})}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -354,23 +421,117 @@ const Notifications = () => {
                     </Select>
                   </div>
                 </div>
-
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Discount Value</label>
-                    <Input type="number" placeholder="e.g. 20" required />
+                    <Input 
+                      type="number" 
+                      placeholder="e.g. 20" 
+                      required 
+                      value={offerData.discountValue}
+                      onChange={(e) => setOfferData({...offerData, discountValue: e.target.value})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Valid Until</label>
-                    <Input type="date" required />
+                    <Input 
+                      type="date" 
+                      required 
+                      value={offerData.validUntil}
+                      onChange={(e) => setOfferData({...offerData, validUntil: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Note: Promotional codes will expire 24 hours after creation
+                    </p>
                   </div>
                 </div>
-
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Category Filter</label>
+                    <Select 
+                      onValueChange={(value) => {
+                        const categoryId = parseInt(value);
+                        if (!selectedCategoryIds.includes(categoryId)) {
+                          setSelectedCategoryIds([...selectedCategoryIds, categoryId]);
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                                        
+                    {selectedCategoryIds.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {selectedCategoryIds.map((categoryId) => {
+                          const category = categories.find(cat => cat.id === categoryId);
+                          return (
+                            <Badge key={categoryId} variant="secondary" className="flex items-center gap-1">
+                              {category?.name}
+                              <button 
+                                type="button" 
+                                onClick={() => setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== categoryId))}
+                                className="ml-1 text-xs"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Subcategory Filter</label>
+                    <Input 
+                      placeholder="e.g., Organic, Premium" 
+                      value={selectedSubcategoryNames.join(", ")}
+                      onChange={(e) => {
+                        // Allow comma-separated subcategory names
+                        const names = e.target.value.split(",").map(name => name.trim()).filter(name => name);
+                        setSelectedSubcategoryNames(names);
+                      }}
+                      className="font-mono"
+                    />
+                                        
+                    {selectedSubcategoryNames.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {selectedSubcategoryNames.map((subcatName, index) => (
+                          <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                            {subcatName}
+                            <button 
+                              type="button" 
+                              onClick={() => setSelectedSubcategoryNames(selectedSubcategoryNames.filter((_, i) => i !== index))}
+                              className="ml-1 text-xs"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Description</label>
-                  <Textarea placeholder="Brief details about the offer..." />
+                  <Textarea 
+                    placeholder="Brief details about the offer..." 
+                    value={offerData.description}
+                    onChange={(e) => setOfferData({...offerData, description: e.target.value})}
+                  />
                 </div>
-
+              
                 <Button type="submit" variant="default" className="w-full md:w-auto">
                   <Tag className="w-4 h-4 mr-2" />
                   Push Offer Notification
