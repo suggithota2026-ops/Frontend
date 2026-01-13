@@ -39,22 +39,22 @@ api.interceptors.response.use(
         
         // Handle 401 Unauthorized - token expired or invalid
         if (error.response?.status === 401) {
-            console.log('Unauthorized access - clearing token and redirecting to login');
+            console.log('Unauthorized access - clearing token');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             
-            // Redirect to login page
-            window.location.href = '/login';
+            // Don't redirect here, let components handle it
+            // window.location.href = '/login';
         }
         
         // Handle 403 Forbidden - insufficient permissions
         if (error.response?.status === 403) {
-            console.log('Insufficient permissions - redirecting to login');
+            console.log('Insufficient permissions - clearing token');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             
-            // Redirect to login page
-            window.location.href = '/login';
+            // Don't redirect here, let components handle it
+            // window.location.href = '/login';
         }
         
         return Promise.reject(error);

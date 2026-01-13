@@ -105,6 +105,16 @@ const Notifications = () => {
   const handlePushOffer = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check if user is authenticated before making API call
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error("You are not logged in. Please log in first.");
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+      return;
+    }
+    
     try {
       // Validate required fields
       if (!offerData.title.trim()) {
