@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Send, Tag, Users, AlertTriangle, CheckCircle2, ShoppingCart, Settings, XCircle, Package, Loader2, X } from "lucide-react";
+import { Bell, Send, Tag, Users, AlertTriangle, CheckCircle2, ShoppingCart, Settings, XCircle, Package, Loader2, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,11 +56,18 @@ const Notifications = () => {
   const [selectedSubcategoryNames, setSelectedSubcategoryNames] = useState<string[]>([]);
   const [offerData, setOfferData] = useState({
     title: "",
-    promoCode: "",
     discountType: "percentage" as "percentage" | "flat",
     discountValue: "",
     validUntil: "",
     description: ""
+  });
+  const [editingOfferId, setEditingOfferId] = useState<number | null>(null);
+  const [offers, setOffers] = useState<any[]>([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offersPagination, setOffersPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    total: 0,
   });
 
   useEffect(() => {
@@ -99,23 +106,69 @@ const Notifications = () => {
     e.preventDefault();
     
     try {
-      const response = await api.post('/admin/notifications/promotional-offer', {
-        title: offerData.title,
-        description: offerData.description,
-        promoCode: offerData.promoCode,
-        discountType: offerData.discountType,
-        discountValue: parseFloat(offerData.discountValue),
-        validUntil: offerData.validUntil,
-        categoryIds: selectedCategoryIds,
-        subcategoryNames: selectedSubcategoryNames
-      });
+      // Validate required fields
+      if (!offerData.title.trim()) {
+        toast.error("Offer title is required");
+        return;
+      }
+      
+      if (!offerData.description.trim()) {
+        toast.error("Offer description is required");
+        return;
+      }
+      
+      if (!offerData.validUntil) {
+        toast.error("Valid until date is required");
+        return;
+      }
+      
+      // Validate date format
+      const dateObj = new Date(offerData.validUntil);
+      if (isNaN(dateObj.getTime())) {
+        toast.error("Valid until date is not valid");
+        return;
+      }
+      
+      // Validate discount value before sending
+      const discountValue = parseFloat(offerData.discountValue);
+      if (isNaN(discountValue) || discountValue <= 0) {
+        toast.error("Discount value must be a valid positive number");
+        return;
+      }
+      
+      let response;
+      
+      if (editingOfferId) {
+        // Update existing offer
+        response = await api.put(`/admin/offers-admin/${editingOfferId}`, {
+          title: offerData.title,
+          description: offerData.description,
+          discountType: offerData.discountType,
+          discountValue,
+          validUntil: offerData.validUntil, // Keep original format from date input
+          categoryIds: selectedCategoryIds,
+          subcategoryNames: selectedSubcategoryNames
+        });
+      } else {
+        // Create new offer
+        response = await api.post('/admin/notifications/promotional-offer', {
+          title: offerData.title,
+          description: offerData.description,
+          discountType: offerData.discountType,
+          discountValue,
+          validUntil: offerData.validUntil, // Keep original format from date input
+          categoryIds: selectedCategoryIds,
+          subcategoryNames: selectedSubcategoryNames
+        });
+      }
       
       if (response.data.success) {
-        toast.success("Promotional offer pushed successfully!");
+        const message = editingOfferId ? "Promotional offer updated successfully!" : "Promotional offer pushed successfully!";
+        toast.success(message);
+        
         // Reset form
         setOfferData({
           title: "",
-          promoCode: "",
           discountType: "percentage",
           discountValue: "",
           validUntil: "",
@@ -123,10 +176,23 @@ const Notifications = () => {
         });
         setSelectedCategoryIds([]);
         setSelectedSubcategoryNames([]);
+        setEditingOfferId(null); // Clear editing state
+        
+        // Refresh the offers list
+        if (activeTab === 'offers') {
+          fetchOffers(offersPagination.page);
+        }
       }
-    } catch (error) {
-      console.error('Error pushing promotional offer:', error);
-      toast.error("Failed to push promotional offer");
+    } catch (error: any) {
+      console.error('Error with promotional offer:', error);
+      
+      // Check if it's an Axios error with response data
+      if (error.response) {
+        const errorMessage = error.response.data?.message || error.response.data?.error || "Failed to process promotional offer";
+        toast.error(`Failed to process promotional offer: ${errorMessage}`);
+      } else {
+        toast.error("Failed to process promotional offer");
+      }
     }
   };
 
@@ -166,6 +232,93 @@ const Notifications = () => {
     }
   };
 
+  const fetchOffers = async (page = 1) => {
+    try {
+      setOffersLoading(true);
+      const response = await api.get('/admin/offers-admin', {
+        params: {
+          page,
+          limit: 10
+        }
+      });
+      
+      if (response.data.success) {
+        setOffers(response.data.data.offers);
+        setOffersPagination({
+          page: response.data.data.pagination.page,
+          totalPages: response.data.data.pagination.pages,
+          total: response.data.data.pagination.total,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching offers:', error);
+      toast.error("Failed to load offers");
+    } finally {
+      setOffersLoading(false);
+    }
+  };
+
+  // Update the active tab effect to fetch offers when switching to offers tab
+  useEffect(() => {
+    if (activeTab === 'offers') {
+      fetchOffers();
+    }
+  }, [activeTab]);
+
+  const handleEditOffer = (offer: any) => {
+    // Set the offer data to the form for editing
+    setOfferData({
+      title: offer.title || offer.code,
+      discountType: offer.discountType as "percentage" | "flat",
+      discountValue: offer.discountValue.toString(),
+      validUntil: offer.originalValidUntil || offer.validUntil.split('T')[0], // Use original date or convert to date format
+      description: offer.description || ''
+    });
+    
+    // Set the category and subcategory filters
+    setSelectedCategoryIds(offer.categoryIds || []);
+    setSelectedSubcategoryNames(offer.subcategoryNames || []);
+    
+    // Set the editing offer ID
+    setEditingOfferId(offer.id);
+    
+    // Scroll to the form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    toast.info(`Editing offer: ${offer.code}`);
+  };
+  
+  const cancelEdit = () => {
+    // Reset form to default values
+    setOfferData({
+      title: "",
+      discountType: "percentage" as "percentage" | "flat",
+      discountValue: "",
+      validUntil: "",
+      description: ""
+    });
+    setSelectedCategoryIds([]);
+    setSelectedSubcategoryNames([]);
+    setEditingOfferId(null);
+    toast.info("Edit cancelled");
+  };
+
+  const handleDeleteOffer = async (offerId: number) => {
+    if (window.confirm("Are you sure you want to delete this offer? This action cannot be undone.")) {
+      try {
+        const response = await api.delete(`/admin/offers-admin/${offerId}`);
+        if (response.data.success) {
+          toast.success("Offer deleted successfully");
+          // Refresh the offers list
+          fetchOffers(offersPagination.page);
+        }
+      } catch (error) {
+        console.error('Error deleting offer:', error);
+        toast.error("Failed to delete offer");
+      }
+    }
+  };
+
   const handleCancelOrder = async (orderId: number) => {
     try {
       const response = await api.patch(`/admin/orders/${orderId}/status`, { status: 'cancelled' });
@@ -183,7 +336,26 @@ const Notifications = () => {
   const getIcon = (type: string, priority: string) => {
     if (priority === 'high' || type === 'order_cancelled') return <XCircle className="w-5 h-5" />;
     if (type.startsWith('order_')) return <ShoppingCart className="w-5 h-5" />;
-    if (type === 'admin_message') return <Megaphone className="w-5 h-5" />;
+    if (type === 'admin_message') {
+      // Using SVG directly since Megaphone is defined later in the component
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="w-5 h-5"
+        >
+          <path d="m3 11 18-5v12L3 13v-2Z" />
+          <path d="M11.6 16.8 a3 3 0 1 1-5.8-1.6" />
+        </svg>
+      );
+    }
     return <Bell className="w-5 h-5" />;
   };
 
@@ -378,33 +550,25 @@ const Notifications = () => {
 
         {/* OFFERS TAB */}
         <TabsContent value="offers">
-          <Card>
-            <CardHeader>
-              <CardTitle>Push Promotional Offers</CardTitle>
-              <CardDescription>Create and send discount offers to boost engagement.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handlePushOffer} className="space-y-6 max-w-2xl">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Offer Title</label>
-                  <Input 
-                    placeholder="e.g., Monsoon Flash Sale" 
-                    required 
-                    value={offerData.title}
-                    onChange={(e) => setOfferData({...offerData, title: e.target.value})}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-6">
+            {/* Push New Offer Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Push Promotional Offers</CardTitle>
+                <CardDescription>Create and send discount offers to boost engagement.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handlePushOffer} className="space-y-6 max-w-2xl">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Promo Code</label>
+                    <label className="text-sm font-medium">Offer Title</label>
                     <Input 
-                      placeholder="e.g., WELCOME50" 
-                      className="font-mono uppercase"
-                      value={offerData.promoCode}
-                      onChange={(e) => setOfferData({...offerData, promoCode: e.target.value})}
+                      placeholder="e.g., Monsoon Flash Sale" 
+                      required 
+                      value={offerData.title}
+                      onChange={(e) => setOfferData({...offerData, title: e.target.value})}
                     />
                   </div>
+                          
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Discount Type</label>
                     <Select 
@@ -420,125 +584,256 @@ const Notifications = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Discount Value</label>
-                    <Input 
-                      type="number" 
-                      placeholder="e.g. 20" 
-                      required 
-                      value={offerData.discountValue}
-                      onChange={(e) => setOfferData({...offerData, discountValue: e.target.value})}
-                    />
+                          
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Discount Value</label>
+                      <Input 
+                        type="number" 
+                        placeholder="e.g. 20" 
+                        required 
+                        value={offerData.discountValue}
+                        onChange={(e) => setOfferData({...offerData, discountValue: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Valid Until</label>
+                      <Input 
+                        type="date" 
+                        required 
+                        value={offerData.validUntil}
+                        onChange={(e) => setOfferData({...offerData, validUntil: e.target.value})}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Note: Promotional codes will expire 24 hours after creation
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Valid Until</label>
-                    <Input 
-                      type="date" 
-                      required 
-                      value={offerData.validUntil}
-                      onChange={(e) => setOfferData({...offerData, validUntil: e.target.value})}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Note: Promotional codes will expire 24 hours after creation
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Category Filter</label>
-                    <Select 
-                      onValueChange={(value) => {
-                        const categoryId = parseInt(value);
-                        if (!selectedCategoryIds.includes(categoryId)) {
-                          setSelectedCategoryIds([...selectedCategoryIds, categoryId]);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id.toString()}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                                        
-                    {selectedCategoryIds.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {selectedCategoryIds.map((categoryId) => {
-                          const category = categories.find(cat => cat.id === categoryId);
-                          return (
-                            <Badge key={categoryId} variant="secondary" className="flex items-center gap-1">
-                              {category?.name}
+                          
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Category Filter</label>
+                      <Select 
+                        onValueChange={(value) => {
+                          const categoryId = parseInt(value);
+                          if (!selectedCategoryIds.includes(categoryId)) {
+                            setSelectedCategoryIds([...selectedCategoryIds, categoryId]);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                              
+                      {selectedCategoryIds.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {selectedCategoryIds.map((categoryId) => {
+                            const category = categories.find(cat => cat.id === categoryId);
+                            return (
+                              <Badge key={categoryId} variant="secondary" className="flex items-center gap-1">
+                                {category?.name}
+                                <button 
+                                  type="button" 
+                                  onClick={() => setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== categoryId))}
+                                  className="ml-1 text-xs"
+                                >
+                                  ×
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                          
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Subcategory Filter</label>
+                      <Input 
+                        placeholder="e.g., Organic, Premium" 
+                        value={selectedSubcategoryNames.join(", ")}
+                        onChange={(e) => {
+                          // Allow comma-separated subcategory names
+                          const names = e.target.value.split(",").map(name => name.trim()).filter(name => name);
+                          setSelectedSubcategoryNames(names);
+                        }}
+                        className="font-mono"
+                      />
+                              
+                      {selectedSubcategoryNames.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {selectedSubcategoryNames.map((subcatName, index) => (
+                            <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                              {subcatName}
                               <button 
                                 type="button" 
-                                onClick={() => setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== categoryId))}
+                                onClick={() => setSelectedSubcategoryNames(selectedSubcategoryNames.filter((_, i) => i !== index))}
                                 className="ml-1 text-xs"
                               >
                                 ×
                               </button>
                             </Badge>
-                          );
-                        })}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                
+                          
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Subcategory Filter</label>
-                    <Input 
-                      placeholder="e.g., Organic, Premium" 
-                      value={selectedSubcategoryNames.join(", ")}
-                      onChange={(e) => {
-                        // Allow comma-separated subcategory names
-                        const names = e.target.value.split(",").map(name => name.trim()).filter(name => name);
-                        setSelectedSubcategoryNames(names);
-                      }}
-                      className="font-mono"
+                    <label className="text-sm font-medium">Description</label>
+                    <Textarea 
+                      placeholder="Brief details about the offer..." 
+                      value={offerData.description}
+                      onChange={(e) => setOfferData({...offerData, description: e.target.value})}
                     />
-                                        
-                    {selectedSubcategoryNames.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {selectedSubcategoryNames.map((subcatName, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                            {subcatName}
-                            <button 
-                              type="button" 
-                              onClick={() => setSelectedSubcategoryNames(selectedSubcategoryNames.filter((_, i) => i !== index))}
-                              className="ml-1 text-xs"
-                            >
-                              ×
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
+                  </div>
+                        
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button type="submit" variant="default" className="w-full md:w-auto">
+                      <Tag className="w-4 h-4 mr-2" />
+                      {editingOfferId ? 'Update Offer' : 'Push Offer Notification'}
+                    </Button>
+                    {editingOfferId && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="w-full md:w-auto"
+                        onClick={cancelEdit}
+                      >
+                        Cancel Edit
+                      </Button>
                     )}
                   </div>
+                </form>
+              </CardContent>
+            </Card>
+                    
+            {/* Existing Offers Table */}
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Manage Offers</CardTitle>
+                    <CardDescription>View and manage your promotional offers.</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => fetchOffers(offersPagination.page)} disabled={offersLoading}>
+                    {offersLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    Refresh
+                  </Button>
                 </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Description</label>
-                  <Textarea 
-                    placeholder="Brief details about the offer..." 
-                    value={offerData.description}
-                    onChange={(e) => setOfferData({...offerData, description: e.target.value})}
-                  />
-                </div>
-              
-                <Button type="submit" variant="default" className="w-full md:w-auto">
-                  <Tag className="w-4 h-4 mr-2" />
-                  Push Offer Notification
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                {offersLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10 space-y-4">
+                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                    <p className="text-muted-foreground animate-pulse">Loading offers...</p>
+                  </div>
+                ) : offers.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Code</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Title</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Discount</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Usage</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Valid Until</th>
+                          <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {offers.map((offer) => (
+                          <tr key={offer.id} className="border-b hover:bg-muted/50">
+                            <td className="py-3 px-4 font-mono font-bold">{offer.code}</td>
+                            <td className="py-3 px-4">{offer.title}</td>
+                            <td className="py-3 px-4">
+                              {offer.discountType === 'percentage' 
+                                ? `${offer.discountValue}% off`
+                                : `₹${offer.discountValue} off`
+                              }
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant={
+                                offer.status === 'active' ? 'default' :
+                                offer.status === 'expired' ? 'destructive' :
+                                offer.status === 'exhausted' ? 'secondary' : 'outline'
+                              }>
+                                {offer.status}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4">
+                              {offer.usedCount} / {offer.usageLimit || '∞'}
+                              {offer.usageLimit && (
+                                <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-primary h-2 rounded-full" 
+                                    style={{ width: `${Math.min(100, (offer.usedCount / offer.usageLimit) * 100)}%` }}
+                                  ></div>
+                                </div>
+                              )}
+                              {offer.usagePercentage !== undefined && (
+                                <span className="text-xs text-muted-foreground ml-2">{offer.usagePercentage}%</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {new Date(offer.validUntil).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex space-x-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEditOffer(offer)}>
+                                  Edit
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleDeleteOffer(offer.id)}>
+                                  Delete
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                            
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="text-sm text-muted-foreground">
+                        Showing {((offersPagination.page - 1) * 10) + 1} to {Math.min(offersPagination.page * 10, offersPagination.total)} of {offersPagination.total} offers
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => fetchOffers(offersPagination.page - 1)} 
+                          disabled={offersPagination.page <= 1}
+                        >
+                          Previous
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => fetchOffers(offersPagination.page + 1)} 
+                          disabled={offersPagination.page >= offersPagination.totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p>No offers found. Create your first promotional offer above.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
 

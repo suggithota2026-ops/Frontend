@@ -15,6 +15,7 @@ import {
   Users,
   Truck,
   MessageSquare,
+  Percent,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -29,6 +30,7 @@ const menuItems = [
   { icon: Truck, label: "Drivers", path: "/drivers" },
   { icon: CreditCard, label: "Billing", path: "/billing" },
   { icon: MessageSquare, label: "Enquiry", path: "/enquiry" },
+  { icon: Percent, label: "Offers", path: "/offers" },
   { icon: Bell, label: "Notifications", path: "/notifications" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

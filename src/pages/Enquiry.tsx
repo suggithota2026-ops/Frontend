@@ -101,7 +101,7 @@ const Enquiry = () => {
       }
     } catch (error: any) {
       console.error("Error fetching contact messages:", error);
-      toast.error(error.response?.data?.message || "Failed to fetch enquiries");
+      toast.error(error.response?.data?.message || error.message || "Failed to fetch enquiries");
     } finally {
       setIsLoading(false);
     }
@@ -159,7 +159,7 @@ This will:
       }
     } catch (error: any) {
       console.error("Error accepting enquiry:", error);
-      toast.error(error.response?.data?.message || "Failed to accept enquiry");
+      toast.error(error.response?.data?.message || error.message || "Failed to accept enquiry");
     } finally {
       setIsAccepting(false);
     }
@@ -187,7 +187,7 @@ This will:
       }
     } catch (error: any) {
       console.error("Error rejecting enquiry:", error);
-      toast.error(error.response?.data?.message || "Failed to reject enquiry");
+      toast.error(error.response?.data?.message || error.message || "Failed to reject enquiry");
     } finally {
       setIsRejecting(false);
     }
@@ -217,7 +217,7 @@ This will:
       }
     } catch (error: any) {
       console.error("Error updating enquiry:", error);
-      toast.error(error.response?.data?.message || "Failed to update enquiry");
+      toast.error(error.response?.data?.message || error.message || "Failed to update enquiry");
     } finally {
       setIsUpdating(false);
     }
@@ -409,7 +409,7 @@ This will:
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Enquiry Details</DialogTitle>
+            <DialogTitle>{selectedMessage ? `Enquiry Details - ${selectedMessage.hotelName}` : 'Enquiry Details'}</DialogTitle>
             <DialogDescription>
               View complete enquiry information and add internal notes.
             </DialogDescription>
