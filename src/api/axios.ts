@@ -36,6 +36,27 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         console.error('API Error:', error.response?.data || error.message);
+        
+        // Handle 401 Unauthorized - token expired or invalid
+        if (error.response?.status === 401) {
+            console.log('Unauthorized access - clearing token and redirecting to login');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = '/login';
+        }
+        
+        // Handle 403 Forbidden - insufficient permissions
+        if (error.response?.status === 403) {
+            console.log('Insufficient permissions - redirecting to login');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = '/login';
+        }
+        
         return Promise.reject(error);
     }
 );

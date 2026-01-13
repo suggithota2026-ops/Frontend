@@ -186,12 +186,21 @@ const Notifications = () => {
     } catch (error: any) {
       console.error('Error with promotional offer:', error);
       
-      // Check if it's an Axios error with response data
-      if (error.response) {
-        const errorMessage = error.response.data?.message || error.response.data?.error || "Failed to process promotional offer";
-        toast.error(`Failed to process promotional offer: ${errorMessage}`);
+      // Check if it's an authorization error
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        toast.error("Session expired or insufficient permissions. Please log in again.");
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
       } else {
-        toast.error("Failed to process promotional offer");
+        // Check if it's an Axios error with response data
+        if (error.response) {
+          const errorMessage = error.response.data?.message || error.response.data?.error || "Failed to process promotional offer";
+          toast.error(`Failed to process promotional offer: ${errorMessage}`);
+        } else {
+          toast.error("Failed to process promotional offer");
+        }
       }
     }
   };
@@ -250,9 +259,19 @@ const Notifications = () => {
           total: response.data.data.pagination.total,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching offers:', error);
-      toast.error("Failed to load offers");
+      
+      // Check if it's an authorization error
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        toast.error("Session expired or insufficient permissions. Please log in again.");
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+      } else {
+        toast.error("Failed to load offers");
+      }
     } finally {
       setOffersLoading(false);
     }
@@ -312,9 +331,19 @@ const Notifications = () => {
           // Refresh the offers list
           fetchOffers(offersPagination.page);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting offer:', error);
-        toast.error("Failed to delete offer");
+            
+        // Check if it's an authorization error
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          toast.error("Session expired or insufficient permissions. Please log in again.");
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1500);
+        } else {
+          toast.error("Failed to delete offer");
+        }
       }
     }
   };
