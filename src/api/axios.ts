@@ -49,9 +49,9 @@ api.interceptors.response.use(
         
         // Handle 403 Forbidden - insufficient permissions
         if (error.response?.status === 403) {
-            console.log('Insufficient permissions - clearing token');
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            console.log('Insufficient permissions - NOT clearing token');
+            // Do NOT clear tokens for permission errors, user is still authenticated
+            // Only lack required permissions for specific action
             
             // Don't redirect here, let components handle it
             // window.location.href = '/login';
