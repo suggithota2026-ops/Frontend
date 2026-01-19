@@ -306,7 +306,7 @@ const Billing = () => {
                         <TableCell className="text-right">₹{item.tax.toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
-                    {billingData.gstData.length === 0 && (
+                    {(billingData.gstData && billingData.gstData.length === 0) && (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
                           No GST data available for this period.

@@ -315,7 +315,7 @@ This will:
                     <p className="text-muted-foreground mt-2">Loading enquiries...</p>
                   </TableCell>
                 </TableRow>
-              ) : filteredMessages.length === 0 ? (
+              ) : (filteredMessages && filteredMessages.length === 0) ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No enquiries found

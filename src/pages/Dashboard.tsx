@@ -149,7 +149,7 @@ const Dashboard = () => {
               <div className="h-8 bg-muted rounded w-1/2"></div>
             </div>
           ))
-        ) : statsData.length > 0 ? (
+        ) : (statsData && statsData.length > 0) ? (
           statsData.map((stat, index) => {
             console.log(`Rendering ${stat.title} with value: ${stat.value}`);
             return (
