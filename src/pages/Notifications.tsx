@@ -198,6 +198,8 @@ const Notifications = () => {
       
       // Check if it's an authorization error
       if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log('Authorization error when pushing offer:', error.response?.data?.message || 'No error message');
+        console.log('Response status:', error.response?.status);
         toast.error("Session expired or insufficient permissions. Please log in again.");
         // Redirect to login after a short delay
         setTimeout(() => {
@@ -274,12 +276,14 @@ const Notifications = () => {
       
       // Check if it's an authorization error
       if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log('Authorization error when fetching offers:', error.response?.data?.message || 'No error message');
         toast.error("Session expired or insufficient permissions. Please log in again.");
         // Redirect to login after a short delay
         setTimeout(() => {
           window.location.href = '/login';
         }, 1500);
       } else {
+        console.log('Error loading offers:', error.message);
         toast.error("Failed to load offers");
       }
     } finally {
@@ -895,7 +899,7 @@ const Notifications = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <DialogTitle className="text-xl font-bold text-foreground mb-1 leading-tight">
-                        {selectedNotification.title}
+                        {selectedNotification.title || 'Notification Detail'}
                       </DialogTitle>
                       <p className="text-sm text-muted-foreground flex items-center gap-2">
                         <Bell className="w-3 h-3" />
@@ -931,6 +935,9 @@ const Notifications = () => {
                 <DialogDescription className="sr-only">
                   Notification details for {selectedNotification.title}
                 </DialogDescription>
+                <DialogTitle className="sr-only">
+                  {selectedNotification.title || 'Notification Details'}
+                </DialogTitle>
               </div>
 
               {/* Content Area */}

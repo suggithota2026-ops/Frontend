@@ -40,6 +40,8 @@ api.interceptors.response.use(
         // Handle 401 Unauthorized - token expired or invalid
         if (error.response?.status === 401) {
             console.log('Unauthorized access - clearing token');
+            console.log('Error details:', error.response?.data?.message || 'No error message');
+            console.log('Request URL:', error.request?.responseURL);
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             
@@ -50,6 +52,8 @@ api.interceptors.response.use(
         // Handle 403 Forbidden - insufficient permissions
         if (error.response?.status === 403) {
             console.log('Insufficient permissions - NOT clearing token');
+            console.log('Error details:', error.response?.data?.message || 'No error message');
+            console.log('Request URL:', error.request?.responseURL);
             // Do NOT clear tokens for permission errors, user is still authenticated
             // Only lack required permissions for specific action
             
