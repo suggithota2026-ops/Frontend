@@ -20,10 +20,11 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let app: FirebaseApp;
-if (getApps().length === 0) {
+const apps = getApps();
+if (!apps || apps.length === 0) {
   app = initializeApp(firebaseConfig);
 } else {
-  app = getApps()[0];
+  app = apps[0];
 }
 
 // Initialize Analytics (only in browser environment)
