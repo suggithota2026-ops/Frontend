@@ -79,7 +79,7 @@ const Notifications = () => {
     try {
       const response = await api.get('/admin/categories');
       if (response.data.success) {
-        setCategories(response.data.data);
+        setCategories(response.data.data || []);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -92,7 +92,7 @@ const Notifications = () => {
       setIsLoading(true);
       const response = await api.get('/admin/notifications');
       if (response.data.success) {
-        setNotifications(response.data.data.notifications);
+        setNotifications(response.data.data?.notifications || []);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -264,11 +264,11 @@ const Notifications = () => {
       });
       
       if (response.data.success) {
-        setOffers(response.data.data.offers);
+        setOffers(response.data.data?.offers || []);
         setOffersPagination({
-          page: response.data.data.pagination.page,
-          totalPages: response.data.data.pagination.pages,
-          total: response.data.data.pagination.total,
+          page: response.data.data?.pagination?.page || 1,
+          totalPages: response.data.data?.pagination?.pages || 1,
+          total: response.data.data?.pagination?.total || 0,
         });
       }
     } catch (error: any) {
@@ -448,7 +448,7 @@ const Notifications = () => {
         <TabsList>
           <TabsTrigger value="alerts">
             <Bell className="w-4 h-4 mr-2" />
-            Alerts {notifications.filter(n => !n.isRead).length > 0 && (
+            Alerts {notifications && notifications.filter(n => !n.isRead).length > 0 && (
               <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full">
                 {notifications.filter(n => !n.isRead).length}
               </Badge>
@@ -477,7 +477,7 @@ const Notifications = () => {
                   <Loader2 className="w-10 h-10 animate-spin text-primary" />
                   <p className="text-muted-foreground animate-pulse">Fetching latest notifications...</p>
                 </div>
-              ) : notifications.length > 0 ? (
+              ) : (notifications && notifications.length > 0) ? (
                 <div className="space-y-4">
                   {notifications.map((note) => (
                     <div
@@ -668,7 +668,7 @@ const Notifications = () => {
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          {categories.map((category) => (
+                          {categories && categories.map((category) => (
                             <SelectItem key={category.id} value={category.id.toString()}>
                               {category.name}
                             </SelectItem>
@@ -778,7 +778,7 @@ const Notifications = () => {
                     <Loader2 className="w-10 h-10 animate-spin text-primary" />
                     <p className="text-muted-foreground animate-pulse">Loading offers...</p>
                   </div>
-                ) : offers.length > 0 ? (
+                ) : (offers && offers.length > 0) ? (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
