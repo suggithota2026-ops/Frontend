@@ -15,7 +15,7 @@ const BAR_COLOR = "hsl(var(--primary))";
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+    if (active && payload && payload.length > 0) {
         return (
             <div className="bg-popover border border-border p-3 rounded-lg shadow-lg">
                 <p className="font-semibold text-foreground mb-1">{label}</p>
