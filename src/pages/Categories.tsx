@@ -199,13 +199,13 @@ const Categories = () => {
               </p>
               {category.subcategories && category.subcategories.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {category.subcategories.slice(0, 3).map((sub) => (
+                  {(category.subcategories ?? []).slice(0, 3).map((sub) => (
                     <span key={sub.id} className="bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground">
                       {sub.name}
                     </span>
                   ))}
-                  {category.subcategories.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground">+{category.subcategories.length - 3}</span>
+                  {(category.subcategories?.length ?? 0) > 3 && (
+                    <span className="text-[10px] text-muted-foreground">+{(category.subcategories?.length ?? 0) - 3}</span>
                   )}
                 </div>
               )}
