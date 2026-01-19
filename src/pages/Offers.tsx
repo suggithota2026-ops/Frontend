@@ -144,8 +144,8 @@ const Offers: React.FC = () => {
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredOffers.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredOffers.length / itemsPerPage);
+  const currentItems = (filteredOffers ?? []).slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil((filteredOffers?.length ?? 0) / itemsPerPage);
 
   const handleEdit = (offer: Offer) => {
     setCurrentOffer(offer);
