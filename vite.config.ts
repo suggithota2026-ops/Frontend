@@ -13,11 +13,14 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:3001",
         changeOrigin: true,
         secure: false,
+        // Increase timeout for large payloads
+        timeout: 30000,
       },
       "/uploads": {
         target: "http://localhost:3001",
         changeOrigin: true,
         secure: false,
+        timeout: 30000,
       },
     },
   },

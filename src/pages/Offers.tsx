@@ -50,7 +50,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import axios from 'axios';
+import api from '@/api/axios';
 
 interface Offer {
   id: number;
@@ -94,11 +94,7 @@ const Offers: React.FC = () => {
     const fetchOffers = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/admin/offers`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await api.get('/admin/offers');
         
         if (response.data.success) {
           setOffers(response.data.offers);
@@ -161,11 +157,7 @@ const Offers: React.FC = () => {
     if (!currentOffer || !token) return;
 
     try {
-      const response = await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/admin/offers/${currentOffer.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await api.delete(`/admin/offers/${currentOffer.id}`);
       
       if (response.data.success) {
         // Update local state to remove the offer
@@ -193,12 +185,7 @@ const Offers: React.FC = () => {
 
   const handleSaveChanges = async (updatedOffer: Offer) => {
     try {
-      const response = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/admin/offers/${updatedOffer.id}`, updatedOffer, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.put(`/admin/offers/${updatedOffer.id}`, updatedOffer);
       
       if (response.data.success) {
         // Update local state
@@ -314,7 +301,7 @@ const Offers: React.FC = () => {
         {/* Offers Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Active Offers ({filteredOffers.length})</CardTitle>
+            <CardTitle>Active Offers ({filteredOffers?.length || 0})</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -337,7 +324,7 @@ const Offers: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {currentItems.length > 0 ? (
+                      {(currentItems && currentItems.length > 0) ? (
                         currentItems.map((offer) => {
                           const daysRemaining = calculateDaysRemaining(offer.validUntil);
                           
@@ -470,8 +457,8 @@ const Offers: React.FC = () => {
                   <div className="flex items-center justify-between mt-6">
                     <div className="text-sm text-muted-foreground">
                       Showing {indexOfFirstItem + 1} to{' '}
-                      {Math.min(indexOfLastItem, filteredOffers.length)} of{' '}
-                      {filteredOffers.length} offers
+                      {Math.min(indexOfLastItem, filteredOffers?.length || 0)} of{' '}
+                      {filteredOffers?.length || 0} offers
                     </div>
                     <div className="flex space-x-2">
                       <Button

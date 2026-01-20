@@ -31,6 +31,7 @@ const menuItems = [
   { icon: CreditCard, label: "Billing", path: "/billing" },
   { icon: MessageSquare, label: "Enquiry", path: "/enquiry" },
   { icon: Percent, label: "Offers", path: "/offers" },
+  { icon: FolderOpen, label: "Brands", path: "/brands" },
   { icon: Bell, label: "Notifications", path: "/notifications" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
