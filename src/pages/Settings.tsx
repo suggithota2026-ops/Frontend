@@ -1,4 +1,6 @@
-import { User, Lock, Bell, Palette, Globe, Shield, Save } from "lucide-react";
+import { useState } from "react";
+import { User, Lock, Bell, Landmark, Shield, Save, Loader2, Landmark as BankIcon, Edit3, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +18,25 @@ import { useAuth } from "@/context/AuthContext";
 
 const Settings = () => {
   const { user } = useAuth();
+  const [bankDetails, setBankDetails] = useState({
+    accountHolder: "PRK SMILES PRIVATE LIMITED",
+    accountNumber: "50200012345678",
+    bankName: "HDFC BANK",
+    ifscCode: "HDFC0001234",
+    branch: "Pune"
+  });
+  const [isEditingBank, setIsEditingBank] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveBank = () => {
+    setIsSaving(true);
+    // Simulate API call
+    setTimeout(() => {
+      setIsSaving(false);
+      setIsEditingBank(false);
+      toast.success("Bank details updated successfully!");
+    }, 800);
+  };
 
   return (
     <div className="space-y-6">
@@ -39,9 +60,9 @@ const Settings = () => {
             <Bell className="w-4 h-4" />
             <span className="hidden sm:inline">Notifications</span>
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-2">
-            <Palette className="w-4 h-4" />
-            <span className="hidden sm:inline">Appearance</span>
+          <TabsTrigger value="bank" className="gap-2">
+            <BankIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Bank Details</span>
           </TabsTrigger>
         </TabsList>
 
@@ -171,51 +192,111 @@ const Settings = () => {
           </div>
         </TabsContent>
 
-        {/* Appearance Tab */}
-        <TabsContent value="appearance" className="mt-6">
+        {/* Bank Details Tab */}
+        <TabsContent value="bank" className="mt-6">
           <div className="dashboard-card">
-            <h2 className="font-semibold text-foreground mb-6">Preferences</h2>
-            <div className="space-y-6 max-w-md">
-              <div className="space-y-2">
-                <Label>Theme</Label>
-                <Select defaultValue="light">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BankIcon className="w-5 h-5 text-primary" />
               </div>
-              <div className="space-y-2">
-                <Label>Language</Label>
-                <Select defaultValue="en">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                    <SelectItem value="de">German</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div>
+                <h2 className="font-semibold text-foreground">Bank Account Information</h2>
+                <p className="text-xs text-muted-foreground">These details are shown on invoices for payment.</p>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="accountHolder">Account Holder Name</Label>
+                <Input
+                  id="accountHolder"
+                  value={bankDetails.accountHolder}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountHolder: e.target.value })}
+                  placeholder="Official Company Name"
+                  disabled={!isEditingBank}
+                  className={!isEditingBank ? "bg-muted/50 border-transparent cursor-default" : ""}
+                />
+              </div>
+
               <div className="space-y-2">
-                <Label>Timezone</Label>
-                <Select defaultValue="est">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select timezone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="est">Eastern Time (EST)</SelectItem>
-                    <SelectItem value="pst">Pacific Time (PST)</SelectItem>
-                    <SelectItem value="utc">UTC</SelectItem>
-                    <SelectItem value="gmt">GMT</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="bankName">Bank Name</Label>
+                <Input
+                  id="bankName"
+                  value={bankDetails.bankName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                  placeholder="e.g. HDFC Bank"
+                  disabled={!isEditingBank}
+                  className={!isEditingBank ? "bg-muted/50 border-transparent cursor-default" : ""}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="accountNumber">Account Number</Label>
+                <Input
+                  id="accountNumber"
+                  value={bankDetails.accountNumber}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                  placeholder="Enter 12-16 digit account number"
+                  disabled={!isEditingBank}
+                  className={!isEditingBank ? "bg-muted/50 border-transparent cursor-default" : ""}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ifscCode">IFSC Code</Label>
+                <Input
+                  id="ifscCode"
+                  value={bankDetails.ifscCode}
+                  onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value })}
+                  placeholder="e.g. HDFC0001234"
+                  disabled={!isEditingBank}
+                  className={`font-mono ${!isEditingBank ? "bg-muted/50 border-transparent cursor-default" : ""}`}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="branch">Branch</Label>
+                <Input
+                  id="branch"
+                  value={bankDetails.branch}
+                  onChange={(e) => setBankDetails({ ...bankDetails, branch: e.target.value })}
+                  placeholder="Branch location"
+                  disabled={!isEditingBank}
+                  className={!isEditingBank ? "bg-muted/50 border-transparent cursor-default" : ""}
+                />
+              </div>
+
+              <div className="pt-4 md:col-span-2">
+                {!isEditingBank ? (
+                  <Button
+                    onClick={() => setIsEditingBank(true)}
+                    variant="outline"
+                    className="gap-2 border-primary text-primary hover:bg-primary/5 shadow-sm"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Change Details
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={handleSaveBank}
+                      disabled={isSaving}
+                      className="gap-2 bg-primary hover:bg-primary/90 shadow-lg"
+                    >
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Update Details
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIsEditingBank(false)}
+                      disabled={isSaving}
+                      className="gap-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

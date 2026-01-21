@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Eye, Download, Printer, MoreHorizontal, Truck, FileText } from "lucide-react";
+import { Search, Filter, Eye, Download, MoreHorizontal, Truck, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +35,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import api from "@/api/axios";
+
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.63 1.438h.004c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+  </svg>
+);
 
 interface OrderItem {
   productId: number;
@@ -481,74 +492,6 @@ const Orders = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handlePrintBill = (order: Order) => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const itemsHtml = order.items.map((item: any) => `
-        <tr class="item-row">
-            <td>${item.name || item.productName}</td>
-            <td>${item.quantity}</td>
-            <td style="text-align: right;">₹${(item.price || item.unitPrice || 0).toFixed(2)}</td>
-            <td style="text-align: right;">₹${(item.amount || item.totalPrice || 0).toFixed(2)}</td>
-        </tr>
-      `).join('');
-
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Bill - ${order.id}</title>
-            <style>
-              body { font-family: 'Courier New', monospace; padding: 20px; font-size: 14px; }
-              .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 15px; margin-bottom: 20px; }
-              .info-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 20px; }
-              th, td { text-align: left; padding: 8px 0; border-bottom: 1px dotted #ccc; }
-              th { border-bottom: 1px solid #000; }
-              .total-row { font-weight: bold; border-top: 2px dashed #000; font-size: 16px; margin-top: 10px; }
-              .footer { text-align: center; margin-top: 30px; font-size: 12px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h2>PRK SMILES</h2>
-              <p>Grocery & Vegetable Supplier</p>
-            </div>
-            
-            <div class="info-row"><span>Order ID:</span><strong>${order.id}</strong></div>
-            <div class="info-row"><span>Date:</span><span>${order.date || new Date(order.createdAt).toLocaleDateString()}</span></div>
-            <div class="info-row"><span>Client:</span><span>${order.customer || `Hotel #${order.hotelId}`}</span></div>
-            <div class="info-row"><span>Status:</span><span>${formatStatus(order.status)}</span></div>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th width="40%">Item</th>
-                        <th width="20%">Qty</th>
-                        <th width="20%" style="text-align: right;">Price</th>
-                        <th width="20%" style="text-align: right;">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${itemsHtml}
-                </tbody>
-            </table>
-            
-            <div class="info-row total-row" style="padding-top: 10px;">
-              <span>Grand Total:</span>
-              <span>₹${(order.total || order.totalAmount || 0).toLocaleString()}</span>
-            </div>
-            
-            <div class="footer">
-                <p>Thank you for your order!</p>
-                <p>For support: +91 98765 43210</p>
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
 
   const handleViewDetails = (order: any) => {
     setSelectedOrder(order);
@@ -753,9 +696,7 @@ const Orders = () => {
                           <DropdownMenuItem onClick={() => handleDownloadInvoice(order)}>
                             <FileText className="w-4 h-4 mr-2" /> Download Invoice
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handlePrintBill(order)}>
-                            <Printer className="w-4 h-4 mr-2" /> Print Bill
-                          </DropdownMenuItem>
+
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -816,11 +757,27 @@ const Orders = () => {
                 </div>
               </div>
 
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setIsViewOpen(false)}>Close</Button>
-                <Button onClick={() => handlePrintBill(selectedOrder)}>
-                  <Printer className="w-4 h-4 mr-2" /> Print Bill
-                </Button>
+              {/* WhatsApp Quick Action */}
+              {selectedOrder.hotel?.mobileNumber && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const number = selectedOrder.hotel!.mobileNumber.replace(/\D/g, '');
+                      const formattedNumber = number.length === 10 ? `91${number}` : number;
+                      window.open(`https://wa.me/${formattedNumber}?text=Hello ${selectedOrder.customer}, This is PRK Smiles Admin. Regarding your Order #${selectedOrder.id}...`, '_blank');
+                    }}
+                    className="h-9 px-4 border-[#25D366] text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all duration-200 gap-2 border-2"
+                  >
+                    <WhatsAppIcon className="w-4 h-4" />
+                    <span className="font-bold text-xs">Contact on WhatsApp</span>
+                  </Button>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsViewOpen(false)}>Close</Button>
               </DialogFooter>
             </div>
           )}
