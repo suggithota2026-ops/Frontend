@@ -52,8 +52,10 @@ const Notifications = () => {
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
+  const [hotels, setHotels] = useState<any[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [selectedSubcategoryNames, setSelectedSubcategoryNames] = useState<string[]>([]);
+  const [selectedHotelIds, setSelectedHotelIds] = useState<number[]>([]);
   const [offerData, setOfferData] = useState({
     title: "",
     discountType: "percentage" as "percentage" | "flat",
@@ -73,6 +75,7 @@ const Notifications = () => {
   useEffect(() => {
     fetchNotifications();
     fetchCategories();
+    fetchHotels();
   }, []);
 
   const fetchCategories = async () => {
@@ -84,6 +87,21 @@ const Notifications = () => {
     } catch (error) {
       console.error('Error fetching categories:', error);
       toast.error("Failed to fetch categories");
+    }
+  };
+
+  const fetchHotels = async () => {
+    try {
+      const response = await api.get('/admin/hotels');
+      if (response.data.success) {
+        setHotels(response.data.data.hotels || []);
+      } else {
+        setHotels([]);
+      }
+    } catch (error) {
+      console.error('Error fetching hotels:', error);
+      toast.error("Failed to fetch hotels");
+      setHotels([]); // Ensure hotels is always an array
     }
   };
 
@@ -157,7 +175,8 @@ const Notifications = () => {
           discountValue,
           validUntil: offerData.validUntil, // Keep original format from date input
           categoryIds: selectedCategoryIds,
-          subcategoryNames: selectedSubcategoryNames
+          subcategoryNames: selectedSubcategoryNames,
+          hotelIds: selectedHotelIds
         });
       } else {
         // Create new offer
@@ -168,7 +187,8 @@ const Notifications = () => {
           discountValue,
           validUntil: offerData.validUntil, // Keep original format from date input
           categoryIds: selectedCategoryIds,
-          subcategoryNames: selectedSubcategoryNames
+          subcategoryNames: selectedSubcategoryNames,
+          hotelIds: selectedHotelIds
         });
       }
       
@@ -186,6 +206,7 @@ const Notifications = () => {
         });
         setSelectedCategoryIds([]);
         setSelectedSubcategoryNames([]);
+        setSelectedHotelIds([]);
         setEditingOfferId(null); // Clear editing state
         
         // Refresh the offers list
@@ -648,7 +669,7 @@ const Notifications = () => {
                         onChange={(e) => setOfferData({...offerData, validUntil: e.target.value})}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Note: Promotional codes will expire 24 hours after creation
+                        Valid until date for the offer
                       </p>
                     </div>
                   </div>
@@ -727,6 +748,56 @@ const Notifications = () => {
                         </div>
                       )}
                     </div>
+                  </div>
+                  
+                  {/* Hotel Selection Section */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Target Hotels/Customers</label>
+                    <Select 
+                      onValueChange={(value) => {
+                        const hotelId = parseInt(value);
+                        if (!selectedHotelIds.includes(hotelId)) {
+                          setSelectedHotelIds([...selectedHotelIds, hotelId]);
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select specific hotels/customers (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hotels && Array.isArray(hotels) && hotels.map((hotel) => (
+                          <SelectItem key={hotel.id} value={hotel.id.toString()}>
+                            {hotel.hotelName || `Hotel ${hotel.id}`} - {hotel.mobileNumber}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {selectedHotelIds.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {selectedHotelIds.map((hotelId) => {
+                          const hotel = hotels && Array.isArray(hotels) ? hotels.find(h => h.id === hotelId) : undefined;
+                          return (
+                            <Badge key={hotelId} variant="secondary" className="flex items-center gap-1">
+                              {hotel?.hotelName || `Hotel ${hotelId}`}
+                              <button 
+                                type="button" 
+                                onClick={() => setSelectedHotelIds(selectedHotelIds.filter(id => id !== hotelId))}
+                                className="ml-1 text-xs"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    {selectedHotelIds.length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Leave empty to send to all hotels/customers
+                      </p>
+                    )}
                   </div>
                           
                   <div className="space-y-2">

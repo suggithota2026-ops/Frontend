@@ -38,6 +38,8 @@ interface Hotel {
   gstNumber?: string;
   creditLimit: number;
   isBlocked: boolean;
+  rateType?: string;
+  pricePerUnit?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +63,8 @@ const Hotels = () => {
     address: "",
     gstNumber: "",
     creditLimit: "",
+    rateType: "",
+    pricePerUnit: "",
   });
 
   // Fetch hotels from API
@@ -86,8 +90,8 @@ const Hotels = () => {
         });
       }
     } catch (error: any) {
-      console.error("Error fetching hotels:", error);
-      toast.error(error.response?.data?.message || "Failed to fetch hotels");
+      console.error("Error fetching customers:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch customers");
     } finally {
       setIsLoading(false);
     }
@@ -104,11 +108,11 @@ const Hotels = () => {
       await api.patch(`/admin/hotels/${hotel.id}/block`, {
         isBlocked: newBlockedStatus,
       });
-      toast.success(`Hotel ${newBlockedStatus ? 'blocked' : 'unblocked'} successfully`);
+      toast.success(`Customer ${newBlockedStatus ? 'blocked' : 'unblocked'} successfully`);
       fetchHotels();
     } catch (error: any) {
-      console.error("Error updating hotel status:", error);
-      toast.error(error.response?.data?.message || "Failed to update hotel status");
+      console.error("Error updating customer status:", error);
+      toast.error(error.response?.data?.message || "Failed to update customer status");
     }
   };
 
@@ -118,10 +122,10 @@ const Hotels = () => {
 
     // Enhanced confirmation with warning
     const confirmMessage = 
-      "⚠️ WARNING: Delete Hotel Account?\n\n" +
-      `Hotel: ${hotel.hotelName}\n\n` +
-      "NOTE: Hotels with existing orders cannot be deleted due to data integrity requirements.\n\n" +
-      "If this hotel has orders, consider BLOCKING instead of deleting.\n\n" +
+      "⚠️ WARNING: Delete Customer Account?\n\n" +
+      `Customer: ${hotel.hotelName}\n\n` +
+      "NOTE: Customers with existing orders cannot be deleted due to data integrity requirements.\n\n" +
+      "If this customer has orders, consider BLOCKING instead of deleting.\n\n" +
       "Do you want to proceed with deletion?";
 
     if (!confirm(confirmMessage)) {
@@ -130,16 +134,16 @@ const Hotels = () => {
 
     try {
       await api.delete(`/admin/hotels/${id}`);
-      toast.success("Hotel deleted successfully");
+      toast.success("Customer deleted successfully");
       fetchHotels();
     } catch (error: any) {
-      console.error("Error deleting hotel:", error);
-      const errorMessage = error.response?.data?.message || "Failed to delete hotel";
+      console.error("Error deleting customer:", error);
+      const errorMessage = error.response?.data?.message || "Failed to delete customer";
       
       // Provide helpful guidance for the common case
       if (errorMessage.includes("existing orders")) {
         toast.error(
-          "Cannot delete hotel with existing orders. Use the Block option instead to prevent new orders while preserving order history.",
+          "Cannot delete customer with existing orders. Use the Block option instead to prevent new orders while preserving order history.",
           { duration: 6000 }
         );
       } else {
@@ -161,8 +165,10 @@ const Hotels = () => {
         address: formData.address,
         gstNumber: formData.gstNumber || undefined,
         creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
+        rateType: formData.rateType || undefined,
+        pricePerUnit: formData.pricePerUnit ? parseFloat(formData.pricePerUnit) : undefined,
       });
-      toast.success("Hotel created successfully");
+      toast.success("Customer created successfully");
       setIsAddOpen(false);
       setFormData({
         hotelName: "",
@@ -170,11 +176,13 @@ const Hotels = () => {
         address: "",
         gstNumber: "",
         creditLimit: "",
+        rateType: "",
+        pricePerUnit: "",
       });
       fetchHotels();
     } catch (error: any) {
-      console.error("Error creating hotel:", error);
-      toast.error(error.response?.data?.message || "Failed to create hotel");
+      console.error("Error creating customer:", error);
+      toast.error(error.response?.data?.message || "Failed to create customer");
     } finally {
       setIsLoading(false);
     }
@@ -192,8 +200,10 @@ const Hotels = () => {
         address: formData.address,
         gstNumber: formData.gstNumber || undefined,
         creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
+        rateType: formData.rateType || undefined,
+        pricePerUnit: formData.pricePerUnit ? parseFloat(formData.pricePerUnit) : undefined,
       });
-      toast.success("Hotel updated successfully");
+      toast.success("Customer updated successfully");
       setIsEditOpen(false);
       setCurrentHotel(null);
       setFormData({
@@ -202,11 +212,13 @@ const Hotels = () => {
         address: "",
         gstNumber: "",
         creditLimit: "",
+        rateType: "",
+        pricePerUnit: "",
       });
       fetchHotels();
     } catch (error: any) {
-      console.error("Error updating hotel:", error);
-      toast.error(error.response?.data?.message || "Failed to update hotel");
+      console.error("Error updating customer:", error);
+      toast.error(error.response?.data?.message || "Failed to update customer");
     } finally {
       setIsLoading(false);
     }
@@ -220,6 +232,8 @@ const Hotels = () => {
       address: hotel.address,
       gstNumber: hotel.gstNumber || "",
       creditLimit: hotel.creditLimit.toString(),
+      rateType: hotel.rateType || "",
+      pricePerUnit: hotel.pricePerUnit?.toString() || "",
     });
     setIsEditOpen(true);
   };
@@ -229,12 +243,12 @@ const Hotels = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Hotels</h1>
-          <p className="text-muted-foreground">Manage hotel accounts, credit limits, and access</p>
+          <h1 className="text-2xl font-bold text-foreground">Customers</h1>
+          <p className="text-muted-foreground">Manage customer accounts, credit limits, and access</p>
         </div>
         <Button className="gap-2 w-full sm:w-auto" onClick={() => setIsAddOpen(true)}>
           <Plus className="w-4 h-4" />
-          Add Hotel Account
+          Add Customer Account
         </Button>
       </div>
 
@@ -243,7 +257,7 @@ const Hotels = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search by hotel name or mobile number..."
+            placeholder="Search by customer name or mobile number..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -260,11 +274,13 @@ const Hotels = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Hotel Name</TableHead>
+                <TableHead>Customer Name</TableHead>
                 <TableHead>Mobile Number</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>GST Number</TableHead>
                 <TableHead>Credit Limit</TableHead>
+                <TableHead>Rate Type</TableHead>
+                <TableHead>Price Per Unit</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -272,14 +288,14 @@ const Hotels = () => {
             <TableBody>
               {isLoading && (hotels && hotels.length === 0) ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    Loading hotels...
+                  <TableCell colSpan={9} className="text-center py-8">
+                    Loading customers...
                   </TableCell>
                 </TableRow>
               ) : (hotels && hotels.length === 0) ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No hotels found
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    No customers found
                   </TableCell>
                 </TableRow>
               ) : (
@@ -290,8 +306,10 @@ const Hotels = () => {
                     <TableCell className="max-w-xs truncate">{hotel.address}</TableCell>
                     <TableCell>{hotel.gstNumber || "-"}</TableCell>
                     <TableCell>₹{parseFloat(hotel.creditLimit.toString()).toLocaleString()}</TableCell>
+                    <TableCell>{hotel.rateType || "-"}</TableCell>
+                    <TableCell>₹{hotel.pricePerUnit ? parseFloat(hotel.pricePerUnit.toString()).toLocaleString() : "-"}</TableCell>
                     <TableCell>
-                      <Badge variant={!hotel.isBlocked ? "default" : "destructive"} className={!hotel.isBlocked ? "bg-green-500 hover:bg-green-600" : ""}>
+                      <Badge variant={!hotel.isBlocked ? "default" : "destructive"} className={!hotel.isBlocked ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}>
                         {hotel.isBlocked ? "Blocked" : "Active"}
                       </Badge>
                     </TableCell>
@@ -308,9 +326,13 @@ const Hotels = () => {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleBlockToggle(hotel)}>
                             {hotel.isBlocked ? (
-                              <><CheckCircle className="w-4 h-4 mr-2" /> Unblock</>
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2" /> Unblock
+                              </>
                             ) : (
-                              <><Ban className="w-4 h-4 mr-2" /> Block</>
+                              <>
+                                <Ban className="w-4 h-4 mr-2" /> Block
+                              </>
                             )}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -330,7 +352,7 @@ const Hotels = () => {
         {pagination.pages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t">
             <div className="text-sm text-muted-foreground">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} hotels
+              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} customers
             </div>
             <div className="flex gap-2">
               <Button
@@ -358,17 +380,17 @@ const Hotels = () => {
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Hotel Account</DialogTitle>
+            <DialogTitle>Add New Customer Account</DialogTitle>
             <DialogDescription>
-              Create a new account for a hotel or B2B client.
+              Create a new account for a customer or B2B client.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="hotelName">Hotel Name *</Label>
+              <Label htmlFor="hotelName">Customer Name *</Label>
               <Input
                 id="hotelName"
-                placeholder="e.g. Grand Plaza Hotel"
+                placeholder="e.g. John Doe"
                 value={formData.hotelName}
                 onChange={(e) => setFormData({ ...formData, hotelName: e.target.value })}
               />
@@ -412,6 +434,32 @@ const Hotels = () => {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="rateType">Rate Type</Label>
+                <select
+                  id="rateType"
+                  value={formData.rateType}
+                  onChange={(e) => setFormData({ ...formData, rateType: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Select Rate Type</option>
+                  <option value="Dairy Prize">Dairy Prize</option>
+                  <option value="Weekly Fixes">Weekly Fixes</option>
+                  <option value="Fixed Price">Fixed Price</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pricePerUnit">Price Per Unit (₹)</Label>
+                <Input
+                  id="pricePerUnit"
+                  type="number"
+                  placeholder="e.g. 100"
+                  value={formData.pricePerUnit}
+                  onChange={(e) => setFormData({ ...formData, pricePerUnit: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)} disabled={isLoading}>Cancel</Button>
@@ -426,17 +474,17 @@ const Hotels = () => {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Hotel Account</DialogTitle>
+            <DialogTitle>Edit Customer Account</DialogTitle>
             <DialogDescription>
-              Update hotel information.
+              Update customer information.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-hotelName">Hotel Name *</Label>
+              <Label htmlFor="edit-hotelName">Customer Name *</Label>
               <Input
                 id="edit-hotelName"
-                placeholder="e.g. Grand Plaza Hotel"
+                placeholder="e.g. John Doe"
                 value={formData.hotelName}
                 onChange={(e) => setFormData({ ...formData, hotelName: e.target.value })}
               />
@@ -478,6 +526,32 @@ const Hotels = () => {
                   placeholder="50000"
                   value={formData.creditLimit}
                   onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-rateType">Rate Type</Label>
+                <select
+                  id="edit-rateType"
+                  value={formData.rateType}
+                  onChange={(e) => setFormData({ ...formData, rateType: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Select Rate Type</option>
+                  <option value="Dairy Prize">Dairy Prize</option>
+                  <option value="Weekly Fixes">Weekly Fixes</option>
+                  <option value="Fixed Price">Fixed Price</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-pricePerUnit">Price Per Unit (₹)</Label>
+                <Input
+                  id="edit-pricePerUnit"
+                  type="number"
+                  placeholder="e.g. 100"
+                  value={formData.pricePerUnit}
+                  onChange={(e) => setFormData({ ...formData, pricePerUnit: e.target.value })}
                 />
               </div>
             </div>

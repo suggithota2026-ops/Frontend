@@ -25,7 +25,7 @@ const menuItems = [
   { icon: Package, label: "Products", path: "/products" },
   { icon: FolderOpen, label: "Categories", path: "/categories" },
   { icon: ShoppingCart, label: "Orders", path: "/orders" },
-  { icon: Building2, label: "Hotels", path: "/hotels" },
+  { icon: Building2, label: "Customers", path: "/hotels" },
   { icon: Users, label: "Staff", path: "/staff" },
   { icon: Truck, label: "Drivers", path: "/drivers" },
   { icon: CreditCard, label: "Billing", path: "/billing" },

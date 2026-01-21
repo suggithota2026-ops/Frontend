@@ -42,6 +42,12 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  // UI fields
+  name?: string;
+  price?: number;
+  amount?: number;
+  unit?: string;
+  discount?: number;
 }
 
 interface Hotel {
@@ -67,6 +73,7 @@ interface Order {
   customer?: string;
   date?: string;
   total?: number;
+  remarks?: string;
 }
 
 const Orders = () => {
@@ -78,6 +85,9 @@ const Orders = () => {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [isClientOrdersOpen, setIsClientOrdersOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [todaysOrdersData, setTodaysOrdersData] = useState<any>(null);
+  const [isExportLoading, setIsExportLoading] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -96,6 +106,8 @@ const Orders = () => {
       name: item.productName,
       price: item.unitPrice,
       amount: item.totalPrice,
+      unit: item.unit || "Kgs",
+      discount: item.discount || 0,
     }));
 
     return {
@@ -108,6 +120,7 @@ const Orders = () => {
       }),
       total: parseFloat(order.totalAmount.toString()),
       items: transformedItems,
+      remarks: order.specialInstructions || order.remarks,
     };
   };
 
@@ -212,61 +225,73 @@ const Orders = () => {
     }
   };
 
+  /* import html2canvas from 'html2canvas'; import jsPDF from 'jspdf'; import { createRoot } from 'react-dom/client'; import InvoiceTemplate from '@/components/invoice/InvoiceTemplate'; */
+
   const handleDownloadInvoice = async (order: Order) => {
     try {
       toast.info(`Generating invoice for ${order.id}...`);
-      const response = await api.post(`/admin/orders/${order.id}/invoice`);
 
-      if (response.data.success) {
-        const invoice = response.data.data;
-        // If invoice has a file path, download it
-        if (invoice.filePath) {
-          const fileUrl = `/uploads/invoices/${invoice.filePath}`;
-          const a = document.createElement('a');
-          a.href = fileUrl;
-          a.download = invoice.fileName || `Invoice-${order.id}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          toast.success("Invoice downloaded!");
-        } else {
-          // Fallback to text invoice if PDF not available
-          let imgItems = "";
-          order.items.forEach((item: any) => {
-            imgItems += `${item.name.padEnd(20)} ${item.quantity.toString().padEnd(10)} ₹${item.amount.toFixed(2).padStart(8)}\n`;
-          });
+      // Dynamic import to avoid SSR/Initial load issues if any, and ensuring libraries are loaded
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+      const { createRoot } = await import('react-dom/client');
+      const { default: InvoiceTemplate } = await import('@/components/invoice/InvoiceTemplate');
 
-          const invoiceContent = `
-      INVOICE - ${order.id}
-      --------------------------------------------------
-      Date: ${order.date}
-      Client: ${order.customer}
-      Status: ${order.status}
-      --------------------------------------------------
-      Item                 Quantity        Amount
-      --------------------------------------------------
-      ${imgItems}
-      --------------------------------------------------
-      Total Amount:                        ₹${order.total?.toLocaleString()}
-      
-      Thank you for your business!
-    `;
+      // Create a hidden container
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.top = '-9999px';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
 
-          const blob = new Blob([invoiceContent], { type: 'text/plain' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `Invoice-${order.id}.txt`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-          toast.success("Invoice downloaded!");
-        }
-      }
+      // Render the template
+      const root = createRoot(container);
+
+      // Wait for render
+      await new Promise<void>((resolve) => {
+        root.render(
+          <InvoiceTemplate order={order} ref={(el) => {
+            if (el) resolve();
+          }} />
+        );
+        // Small timeout to ensure styles are applied
+        setTimeout(resolve, 500);
+      });
+
+      // Give it a moment to fully render
+      await new Promise(r => setTimeout(r, 500));
+
+      const element = container.firstElementChild as HTMLElement;
+      if (!element) throw new Error("Invoice template failed to render");
+
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher scale for better quality
+        logging: false,
+        useCORS: true // Important for images if any
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`Invoice-${order.id}.pdf`);
+
+      // Cleanup
+      root.unmount();
+      document.body.removeChild(container);
+
+      toast.success("Invoice downloaded!");
+
     } catch (error: any) {
       console.error("Error generating invoice:", error);
-      toast.error(error.response?.data?.message || "Failed to generate invoice");
+      toast.error("Failed to generate invoice locally");
     }
   };
 
@@ -324,6 +349,136 @@ const Orders = () => {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     toast.success("All orders exported successfully!");
+  };
+
+  const fetchTodaysOrders = async () => {
+    setIsExportLoading(true);
+    try {
+      const response = await api.get('/admin/orders/today/summary');
+      if (response.data.success) {
+        setTodaysOrdersData(response.data.data);
+        setIsExportModalOpen(true);
+      }
+    } catch (error: any) {
+      console.error("Error fetching today's orders:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch today's orders");
+    } finally {
+      setIsExportLoading(false);
+    }
+  };
+
+  const handleExportTodaysOrders = async (format: 'csv' | 'excel' | 'pdf') => {
+    if (!todaysOrdersData) return;
+
+    setIsExportLoading(true);
+    try {
+      switch (format) {
+        case 'csv':
+          exportToCSV(todaysOrdersData);
+          break;
+        case 'excel':
+          exportToExcel(todaysOrdersData);
+          break;
+        case 'pdf':
+          exportToPDF(todaysOrdersData);
+          break;
+      }
+      toast.success(`Today's orders exported as ${format.toUpperCase()} successfully!`);
+      setIsExportModalOpen(false);
+    } catch (error) {
+      console.error(`Error exporting to ${format}:`, error);
+      toast.error(`Failed to export as ${format.toUpperCase()}`);
+    } finally {
+      setIsExportLoading(false);
+    }
+  };
+
+  const exportToCSV = (data: any) => {
+    // Create CSV header
+    const csvHeader = ["Client Name", "Item Name", "Quantity"].join(",");
+
+    // Create CSV rows
+    const csvRows: string[] = [];
+
+    data.summary.forEach((item: any) => {
+      item.clients.forEach((client: any) => {
+        csvRows.push([
+          `"${client.clientName}"`,
+          `"${item.itemName}"`,
+          `${client.quantity} kg`
+        ].join(","));
+      });
+      // Add total row
+      csvRows.push([
+        '"--------------------"',
+        '"--------------------"',
+        '"--------------------"'
+      ].join(","));
+      csvRows.push([
+        '"Total"',
+        `"${item.itemName}"`,
+        `${item.totalQuantity} kg`
+      ].join(","));
+      csvRows.push(""); // Empty row for spacing
+    });
+
+    // Combine header and rows
+    const csvContent = [csvHeader, ...csvRows].join("\n");
+
+    // Add UTF-8 BOM
+    const BOM = '\uFEFF';
+    const csvContentWithBOM = BOM + csvContent;
+
+    // Create and download file
+    const blob = new Blob([csvContentWithBOM], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Todays_Orders_${data.date}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportToExcel = (data: any) => {
+    // For now, fall back to CSV since we don't have xlsx library installed
+    // In a real implementation, you'd use a library like xlsx
+    exportToCSV(data);
+    toast.info("Excel export not available, falling back to CSV");
+  };
+
+  const exportToPDF = (data: any) => {
+    // Create PDF content
+    let pdfContent = `TODAY'S ORDERS SUMMARY\n`;
+    pdfContent += `Date: ${data.date}\n`;
+    pdfContent += `Total Orders: ${data.totalOrders}\n\n`;
+
+    pdfContent += "Client Name".padEnd(30) + "| " + "Item Name".padEnd(25) + "| " + "Quantity".padEnd(15) + "\n";
+    pdfContent += "-".repeat(80) + "\n";
+
+    data.summary.forEach((item: any) => {
+      item.clients.forEach((client: any) => {
+        pdfContent += client.clientName.padEnd(30) + "| " +
+          item.itemName.padEnd(25) + "| " +
+          `${client.quantity} kg`.padEnd(15) + "\n";
+      });
+      pdfContent += "-".repeat(45) + "|" + "-".repeat(27) + "|" + "-".repeat(15) + "\n";
+      pdfContent += "Total".padEnd(30) + "| " +
+        item.itemName.padEnd(25) + "| " +
+        `${item.totalQuantity} kg`.padEnd(15) + "\n\n";
+    });
+
+    // Create and download file
+    const blob = new Blob([pdfContent], { type: 'text/plain;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Todays_Orders_${data.date}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const handlePrintBill = (order: Order) => {
@@ -440,10 +595,16 @@ const Orders = () => {
           <h1 className="text-2xl font-bold text-foreground">Order Management</h1>
           <p className="text-muted-foreground">Process orders, assign drivers, and manage invoices</p>
         </div>
-        <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handleExportAll}>
-          <Download className="w-4 h-4" />
-          Export All
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handleExportAll}>
+            <Download className="w-4 h-4" />
+            Export All
+          </Button>
+          <Button variant="default" className="gap-2 w-full sm:w-auto bg-primary hover:bg-primary/90" onClick={fetchTodaysOrders} disabled={isExportLoading}>
+            <Download className="w-4 h-4" />
+            {isExportLoading ? "Loading..." : "Export Today's Orders"}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -666,80 +827,116 @@ const Orders = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Client Orders Dialog */}
-      <Dialog open={isClientOrdersOpen} onOpenChange={setIsClientOrdersOpen}>
-        <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
+      {/* Export Today's Orders Modal */}
+      <Dialog open={isExportModalOpen} onOpenChange={setIsExportModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>All Orders - {selectedClient}</DialogTitle>
+            <DialogTitle>Export Today's Orders</DialogTitle>
             <DialogDescription>
-              Complete order history with product details for this client.
+              Export today's orders summary in various formats. Shows client-wise item breakdown with totals.
             </DialogDescription>
           </DialogHeader>
-          {selectedClient && (
+
+          {todaysOrdersData && (
             <div className="space-y-6">
-              {getClientOrders(selectedClient).map((order, index) => (
-                <div key={order.id} className="border rounded-lg p-4 space-y-4 bg-card">
-                  {/* Order Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold text-lg">{order.id}</span>
-                        <Badge variant="outline" className={getStatusColor(order.status)}>
-                          {formatStatus(order.status)}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <span>Date: {order.date || new Date(order.createdAt).toLocaleDateString()}</span>
-                        <span>Driver: {order.assignedTo ? (drivers.find(d => d.id === order.assignedTo)?.name || order.assignedTo) : "Unassigned"}</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-muted-foreground">Order Total</div>
-                      <div className="text-xl font-bold">₹{order.total.toLocaleString()}</div>
-                    </div>
+              {/* Summary Info */}
+              <div className="bg-muted/30 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Date</p>
+                    <p className="font-medium">{todaysOrdersData.date}</p>
                   </div>
-
-                  {/* Products Table */}
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[50px]">#</TableHead>
-                          <TableHead>Product Name</TableHead>
-                          <TableHead className="text-center">Quantity</TableHead>
-                          <TableHead className="text-right">Unit Price</TableHead>
-                          <TableHead className="text-right">Total Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {order.items && order.items.map((item: any, itemIndex: number) => (
-                          <TableRow key={itemIndex}>
-                            <TableCell className="text-muted-foreground">{itemIndex + 1}</TableCell>
-                            <TableCell className="font-medium">{item.name || item.productName}</TableCell>
-                            <TableCell className="text-center">{item.quantity}</TableCell>
-                            <TableCell className="text-right">₹{(item.price || item.unitPrice || 0).toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-semibold">₹{(item.amount || item.totalPrice || 0).toLocaleString()}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Orders</p>
+                    <p className="font-medium">{todaysOrdersData.totalOrders}</p>
                   </div>
-
-                  {/* Order Summary */}
-                  <div className="flex justify-end pt-2 border-t">
-                    <div className="text-right">
-                      <div className="flex justify-between gap-8 text-base font-bold">
-                        <span>Total Amount:</span>
-                        <span>₹{(order.total || order.totalAmount || 0).toLocaleString()}</span>
-                      </div>
-                    </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Items</p>
+                    <p className="font-medium">{todaysOrdersData.summary.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Export Format</p>
+                    <p className="font-medium">Choose below</p>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Preview Table */}
+              <div>
+                <h4 className="font-semibold mb-3">Preview (First 5 items)</h4>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Client</th>
+                        <th className="text-left py-2 px-3 font-medium">Item</th>
+                        <th className="text-right py-2 px-3 font-medium">Quantity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {todaysOrdersData.summary.slice(0, 5).flatMap((item: any) =>
+                        item.clients.map((client: any, idx: number) => (
+                          <tr key={`${item.itemName}-${client.clientName}-${idx}`} className="border-t">
+                            <td className="py-2 px-3">{client.clientName}</td>
+                            <td className="py-2 px-3">{item.itemName}</td>
+                            <td className="py-2 px-3 text-right">{client.quantity} kg</td>
+                          </tr>
+                        ))
+                      )}
+                      {todaysOrdersData.summary.length > 5 && (
+                        <tr className="border-t bg-muted/50">
+                          <td colSpan={3} className="py-2 px-3 text-center text-muted-foreground italic">
+                            ... and {todaysOrdersData.summary.length - 5} more items
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Export Options */}
+              <div>
+                <h4 className="font-semibold mb-3">Export Options</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Button
+                    variant="outline"
+                    className="h-16 flex flex-col gap-1 items-center justify-center"
+                    onClick={() => handleExportTodaysOrders('csv')}
+                    disabled={isExportLoading}
+                  >
+                    <FileText className="w-5 h-5" />
+                    <span>CSV</span>
+                    <span className="text-xs text-muted-foreground">Comma Separated</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="h-16 flex flex-col gap-1 items-center justify-center"
+                    onClick={() => handleExportTodaysOrders('excel')}
+                    disabled={isExportLoading}
+                  >
+                    <Table className="w-5 h-5" />
+                    <span>Excel</span>
+                    <span className="text-xs text-muted-foreground">Spreadsheet</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="h-16 flex flex-col gap-1 items-center justify-center"
+                    onClick={() => handleExportTodaysOrders('pdf')}
+                    disabled={isExportLoading}
+                  >
+                    <FileText className="w-5 h-5" />
+                    <span>PDF/TXT</span>
+                    <span className="text-xs text-muted-foreground">Text Format</span>
+                  </Button>
+                </div>
+              </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsClientOrdersOpen(false)}>
-                  Close
+                <Button variant="outline" onClick={() => setIsExportModalOpen(false)}>
+                  Cancel
                 </Button>
               </DialogFooter>
             </div>

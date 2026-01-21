@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Enquiry from "./pages/Enquiry";
 import Offers from "./pages/Offers";
 import Brands from "./pages/Brands";
+import InvoicePage from "./pages/InvoicePage";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import { useAuth, AuthProvider } from "./context/AuthContext";
@@ -47,7 +48,8 @@ const AppRoutes = () => (
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/enquiry" element={<Enquiry />} />
       <Route path="/offers" element={<Offers />} />
-            <Route path="/brands" element={<Brands />} />
+      <Route path="/brands" element={<Brands />} />
+      <Route path="/invoice" element={<InvoicePage />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/staff" element={<Staff />} />

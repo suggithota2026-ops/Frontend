@@ -63,6 +63,7 @@ interface Product {
   subcategory?: string;
   price: number;
   pricingType: PricingType;
+  unit: string;
   stock: number;
   images: string[];
   isActive: boolean;
@@ -86,7 +87,7 @@ const getImageUrl = (path: string) => {
     // For production, derive the backend URL from the API's baseURL
     // Get the API base URL and extract the backend domain
     let apiBase = 'https://prk-smile-backend.onrender.com';
-    
+
     // Try to get the actual API base URL from the imported api module
     try {
       if (api.defaults && api.defaults.baseURL) {
@@ -104,7 +105,7 @@ const getImageUrl = (path: string) => {
       // Fallback to default if URL parsing fails
       console.warn('Could not parse API base URL, using default:', e);
     }
-    
+
     return `${apiBase}/uploads/${cleanPath}`;
   }
 };
@@ -131,6 +132,7 @@ const Products = () => {
     subcategory: "",
     price: 0,
     pricingType: "fixed",
+    unit: "kg",
     stock: 0,
     images: [],
     isActive: true,
@@ -194,6 +196,7 @@ const Products = () => {
       subcategory: "",
       price: 0,
       pricingType: "fixed",
+      unit: "kg",
       stock: 0,
       images: [],
       isActive: true,
@@ -254,6 +257,7 @@ const Products = () => {
       if (formData.subcategory) formDataToSend.append('subcategory', formData.subcategory);
       formDataToSend.append('price', formData.price.toString());
       formDataToSend.append('pricingType', formData.pricingType);
+      formDataToSend.append('unit', formData.unit);
       formDataToSend.append('stock', formData.stock.toString());
       formDataToSend.append('isActive', formData.isActive.toString());
 
@@ -727,6 +731,22 @@ const Products = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="unit">Unit</Label>
+                    <Select
+                      value={formData.unit}
+                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kg">Kg</SelectItem>
+                        <SelectItem value="pc">Pc</SelectItem>
+                        <SelectItem value="BOX">BOX</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -780,7 +800,7 @@ const Products = () => {
               <div className="grid grid-cols-2 gap-4 border-t border-b border-border py-4">
                 <div>
                   <span className="text-xs text-muted-foreground uppercase tracking-wider">Price</span>
-                  <p className="text-2xl font-bold text-primary">₹{currentProduct.price}</p>
+                  <p className="text-2xl font-bold text-primary">₹{currentProduct.price} <span className="text-sm font-normal text-muted-foreground">/ {currentProduct.unit || 'kg'}</span></p>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground uppercase tracking-wider">Stock Status</span>
@@ -800,7 +820,6 @@ const Products = () => {
           )}
         </DialogContent>
       </Dialog>
-
     </div>
   );
 };
