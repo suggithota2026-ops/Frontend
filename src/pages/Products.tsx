@@ -453,7 +453,7 @@ const Products = () => {
                 <TableHead>Product</TableHead>
                 <TableHead className="hidden sm:table-cell">Category</TableHead>
                 <TableHead>Price</TableHead>
-                <TableHead className="hidden md:table-cell">Stock</TableHead>
+                <TableHead className="hidden md:table-cell">Min Qty</TableHead>
                 <TableHead>Pricing</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -519,12 +519,9 @@ const Products = () => {
                           <TableCell className="font-semibold">₹{product.price}</TableCell>
                           <TableCell className="hidden md:table-cell">
                             <span className={cn(
-                              "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight",
-                              product.stock === 0 ? "bg-red-500/10 text-red-500 border border-red-500/20" :
-                                product.stock < 10 ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
-                                  "bg-green-500/10 text-green-500 border border-green-500/20"
+                              "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-500 border border-blue-500/20"
                             )}>
-                              {product.stock} IN STOCK
+                              Min: {product.stock} {product.unit || 'Units'}
                             </span>
                           </TableCell>
                           <TableCell>
@@ -696,7 +693,7 @@ const Products = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="stock">Stock Quantity</Label>
+                    <Label htmlFor="stock">Minimum Quantity</Label>
                     <Input
                       id="stock"
                       type="number"
@@ -803,10 +800,10 @@ const Products = () => {
                   <p className="text-2xl font-bold text-primary">₹{currentProduct.price} <span className="text-sm font-normal text-muted-foreground">/ {currentProduct.unit || 'kg'}</span></p>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Stock Status</span>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Minimum Order Quantity</span>
                   <p className="flex items-center gap-2 mt-1">
-                    <div className={cn("w-2 h-2 rounded-full", currentProduct.isActive ? "bg-green-500" : "bg-red-500")} />
-                    <span className="font-medium">{currentProduct.stock} units</span>
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="font-medium">{currentProduct.stock} {currentProduct.unit || 'units'}</span>
                   </p>
                 </div>
               </div>
