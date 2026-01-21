@@ -122,7 +122,7 @@ const Notifications = () => {
 
   const handlePushOffer = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check if user is authenticated before making API call
     const token = localStorage.getItem('token');
     if (!token) {
@@ -132,48 +132,49 @@ const Notifications = () => {
       }, 1500);
       return;
     }
-    
+
     try {
       // Validate required fields
       if (!offerData.title.trim()) {
         toast.error("Offer title is required");
         return;
       }
-      
+
       if (!offerData.description.trim()) {
         toast.error("Offer description is required");
         return;
       }
-      
+
       if (!offerData.validUntil) {
         toast.error("Valid until date is required");
         return;
       }
-      
+
       // Validate date format
       const dateObj = new Date(offerData.validUntil);
       if (isNaN(dateObj.getTime())) {
         toast.error("Valid until date is not valid");
         return;
       }
-      
+
       // Validate discount value before sending
       const discountValue = parseFloat(offerData.discountValue);
       if (isNaN(discountValue) || discountValue <= 0) {
         toast.error("Discount value must be a valid positive number");
         return;
       }
-      
+
       let response;
-      
+
       if (editingOfferId) {
         // Update existing offer
         response = await api.put(`/admin/offers-admin/${editingOfferId}`, {
+          code: offerData.title.replace(/\s+/g, '').toUpperCase(), // Generate code from title
           title: offerData.title,
           description: offerData.description,
           discountType: offerData.discountType,
           discountValue,
-          validUntil: offerData.validUntil, // Keep original format from date input
+          validUntil: new Date(offerData.validUntil).toISOString(), // Convert to ISO date-time format for backend validation
           categoryIds: selectedCategoryIds,
           subcategoryNames: selectedSubcategoryNames,
           hotelIds: selectedHotelIds
@@ -191,11 +192,11 @@ const Notifications = () => {
           hotelIds: selectedHotelIds
         });
       }
-      
+
       if (response.data.success) {
         const message = editingOfferId ? "Promotional offer updated successfully!" : "Promotional offer pushed successfully!";
         toast.success(message);
-        
+
         // Reset form
         setOfferData({
           title: "",
@@ -208,7 +209,7 @@ const Notifications = () => {
         setSelectedSubcategoryNames([]);
         setSelectedHotelIds([]);
         setEditingOfferId(null); // Clear editing state
-        
+
         // Refresh the offers list
         if (activeTab === 'offers') {
           fetchOffers(offersPagination.page);
@@ -216,7 +217,7 @@ const Notifications = () => {
       }
     } catch (error: any) {
       console.error('Error with promotional offer:', error);
-      
+
       // Check if it's an authorization error
       if (error.response?.status === 401 || error.response?.status === 403) {
         console.log('Authorization error when pushing offer:', error.response?.data?.message || 'No error message');
@@ -283,7 +284,7 @@ const Notifications = () => {
           limit: 10
         }
       });
-      
+
       if (response.data.success) {
         setOffers(response.data.data?.offers || []);
         setOffersPagination({
@@ -294,7 +295,7 @@ const Notifications = () => {
       }
     } catch (error: any) {
       console.error('Error fetching offers:', error);
-      
+
       // Check if it's an authorization error
       if (error.response?.status === 401 || error.response?.status === 403) {
         console.log('Authorization error when fetching offers:', error.response?.data?.message || 'No error message');
@@ -328,20 +329,20 @@ const Notifications = () => {
       validUntil: offer.originalValidUntil || offer.validUntil.split('T')[0], // Use original date or convert to date format
       description: offer.description || ''
     });
-    
+
     // Set the category and subcategory filters
     setSelectedCategoryIds(offer.categoryIds || []);
     setSelectedSubcategoryNames(offer.subcategoryNames || []);
-    
+
     // Set the editing offer ID
     setEditingOfferId(offer.id);
-    
+
     // Scroll to the form
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
+
     toast.info(`Editing offer: ${offer.code}`);
   };
-  
+
   const cancelEdit = () => {
     // Reset form to default values
     setOfferData({
@@ -368,7 +369,7 @@ const Notifications = () => {
         }
       } catch (error: any) {
         console.error('Error deleting offer:', error);
-            
+
         // Check if it's an authorization error
         if (error.response?.status === 401 || error.response?.status === 403) {
           toast.error("Session expired or insufficient permissions. Please log in again.");
@@ -625,19 +626,19 @@ const Notifications = () => {
                 <form onSubmit={handlePushOffer} className="space-y-6 max-w-2xl">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Offer Title</label>
-                    <Input 
-                      placeholder="e.g., Monsoon Flash Sale" 
-                      required 
+                    <Input
+                      placeholder="e.g., Monsoon Flash Sale"
+                      required
                       value={offerData.title}
-                      onChange={(e) => setOfferData({...offerData, title: e.target.value})}
+                      onChange={(e) => setOfferData({ ...offerData, title: e.target.value })}
                     />
                   </div>
-                          
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Discount Type</label>
-                    <Select 
+                    <Select
                       value={offerData.discountType}
-                      onValueChange={(value) => setOfferData({...offerData, discountType: value as "percentage" | "flat"})}
+                      onValueChange={(value) => setOfferData({ ...offerData, discountType: value as "percentage" | "flat" })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -648,36 +649,36 @@ const Notifications = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                          
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Discount Value</label>
-                      <Input 
-                        type="number" 
-                        placeholder="e.g. 20" 
-                        required 
+                      <Input
+                        type="number"
+                        placeholder="e.g. 20"
+                        required
                         value={offerData.discountValue}
-                        onChange={(e) => setOfferData({...offerData, discountValue: e.target.value})}
+                        onChange={(e) => setOfferData({ ...offerData, discountValue: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Valid Until</label>
-                      <Input 
-                        type="date" 
-                        required 
+                      <Input
+                        type="date"
+                        required
                         value={offerData.validUntil}
-                        onChange={(e) => setOfferData({...offerData, validUntil: e.target.value})}
+                        onChange={(e) => setOfferData({ ...offerData, validUntil: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
                         Valid until date for the offer
                       </p>
                     </div>
                   </div>
-                          
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Category Filter</label>
-                      <Select 
+                      <Select
                         onValueChange={(value) => {
                           const categoryId = parseInt(value);
                           if (!selectedCategoryIds.includes(categoryId)) {
@@ -696,7 +697,7 @@ const Notifications = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                              
+
                       {selectedCategoryIds.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {selectedCategoryIds.map((categoryId) => {
@@ -704,8 +705,8 @@ const Notifications = () => {
                             return (
                               <Badge key={categoryId} variant="secondary" className="flex items-center gap-1">
                                 {category?.name}
-                                <button 
-                                  type="button" 
+                                <button
+                                  type="button"
                                   onClick={() => setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== categoryId))}
                                   className="ml-1 text-xs"
                                 >
@@ -717,11 +718,11 @@ const Notifications = () => {
                         </div>
                       )}
                     </div>
-                          
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Subcategory Filter</label>
-                      <Input 
-                        placeholder="e.g., Organic, Premium" 
+                      <Input
+                        placeholder="e.g., Organic, Premium"
                         value={selectedSubcategoryNames.join(", ")}
                         onChange={(e) => {
                           // Allow comma-separated subcategory names
@@ -730,14 +731,14 @@ const Notifications = () => {
                         }}
                         className="font-mono"
                       />
-                              
+
                       {selectedSubcategoryNames.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {selectedSubcategoryNames.map((subcatName, index) => (
                             <Badge key={index} variant="secondary" className="flex items-center gap-1">
                               {subcatName}
-                              <button 
-                                type="button" 
+                              <button
+                                type="button"
                                 onClick={() => setSelectedSubcategoryNames(selectedSubcategoryNames.filter((_, i) => i !== index))}
                                 className="ml-1 text-xs"
                               >
@@ -749,11 +750,11 @@ const Notifications = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Hotel Selection Section */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Target Hotels/Customers</label>
-                    <Select 
+                    <Select
                       onValueChange={(value) => {
                         const hotelId = parseInt(value);
                         if (!selectedHotelIds.includes(hotelId)) {
@@ -772,7 +773,7 @@ const Notifications = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    
+
                     {selectedHotelIds.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedHotelIds.map((hotelId) => {
@@ -780,8 +781,8 @@ const Notifications = () => {
                           return (
                             <Badge key={hotelId} variant="secondary" className="flex items-center gap-1">
                               {hotel?.hotelName || `Hotel ${hotelId}`}
-                              <button 
-                                type="button" 
+                              <button
+                                type="button"
                                 onClick={() => setSelectedHotelIds(selectedHotelIds.filter(id => id !== hotelId))}
                                 className="ml-1 text-xs"
                               >
@@ -792,32 +793,32 @@ const Notifications = () => {
                         })}
                       </div>
                     )}
-                    
+
                     {selectedHotelIds.length === 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Leave empty to send to all hotels/customers
                       </p>
                     )}
                   </div>
-                          
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Description</label>
-                    <Textarea 
-                      placeholder="Brief details about the offer..." 
+                    <Textarea
+                      placeholder="Brief details about the offer..."
                       value={offerData.description}
-                      onChange={(e) => setOfferData({...offerData, description: e.target.value})}
+                      onChange={(e) => setOfferData({ ...offerData, description: e.target.value })}
                     />
                   </div>
-                        
+
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button type="submit" variant="default" className="w-full md:w-auto">
                       <Tag className="w-4 h-4 mr-2" />
                       {editingOfferId ? 'Update Offer' : 'Push Offer Notification'}
                     </Button>
                     {editingOfferId && (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
+                      <Button
+                        type="button"
+                        variant="outline"
                         className="w-full md:w-auto"
                         onClick={cancelEdit}
                       >
@@ -828,7 +829,7 @@ const Notifications = () => {
                 </form>
               </CardContent>
             </Card>
-                    
+
             {/* Existing Offers Table */}
             <Card>
               <CardHeader>
@@ -869,7 +870,7 @@ const Notifications = () => {
                             <td className="py-3 px-4 font-mono font-bold">{offer.code}</td>
                             <td className="py-3 px-4">{offer.title}</td>
                             <td className="py-3 px-4">
-                              {offer.discountType === 'percentage' 
+                              {offer.discountType === 'percentage'
                                 ? `${offer.discountValue}% off`
                                 : `₹${offer.discountValue} off`
                               }
@@ -877,8 +878,8 @@ const Notifications = () => {
                             <td className="py-3 px-4">
                               <Badge variant={
                                 offer.status === 'active' ? 'default' :
-                                offer.status === 'expired' ? 'destructive' :
-                                offer.status === 'exhausted' ? 'secondary' : 'outline'
+                                  offer.status === 'expired' ? 'destructive' :
+                                    offer.status === 'exhausted' ? 'secondary' : 'outline'
                               }>
                                 {offer.status}
                               </Badge>
@@ -887,8 +888,8 @@ const Notifications = () => {
                               {offer.usedCount} / {offer.usageLimit || '∞'}
                               {offer.usageLimit && (
                                 <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                                  <div 
-                                    className="bg-primary h-2 rounded-full" 
+                                  <div
+                                    className="bg-primary h-2 rounded-full"
                                     style={{ width: `${Math.min(100, (offer.usedCount / offer.usageLimit) * 100)}%` }}
                                   ></div>
                                 </div>
@@ -914,25 +915,25 @@ const Notifications = () => {
                         ))}
                       </tbody>
                     </table>
-                            
+
                     {/* Pagination */}
                     <div className="flex items-center justify-between mt-4">
                       <div className="text-sm text-muted-foreground">
                         Showing {((offersPagination.page - 1) * 10) + 1} to {Math.min(offersPagination.page * 10, offersPagination.total)} of {offersPagination.total} offers
                       </div>
                       <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => fetchOffers(offersPagination.page - 1)} 
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fetchOffers(offersPagination.page - 1)}
                           disabled={offersPagination.page <= 1}
                         >
                           Previous
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => fetchOffers(offersPagination.page + 1)} 
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fetchOffers(offersPagination.page + 1)}
                           disabled={offersPagination.page >= offersPagination.totalPages}
                         >
                           Next

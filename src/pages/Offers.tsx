@@ -3,22 +3,22 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog';
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -37,9 +37,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { 
-  Edit as EditIcon, 
-  Trash2 as DeleteIcon, 
+import {
+  Edit as EditIcon,
+  Trash2 as DeleteIcon,
   Plus as PlusIcon,
   Search as SearchIcon,
   Calendar as CalendarIcon,
@@ -64,13 +64,8 @@ interface Offer {
   usageLimit?: number;
   usedCount: number;
   isActive: boolean;
-  createdBy?: string;
-  metadata?: {
-    title?: string;
-    description?: string;
-    categoryIds?: number[];
-    subcategoryNames?: string[];
-  };
+  title?: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,11 +89,12 @@ const Offers: React.FC = () => {
     const fetchOffers = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/admin/offers');
-        
+        const response = await api.get('/admin/offers-admin');
+
         if (response.data.success) {
-          setOffers(response.data.offers);
-          setFilteredOffers(response.data.offers);
+          const offersData = response.data.data?.offers || [];
+          setOffers(offersData);
+          setFilteredOffers(offersData);
         }
       } catch (error) {
         console.error('Error fetching offers:', error);
@@ -122,8 +118,8 @@ const Offers: React.FC = () => {
     if (searchTerm) {
       result = result.filter(offer =>
         offer.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        offer.metadata?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        offer.metadata?.description?.toLowerCase().includes(searchTerm.toLowerCase())
+        offer.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        offer.description?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -157,14 +153,14 @@ const Offers: React.FC = () => {
     if (!currentOffer || !token) return;
 
     try {
-      const response = await api.delete(`/admin/offers/${currentOffer.id}`);
-      
+      const response = await api.delete(`/admin/offers-admin/${currentOffer.id}`);
+
       if (response.data.success) {
         // Update local state to remove the offer
         const updatedOffers = offers.filter(offer => offer.id !== currentOffer.id);
         setOffers(updatedOffers);
         setFilteredOffers(updatedOffers);
-        
+
         toast({
           title: 'Offer deleted',
           description: `Offer "${currentOffer.code}" has been deleted successfully.`,
@@ -185,15 +181,16 @@ const Offers: React.FC = () => {
 
   const handleSaveChanges = async (updatedOffer: Offer) => {
     try {
-      const response = await api.put(`/admin/offers/${updatedOffer.id}`, updatedOffer);
-      
+      // Ensure we use the offers-admin endpoint
+      const response = await api.put(`/admin/offers-admin/${updatedOffer.id}`, updatedOffer);
+
       if (response.data.success) {
         // Update local state
-        const updatedOffers = offers.map(offer => 
+        const updatedOffers = offers.map(offer =>
           offer.id === updatedOffer.id ? updatedOffer : offer
         );
         setOffers(updatedOffers);
-        
+
         toast({
           title: 'Offer updated',
           description: `Offer "${updatedOffer.code}" has been updated successfully.`,
@@ -266,7 +263,7 @@ const Offers: React.FC = () => {
                   <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
-              
+
               <div>
                 <label htmlFor="status" className="block text-sm font-medium mb-2">
                   Status
@@ -282,10 +279,10 @@ const Offers: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="flex items-end">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setSearchTerm('');
                     setFilterStatus('all');
@@ -327,7 +324,7 @@ const Offers: React.FC = () => {
                       {(currentItems && currentItems.length > 0) ? (
                         currentItems.map((offer) => {
                           const daysRemaining = calculateDaysRemaining(offer.validUntil);
-                          
+
                           return (
                             <TableRow key={offer.id}>
                               <TableCell className="font-medium">
@@ -337,9 +334,9 @@ const Offers: React.FC = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="font-medium">{offer.metadata?.title}</div>
+                                <div className="font-medium">{offer.title}</div>
                                 <div className="text-sm text-muted-foreground truncate max-w-xs">
-                                  {offer.metadata?.description}
+                                  {offer.description}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -507,11 +504,11 @@ interface EditOfferDialogProps {
   onSave: (updatedOffer: Offer) => void;
 }
 
-const EditOfferDialog: React.FC<EditOfferDialogProps> = ({ 
-  isOpen, 
-  onClose, 
-  offer, 
-  onSave 
+const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
+  isOpen,
+  onClose,
+  offer,
+  onSave
 }) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState<Offer>(offer);
@@ -550,7 +547,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Edit Offer</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -561,11 +558,11 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Discount Type</label>
-              <Select 
-                value={formData.discountType} 
+              <Select
+                value={formData.discountType}
                 onValueChange={(value: 'percentage' | 'fixed') => handleChange('discountType', value)}
               >
                 <SelectTrigger>
@@ -577,7 +574,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Discount Value</label>
               <Input
@@ -587,11 +584,11 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Status</label>
-              <Select 
-                value={formData.isActive.toString()} 
+              <Select
+                value={formData.isActive.toString()}
                 onValueChange={(value) => handleChange('isActive', value === 'true')}
               >
                 <SelectTrigger>
@@ -603,7 +600,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Valid From</label>
               <Input
@@ -612,16 +609,16 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
                 onChange={(e) => handleChange('validFrom', e.target.value + ':00.000Z')}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Valid Until</label>
               <Input
-                type="datetime-local"
-                value={formData.validUntil.substring(0, 16)}
-                onChange={(e) => handleChange('validUntil', e.target.value + ':00.000Z')}
+                type="date"
+                value={formData.validUntil ? formData.validUntil.substring(0, 10) : ''}
+                onChange={(e) => handleChange('validUntil', e.target.value)}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Min Order Amount</label>
               <Input
@@ -630,7 +627,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
                 onChange={(e) => handleChange('minOrderAmount', e.target.value ? parseFloat(e.target.value) : undefined)}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Max Discount Amount</label>
               <Input
@@ -639,7 +636,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
                 onChange={(e) => handleChange('maxDiscountAmount', e.target.value ? parseFloat(e.target.value) : undefined)}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Usage Limit</label>
               <Input
@@ -649,7 +646,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
               />
             </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">Title</label>
             <Input
@@ -663,7 +660,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
               }}
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">Description</label>
             <Input
@@ -677,7 +674,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
               }}
             />
           </div>
-          
+
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, Fragment } from "react";
-import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Eye, Upload, X, Image as ImageIcon, Folder } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Eye, Upload, X, Image as ImageIcon, Folder, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -109,7 +109,81 @@ const getImageUrl = (path: string) => {
     return `${apiBase}/uploads/${cleanPath}`;
   }
 };
+
+const PriceInput = ({ product, onUpdate }: { product: Product, onUpdate: (id: number, price: number) => Promise<void> }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(product.price.toString());
+  const hasChanged = parseFloat(value) !== product.price;
+
+  useEffect(() => {
+    setValue(product.price.toString());
+  }, [product.price]);
+
+  const handleSave = async () => {
+    if (hasChanged) {
+      await onUpdate(product.id, parseFloat(value));
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setValue(product.price.toString());
+    setIsEditing(false);
+  };
+
+  if (!isEditing) {
+    return (
+      <div
+        className="flex items-center gap-1 group/price cursor-pointer py-1 px-2 -ml-2 rounded hover:bg-muted/50 transition-colors inline-flex"
+        onClick={() => setIsEditing(true)}
+      >
+        <span className="text-foreground font-semibold">₹{product.price}</span>
+        <Edit className="w-3 h-3 text-muted-foreground opacity-0 group-hover/price:opacity-100 transition-opacity" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 min-w-[140px] animate-in fade-in slide-in-from-left-2 duration-200">
+      <span className="text-muted-foreground text-xs">₹</span>
+      <Input
+        type="number"
+        value={value}
+        autoFocus
+        className="h-8 w-20 text-xs font-bold border-primary ring-1 ring-primary/20"
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSave();
+          else if (e.key === 'Escape') handleCancel();
+        }}
+      />
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+          onClick={handleSave}
+        >
+          <Check className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/5 rounded-full"
+          onClick={handleCancel}
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+import { useSearchParams } from "react-router-dom";
+
 const Products = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCategoryId = searchParams.get('category');
+
   // State
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [allProducts, setAllProducts] = useState<Product[]>([]); // To maintain counts in cards
@@ -121,23 +195,15 @@ const Products = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Filtering state
-  const [filterCategory, setFilterCategory] = useState<number | null>(null);
+  const [filterCategory, setFilterCategory] = useState<number | null>(urlCategoryId ? parseInt(urlCategoryId) : null);
   const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
 
-  // Form State
-  const [formData, setFormData] = useState<Omit<Product, 'id'>>({
-    name: "",
-    category: "",
-    categoryId: 0,
-    subcategory: "",
-    price: 0,
-    pricingType: "fixed",
-    unit: "kg",
-    stock: 0,
-    images: [],
-    isActive: true,
-    image: "",
-  });
+  // Update filterCategory when URL changes
+  useEffect(() => {
+    if (urlCategoryId) {
+      setFilterCategory(parseInt(urlCategoryId));
+    }
+  }, [urlCategoryId]);
 
   // Fetch Data
   const fetchProducts = async (subId?: string | null) => {
@@ -178,10 +244,23 @@ const Products = () => {
 
   useEffect(() => {
     // Only fetch from specific API if subcategory is selected
-    // If only category is selected, we could use the category API or stay with client filtering
-    // Given the user request, we specifically target the subcategory API integration
     fetchProducts(filterSubcategory);
   }, [filterSubcategory]);
+
+  // Form State
+  const [formData, setFormData] = useState<Omit<Product, 'id'>>({
+    name: "",
+    category: "",
+    categoryId: 0,
+    subcategory: "",
+    price: 0,
+    pricingType: "fixed",
+    unit: "kg",
+    stock: 0,
+    images: [],
+    isActive: true,
+    image: "",
+  });
 
   const selectedCategoryObj = categories.find(c => c.id === formData.categoryId);
   const availableSubcategories = selectedCategoryObj?.subcategories || [];
@@ -245,6 +324,21 @@ const Products = () => {
         setFormData({ ...formData, image: reader.result as string });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePriceUpdate = async (id: number, newPrice: number) => {
+    try {
+      const response = await api.patch(`/admin/products/${id}/price`, { price: newPrice });
+      if (response.data.success) {
+        toast.success("Price updated successfully");
+        // Update local state to reflect the change
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, price: newPrice } : p));
+        setAllProducts(prev => prev.map(p => p.id === id ? { ...p, price: newPrice } : p));
+      }
+    } catch (error) {
+      console.error("Error updating price:", error);
+      toast.error("Failed to update price");
     }
   };
 
@@ -516,7 +610,9 @@ const Products = () => {
                               return sub ? sub.name : product.subcategory;
                             })() : ''}
                           </TableCell>
-                          <TableCell className="font-semibold">₹{product.price}</TableCell>
+                          <TableCell className="font-semibold px-2">
+                            <PriceInput product={product} onUpdate={handlePriceUpdate} />
+                          </TableCell>
                           <TableCell className="hidden md:table-cell">
                             <span className={cn(
                               "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-500 border border-blue-500/20"
