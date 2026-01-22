@@ -608,7 +608,7 @@ const Orders = () => {
       // Add total row for this specific item with different background color
       tableData.push([
         { content: 'TOTAL', styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
-        { content: '', styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }, // Empty cell for client
+        { content: `Clients: ${item.clients.length}`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }, // Client count in second column
         { content: `${item.totalQuantity} kg`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
       ]);
     });
@@ -643,6 +643,16 @@ const Orders = () => {
           if (Array.isArray(row) && row[0] && typeof row[0] === 'object' && row[0].content === 'TOTAL') {
             data.cell.styles.fillColor = [220, 220, 220];
             data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        
+          // For empty item name cells (continuation of previous item), hide borders to make them appear as one continuous cell
+        if (data.section === 'body' && data.row.index < tableData.length && data.column.index === 0) {
+          const row = tableData[data.row.index];
+          if (Array.isArray(row) && typeof row[0] === 'string' && row[0] === '') {
+            // Make the cell appear transparent by hiding its border and setting similar background
+            data.cell.styles.lineWidth = 0; // Remove borders
+            data.cell.styles.fillColor = false; // No fill color
           }
         }
       }
