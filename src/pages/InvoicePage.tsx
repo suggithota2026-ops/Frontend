@@ -96,8 +96,6 @@ const InvoicePage: React.FC = () => {
             { content: `Clients: ${item.clients.length}`, styles: { fontStyle: 'bold' } },
             { content: `${item.totalQuantity} kg`, styles: { fontStyle: 'bold' } }
           ]);
-          // Add separator
-          tableData.push(['', '', '']);
         });
 
         // Generate table
