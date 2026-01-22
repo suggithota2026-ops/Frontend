@@ -573,13 +573,13 @@ const Orders = () => {
     // Professional header section
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
+    doc.setTextColor(0, 0, 0); // Pure black
     doc.text("TODAY'S ORDERS SUMMARY", 105, 22, { align: 'center' });
 
     // Subtitle with date and order count
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
+    doc.setTextColor(0, 0, 0); // Pure black
     doc.text(`Date: ${data.date}  |  Total Orders: ${data.totalOrders}`, 20, 32);
 
     // Prepare table data - rearrange to Item Name, Client, Quantity
@@ -592,7 +592,7 @@ const Orders = () => {
         if (index === 0) {
           // For the first client of an item, include the item name with enhanced styling
           tableData.push({
-            item: { content: item.itemName, styles: { fontStyle: 'bold', textColor: [30, 30, 30] } },
+            item: { content: item.itemName, styles: { fontStyle: 'bold', textColor: [0, 0, 0] } },
             client: client.clientName,
             quantity: `${client.quantity} kg`
           });
@@ -608,9 +608,9 @@ const Orders = () => {
       
       // Add total row for this specific item with subtle background
       tableData.push({
-        item: { content: 'TOTAL', styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [60, 60, 60] } },
-        client: { content: item.itemName, styles: { fillColor: [240, 240, 240], fontStyle: 'normal', textColor: [80, 80, 80] } },
-        quantity: { content: `${item.totalQuantity} kg`, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [60, 60, 60] } }
+        item: { content: 'TOTAL', styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } },
+        client: { content: item.itemName, styles: { fillColor: [240, 240, 240], fontStyle: 'normal', textColor: [0, 0, 0] } },
+        quantity: { content: `${item.totalQuantity} kg`, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
       });
     });
 
@@ -622,7 +622,7 @@ const Orders = () => {
       theme: 'plain',
       headStyles: {
         fillColor: [230, 240, 250], // Light blue header
-        textColor: [40, 40, 40],
+        textColor: [0, 0, 0], // Pure black
         fontStyle: 'bold',
         halign: 'center',
         valign: 'middle',
@@ -632,7 +632,7 @@ const Orders = () => {
       bodyStyles: {
         fontSize: 8,
         cellPadding: 2, // Reduced padding for compact look
-        textColor: [50, 50, 50],
+        textColor: [0, 0, 0], // Pure black
         valign: 'middle'
       },
       styles: {
@@ -667,7 +667,7 @@ const Orders = () => {
             if (typeof row.item === 'object' && row.item.content === 'TOTAL') {
               data.cell.styles.fillColor = [240, 240, 240];
               data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.textColor = [60, 60, 60];
+              data.cell.styles.textColor = [0, 0, 0];
             }
           }
         }
