@@ -81,17 +81,19 @@ const InvoicePage: React.FC = () => {
         // Prepare table data
         const tableData: any[] = [];
         data.summary.forEach((item: any) => {
+          let firstClient = true;
           item.clients.forEach((client: any) => {
             tableData.push([
               client.clientName,
-              item.itemName,
+              firstClient ? { content: item.itemName, rowSpan: item.clients.length } : {},
               `${client.quantity} kg`
             ]);
+            firstClient = false;
           });
           // Add total row for each item
           tableData.push([
             { content: 'TOTAL', styles: { fontStyle: 'bold' } },
-            { content: item.itemName, styles: { fontStyle: 'bold' } },
+            { content: `Clients: ${item.clients.length}`, styles: { fontStyle: 'bold' } },
             { content: `${item.totalQuantity} kg`, styles: { fontStyle: 'bold' } }
           ]);
           // Add separator
