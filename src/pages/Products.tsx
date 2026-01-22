@@ -52,7 +52,6 @@ interface Category {
 }
 
 // Types
-type PricingType = 'daily' | 'weekly' | 'fixed';
 type ProductStatus = 'active' | 'inactive' | 'archived';
 
 interface Product {
@@ -62,7 +61,6 @@ interface Product {
   categoryId: number;
   subcategory?: string;
   price: number;
-  pricingType: PricingType;
   unit: string;
   stock: number;
   images: string[];
@@ -254,7 +252,6 @@ const Products = () => {
     categoryId: 0,
     subcategory: "",
     price: 0,
-    pricingType: "fixed",
     unit: "kg",
     stock: 0,
     images: [],
@@ -274,7 +271,6 @@ const Products = () => {
       categoryId: 0,
       subcategory: "",
       price: 0,
-      pricingType: "fixed",
       unit: "kg",
       stock: 0,
       images: [],
@@ -350,7 +346,6 @@ const Products = () => {
       formDataToSend.append('category', formData.categoryId.toString());
       if (formData.subcategory) formDataToSend.append('subcategory', formData.subcategory);
       formDataToSend.append('price', formData.price.toString());
-      formDataToSend.append('pricingType', formData.pricingType);
       formDataToSend.append('unit', formData.unit);
       formDataToSend.append('stock', formData.stock.toString());
       formDataToSend.append('isActive', formData.isActive.toString());
@@ -548,7 +543,6 @@ const Products = () => {
                 <TableHead className="hidden sm:table-cell">Category</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead className="hidden md:table-cell">Min Qty</TableHead>
-                <TableHead>Pricing</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -620,11 +614,7 @@ const Products = () => {
                               Min: {product.stock} {product.unit || 'Units'}
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <span className="capitalize text-xs font-medium text-muted-foreground border border-border px-2 py-0.5 rounded shadow-sm">
-                              {product.pricingType}
-                            </span>
-                          </TableCell>
+
                           <TableCell>
                             <Switch
                               checked={product.isActive}
@@ -809,22 +799,6 @@ const Products = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="pricingType">Pricing Type</Label>
-                    <Select
-                      value={formData.pricingType}
-                      onValueChange={(value: PricingType) => setFormData({ ...formData, pricingType: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily Price</SelectItem>
-                        <SelectItem value="weekly">Weekly Fixed</SelectItem>
-                        <SelectItem value="fixed">Fixed Price</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
                     <Label htmlFor="unit">Unit</Label>
                     <Select
                       value={formData.unit}
@@ -869,9 +843,6 @@ const Products = () => {
                     <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
                   </div>
                 )}
-                <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/60 text-white text-xs font-medium capitalize backdrop-blur-sm">
-                  {currentProduct.pricingType} Pricing
-                </div>
               </div>
 
               <div>
