@@ -24,6 +24,7 @@ export interface Order {
     };
     items: OrderItem[];
     subtotal: number;
+    deliveryCharge?: number;
     totalAmount: number;
     total?: number; // For compatibility
     status: string;
@@ -31,6 +32,7 @@ export interface Order {
     date?: string;
     specialInstructions?: string;
     remarks?: string;
+    paymentMethod?: string;
 }
 
 interface InvoiceTemplateProps {
@@ -100,10 +102,10 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                         <div>#{order.id}</div>
 
                         <div className="font-semibold text-gray-600">Payment Mode:</div>
-                        <div>Credit / Cash</div>
+                        <div className="uppercase font-bold">{order.paymentMethod || 'COD'}</div>
 
                         <div className="font-semibold text-gray-600">Remarks:</div>
-                        <div className="truncate max-w-[100px]" title={getRemarks()}>{getRemarks()}</div>
+                        <div className="whitespace-pre-wrap break-words max-w-[180px]" title={getRemarks()}>{getRemarks()}</div>
                     </div>
                 </div>
             </div>
@@ -156,7 +158,11 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                 <div className="w-1/2">
                     <div className="flex justify-between border-b border-gray-300 py-2">
                         <span className="font-semibold text-sm">Sub Total</span>
-                        <span className="text-sm">₹{getTotal().toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-sm">₹{(order.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-300 py-2">
+                        <span className="font-semibold text-sm">Delivery Charge</span>
+                        <span className="text-sm">₹{(order.deliveryCharge || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between border-b border-gray-300 py-2">
                         <span className="font-semibold text-sm">CGST (0%)</span>

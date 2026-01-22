@@ -74,6 +74,7 @@ interface Order {
   hotel?: Hotel;
   items: OrderItem[];
   subtotal: number;
+  deliveryCharge: number;
   totalAmount: number;
   status: string;
   createdAt: string;
@@ -85,6 +86,7 @@ interface Order {
   date?: string;
   total?: number;
   remarks?: string;
+  paymentMethod?: string;
 }
 
 const Orders = () => {
@@ -99,6 +101,8 @@ const Orders = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [todaysOrdersData, setTodaysOrdersData] = useState<any>(null);
   const [isExportLoading, setIsExportLoading] = useState(false);
+  const [editingDeliveryId, setEditingDeliveryId] = useState<number | null>(null);
+  const [tempDeliveryCharge, setTempDeliveryCharge] = useState<string>("");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -130,8 +134,10 @@ const Orders = () => {
         day: 'numeric',
       }),
       total: parseFloat(order.totalAmount.toString()),
+      deliveryCharge: parseFloat(order.deliveryCharge?.toString() || "0"),
       items: transformedItems,
       remarks: order.specialInstructions || order.remarks,
+      paymentMethod: order.paymentMethod,
     };
   };
 
@@ -236,6 +242,45 @@ const Orders = () => {
     }
   };
 
+  const handleUpdateDeliveryCharge = async (orderId: number) => {
+    try {
+      const charge = parseFloat(tempDeliveryCharge);
+      if (isNaN(charge)) {
+        toast.error("Invalid delivery charge");
+        return;
+      }
+
+      const response = await api.patch(`/admin/orders/${orderId}/status`, {
+        deliveryCharge: charge,
+      });
+
+      if (response.data.success) {
+        toast.success("Delivery charge updated");
+        setEditingDeliveryId(null);
+        fetchOrders();
+      }
+    } catch (error: any) {
+      console.error("Error updating delivery charge:", error);
+      toast.error(error.response?.data?.message || "Failed to update delivery charge");
+    }
+  };
+
+  const handlePaymentMethodChange = async (orderId: number, method: string) => {
+    try {
+      const response = await api.patch(`/admin/orders/${orderId}/status`, {
+        paymentMethod: method,
+      });
+
+      if (response.data.success) {
+        toast.success(`Payment mode updated to ${method.toUpperCase()}`);
+        fetchOrders();
+      }
+    } catch (error: any) {
+      console.error("Error updating payment mode:", error);
+      toast.error(error.response?.data?.message || "Failed to update payment mode");
+    }
+  };
+
   /* import html2canvas from 'html2canvas'; import jsPDF from 'jspdf'; import { createRoot } from 'react-dom/client'; import InvoiceTemplate from '@/components/invoice/InvoiceTemplate'; */
 
   const handleDownloadInvoice = async (order: Order) => {
@@ -317,6 +362,7 @@ const Orders = () => {
       "Status",
       "Delivery Team",
       "Products",
+      "Delivery Charge",
       "Total Amount"
     ].join(",");
 
@@ -336,6 +382,7 @@ const Orders = () => {
         formatStatus(order.status),
         `"${driverName}"`,
         `"${products}"`,
+        (order.deliveryCharge || 0).toFixed(2),
         (order.total || order.totalAmount || 0).toFixed(2)
       ].join(",");
     });
@@ -613,6 +660,8 @@ const Orders = () => {
                 <TableHead>Client</TableHead>
                 <TableHead className="hidden md:table-cell">Date</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead>Delivery Charge</TableHead>
+                <TableHead>Payment Mode</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="min-w-[180px]">Delivery Team (Internal)</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -645,6 +694,45 @@ const Orders = () => {
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">{order.date}</TableCell>
                     <TableCell>₹{order.total?.toLocaleString()}</TableCell>
+                    <TableCell onDoubleClick={() => {
+                      setEditingDeliveryId(order.id);
+                      setTempDeliveryCharge(order.deliveryCharge.toString());
+                    }}>
+                      {editingDeliveryId === order.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={tempDeliveryCharge}
+                            onChange={(e) => setTempDeliveryCharge(e.target.value)}
+                            onBlur={() => handleUpdateDeliveryCharge(order.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleUpdateDeliveryCharge(order.id);
+                              if (e.key === 'Escape') setEditingDeliveryId(null);
+                            }}
+                            className="w-20 h-8"
+                            autoFocus
+                          />
+                        </div>
+                      ) : (
+                        <span className="cursor-pointer hover:bg-muted/50 px-2 py-1 rounded">
+                          ₹{order.deliveryCharge?.toLocaleString() || "0"}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={order.paymentMethod || "cod"}
+                        onValueChange={(val) => handlePaymentMethodChange(order.id, val)}
+                      >
+                        <SelectTrigger className="w-[100px] h-8 text-xs font-bold uppercase">
+                          <SelectValue>{order.paymentMethod || 'COD'}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cod">COD</SelectItem>
+                          <SelectItem value="credit">CREDIT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={order.status}
@@ -738,6 +826,14 @@ const Orders = () => {
                   <span className="text-xs text-muted-foreground uppercase">Delivery Driver</span>
                   <p className="font-medium capitalize">{selectedOrder.assignedTo ? (drivers.find(d => d.id === selectedOrder.assignedTo)?.name || selectedOrder.assignedTo) : "Unassigned"}</p>
                 </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground uppercase">Payment Mode</span>
+                  <p className="font-bold uppercase">{selectedOrder.paymentMethod || 'COD'}</p>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <span className="text-xs text-muted-foreground uppercase">Remarks</span>
+                  <p className="font-medium whitespace-pre-wrap">{selectedOrder.remarks || '-'}</p>
+                </div>
               </div>
 
               <div className="border rounded-lg p-4 bg-muted/30">
@@ -750,9 +846,19 @@ const Orders = () => {
                     </div>
                   ))}
 
-                  <div className="border-t pt-2 mt-2 flex justify-between font-bold text-base">
-                    <span>Total</span>
-                    <span>₹{(selectedOrder.total || selectedOrder.totalAmount || 0).toLocaleString()}</span>
+                  <div className="border-t pt-2 mt-2 space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal</span>
+                      <span>₹{(selectedOrder.subtotal || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-primary font-medium">
+                      <span>Delivery Charge</span>
+                      <span>₹{(selectedOrder.deliveryCharge || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-base pt-1">
+                      <span>Total</span>
+                      <span>₹{(selectedOrder.total || selectedOrder.totalAmount || 0).toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
               </div>

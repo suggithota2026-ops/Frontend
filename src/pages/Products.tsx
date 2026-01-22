@@ -306,10 +306,22 @@ const Products = () => {
     }
   };
 
-  const handleToggleStatus = (id: number) => {
-    setProducts(products.map(p =>
-      p.id === id ? { ...p, isActive: !p.isActive } : p
-    ));
+  const handleToggleStatus = async (id: number, currentStatus: string) => {
+    const newStatus = (currentStatus === 'active' || currentStatus === 'active_legacy') ? 'out_of_stock' : 'active';
+    try {
+      const response = await api.put(`/admin/products/${id}`, {
+        status: newStatus
+      });
+
+      if (response.data.success) {
+        toast.success(`Product is now ${newStatus === 'active' ? 'Active' : 'Out of Stock'}`);
+        // Fetch products to refresh local state from server
+        fetchProducts(filterSubcategory);
+      }
+    } catch (error) {
+      console.error("Error toggling product status:", error);
+      toast.error("Failed to update status");
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -616,11 +628,16 @@ const Products = () => {
                           </TableCell>
 
                           <TableCell>
-                            <Switch
-                              checked={product.isActive}
-                              onCheckedChange={() => handleToggleStatus(product.id)}
-                              className="scale-90"
-                            />
+                            <div className="flex flex-col gap-1.5">
+                              <Switch
+                                checked={(product as any).status === 'active' || (product as any).status === 'active_legacy'}
+                                onCheckedChange={() => handleToggleStatus(product.id, (product as any).status || 'active')}
+                                className="scale-90"
+                              />
+                              {(product as any).status === 'out_of_stock' && (
+                                <span className="text-[10px] font-bold text-destructive uppercase tracking-tight animate-pulse">Out of Stock</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <DropdownMenu>
