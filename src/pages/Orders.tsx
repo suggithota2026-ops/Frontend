@@ -588,21 +588,29 @@ const Orders = () => {
     data.summary.forEach((item: any) => {
       // Add each client's order for this item
       item.clients.forEach((client: any, index: number) => {
-        tableData.push([
-          item.itemName,
-          client.clientName,
-          `${client.quantity} kg`
-        ]);
+        if (index === 0) {
+          // For the first client of an item, include the item name
+          tableData.push([
+            item.itemName,
+            client.clientName,
+            `${client.quantity} kg`
+          ]);
+        } else {
+          // For subsequent clients of the same item, leave item name empty
+          tableData.push([
+            '', // Empty cell for item name since it's the same item
+            client.clientName,
+            `${client.quantity} kg`
+          ]);
+        }
       });
       
       // Add total row for this specific item with different background color
-      tableData.push({
-        cells: {
-          0: { content: 'TOTAL', styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
-          1: { content: item.itemName, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
-          2: { content: `${item.totalQuantity} kg`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
-        }
-      });
+      tableData.push([
+        { content: 'TOTAL', styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
+        { content: '', styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }, // Empty cell for client
+        { content: `${item.totalQuantity} kg`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
+      ]);
     });
 
     // Generate table
@@ -626,11 +634,16 @@ const Orders = () => {
         1: { cellWidth: 70 },
         2: { cellWidth: 40, halign: 'right' }
       },
-      // Style for the total row
+      // Style for the total row and item grouping
       didParseCell: function(data) {
-        if (data.row.index === tableData.length - 1) {
-          data.cell.styles.fillColor = [220, 220, 220];
-          data.cell.styles.fontStyle = 'bold';
+        // Apply special styling to total rows
+        if (data.section === 'body' && data.row.index < tableData.length) {
+          const row = tableData[data.row.index];
+          // Check if this is a total row (has object with content property)
+          if (Array.isArray(row) && row[0] && typeof row[0] === 'object' && row[0].content === 'TOTAL') {
+            data.cell.styles.fillColor = [220, 220, 220];
+            data.cell.styles.fontStyle = 'bold';
+          }
         }
       }
     });
