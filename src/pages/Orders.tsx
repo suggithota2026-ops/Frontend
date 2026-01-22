@@ -584,22 +584,9 @@ const Orders = () => {
     // Prepare table data - rearrange to Item Name, Client, Quantity
     const tableData: any[] = [];
     
-    // Calculate overall totals
-    let totalUniqueClients = 0;
-    let totalQuantity = 0;
-    
-    // Collect all unique clients and calculate total quantities
-    const allClientsSet = new Set<string>();
+    // Add each item with its clients and total row
     data.summary.forEach((item: any) => {
-      item.clients.forEach((client: any) => {
-        allClientsSet.add(client.clientName);
-      });
-      totalQuantity += item.totalQuantity;
-    });
-    totalUniqueClients = allClientsSet.size;
-    
-    // Add each item with its clients
-    data.summary.forEach((item: any) => {
+      // Add each client's order for this item
       item.clients.forEach((client: any, index: number) => {
         tableData.push([
           item.itemName,
@@ -607,15 +594,15 @@ const Orders = () => {
           `${client.quantity} kg`
         ]);
       });
-    });
-    
-    // Add total row with different background color
-    tableData.push({
-      cells: {
-        0: { content: `TOTAL CLIENTS: ${totalUniqueClients}`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
-        1: { content: `TOTAL ITEMS: ${data.summary.length}`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
-        2: { content: `TOTAL QTY: ${totalQuantity} kg`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
-      }
+      
+      // Add total row for this specific item with different background color
+      tableData.push({
+        cells: {
+          0: { content: 'TOTAL', styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
+          1: { content: item.itemName, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
+          2: { content: `${item.totalQuantity} kg`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
+        }
+      });
     });
 
     // Generate table
