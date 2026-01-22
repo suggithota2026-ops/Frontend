@@ -92,7 +92,7 @@ const InvoicePage: React.FC = () => {
           });
           // Add total row for each item
           tableData.push([
-            { content: `TOTAL (Clients: ${item.clients.length})`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left' } },
+            { content: 'TOTAL', colSpan: 2, styles: { fontStyle: 'bold', halign: 'left' } },
             { content: `${item.totalQuantity} kg`, styles: { fontStyle: 'bold' } }
           ]);
         });
