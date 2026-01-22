@@ -35,6 +35,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import api from "@/api/axios";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { generateOrdersReportPDF } from '@/utils/pdfExport';
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg
@@ -99,8 +102,11 @@ const Orders = () => {
   const [isClientOrdersOpen, setIsClientOrdersOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
   const [todaysOrdersData, setTodaysOrdersData] = useState<any>(null);
   const [isExportLoading, setIsExportLoading] = useState(false);
+  const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [editingDeliveryId, setEditingDeliveryId] = useState<number | null>(null);
   const [tempDeliveryCharge, setTempDeliveryCharge] = useState<string>("");
   const [pagination, setPagination] = useState({
@@ -110,7 +116,23 @@ const Orders = () => {
     pages: 0,
   });
 
-  // Mock drivers (can be replaced with API call later)
+  const getStatusColor = (status: string) => {
+    const statusLower = status?.toLowerCase() || "";
+    switch (statusLower) {
+      case "delivered": return "bg-green-500/10 text-green-500 hover:bg-green-500/20";
+      case "pending": return "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20";
+      case "confirmed": return "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20";
+      case "dispatched": return "bg-purple-500/10 text-purple-500 hover:bg-purple-500/20";
+      case "cancelled": return "bg-red-500/10 text-red-500 hover:bg-red-500/20";
+      default: return "bg-gray-500/10 text-gray-500";
+    }
+  };
+
+  const formatStatus = (status: string) => {
+    if (!status) return "";
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+  };
+
   // State for drivers
   const [drivers, setDrivers] = useState<any[]>([]);
 
@@ -351,62 +373,111 @@ const Orders = () => {
     }
   };
 
-  const handleExportAll = () => {
-    toast.info("Exporting all orders...");
+  const handleExportAll = async () => {
+    setIsExportLoading(true);
+    toast.info("Preparing export data...");
 
-    // Create CSV header
-    const csvHeader = [
-      "Order ID",
-      "Client",
-      "Date",
-      "Status",
-      "Delivery Team",
-      "Products",
-      "Delivery Charge",
-      "Total Amount"
-    ].join(",");
+    try {
+      // Fetch ALL orders matching filters (high limit)
+      const params: any = {
+        page: 1,
+        limit: 5000, // Large enough to get all matching orders
+      };
+      if (statusFilter !== "all") {
+        params.status = statusFilter.toLowerCase();
+      }
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
 
-    // Create CSV rows
-    const csvRows = orders.map(order => {
-      const products = order.items
-        ? order.items.map((item: any) => `${item.name || item.productName} (${item.quantity})`).join("; ")
-        : "N/A";
-      const driverName = order.assignedTo
-        ? (drivers.find(d => d.id === order.assignedTo)?.name || order.assignedTo)
-        : "Unassigned";
+      const response = await api.get("/admin/orders", { params });
 
-      return [
-        order.id,
-        `"${order.customer || `Hotel #${order.hotelId}`}"`,
-        order.date || new Date(order.createdAt).toLocaleDateString(),
-        formatStatus(order.status),
-        `"${driverName}"`,
-        `"${products}"`,
-        (order.deliveryCharge || 0).toFixed(2),
-        (order.total || order.totalAmount || 0).toFixed(2)
-      ].join(",");
-    });
+      if (!response.data.success) {
+        throw new Error("Failed to fetch data for export");
+      }
 
-    // Combine header and rows
-    const csvContent = [csvHeader, ...csvRows].join("\n");
+      const allOrders = response.data.data.orders.map(transformOrder);
 
-    // Add UTF-8 BOM to force Windows to open in Notepad instead of associated CSV app
-    const BOM = '\uFEFF';
-    const csvContentWithBOM = BOM + csvContent;
+      // Validation: Check if orders exist
+      if (allOrders.length === 0) {
+        toast.error("No orders found for the selected date range.");
+        return;
+      }
 
-    // Create and download file
-    // Using text/plain MIME type with UTF-8 BOM so it opens in Notepad
-    const blob = new Blob([csvContentWithBOM], { type: 'text/plain;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const date = new Date().toISOString().split('T')[0];
-    a.download = `All_Orders_${date}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    toast.success("All orders exported successfully!");
+      // Generate PDF report
+      const doc = new jsPDF('landscape', 'mm', 'a4'); // Use landscape mode for more columns
+      
+      // Title
+      doc.setFontSize(20);
+      doc.text('ORDERS REPORT', 105, 20, { align: 'center' });
+      
+      // Date range info
+      doc.setFontSize(12);
+      doc.text(`Date Range: ${startDate} to ${endDate}`, 20, 35);
+      doc.text(`Total Orders: ${allOrders.length}`, 20, 42);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 49);
+      
+      // Prepare table data
+      const tableData = allOrders.map((order: any) => {
+        const products = order.items
+          ? order.items.map((item: any) => `${item.name || item.productName} (${item.quantity})`).join("; ")
+          : "N/A";
+        const driverName = order.assignedTo
+          ? (drivers.find((d: any) => d.id === order.assignedTo)?.name || order.assignedTo)
+          : "Unassigned";
+          
+        return [
+          order.id,
+          order.customer || `Hotel #${order.hotelId}`,
+          order.date || new Date(order.createdAt).toLocaleDateString('en-GB'), // Use consistent date format
+          formatStatus(order.status),
+          driverName,
+          products,
+          `Rs ${(order.deliveryCharge || 0).toFixed(2)}`,
+          `Rs ${(order.total || 0).toFixed(2)}`
+        ];
+      });
+
+      // Generate table
+      autoTable(doc, {
+        startY: 60,
+        head: [['ID', 'Client', 'Date', 'Status', 'Delivery Team', 'Products', 'Delivery (Rs)', 'Total (Rs)']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold',
+          halign: 'center',
+          fontSize: 9
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+          overflow: 'linebreak',
+          valign: 'top'
+        },
+        columnStyles: {
+          0: { cellWidth: 15 },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 60 },
+          6: { cellWidth: 25, halign: 'right' },
+          7: { cellWidth: 25, halign: 'right' }
+        }
+      });
+
+      // Save the PDF
+      doc.save(`orders_report_${startDate}_to_${endDate}.pdf`);
+
+      toast.success(`Exported ${allOrders.length} orders successfully!`);
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export orders");
+    } finally {
+      setIsExportLoading(false);
+    }
   };
 
   const fetchTodaysOrders = async () => {
@@ -425,7 +496,7 @@ const Orders = () => {
     }
   };
 
-  const handleExportTodaysOrders = async (format: 'csv' | 'excel' | 'pdf') => {
+  const handleExportTodaysOrders = async (format: 'csv' | 'pdf') => {
     if (!todaysOrdersData) return;
 
     setIsExportLoading(true);
@@ -433,9 +504,6 @@ const Orders = () => {
       switch (format) {
         case 'csv':
           exportToCSV(todaysOrdersData);
-          break;
-        case 'excel':
-          exportToExcel(todaysOrdersData);
           break;
         case 'pdf':
           exportToPDF(todaysOrdersData);
@@ -499,44 +567,65 @@ const Orders = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const exportToExcel = (data: any) => {
-    // For now, fall back to CSV since we don't have xlsx library installed
-    // In a real implementation, you'd use a library like xlsx
-    exportToCSV(data);
-    toast.info("Excel export not available, falling back to CSV");
-  };
-
   const exportToPDF = (data: any) => {
-    // Create PDF content
-    let pdfContent = `TODAY'S ORDERS SUMMARY\n`;
-    pdfContent += `Date: ${data.date}\n`;
-    pdfContent += `Total Orders: ${data.totalOrders}\n\n`;
+    const doc = new jsPDF();
 
-    pdfContent += "Client Name".padEnd(30) + "| " + "Item Name".padEnd(25) + "| " + "Quantity".padEnd(15) + "\n";
-    pdfContent += "-".repeat(80) + "\n";
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("TODAY'S ORDERS SUMMARY", 105, 20, { align: 'center' });
 
+    // Date and Total Orders
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date: ${data.date}`, 20, 35);
+    doc.text(`Total Orders: ${data.totalOrders}`, 20, 42);
+
+    // Prepare table data
+    const tableData: any[] = [];
     data.summary.forEach((item: any) => {
-      item.clients.forEach((client: any) => {
-        pdfContent += client.clientName.padEnd(30) + "| " +
-          item.itemName.padEnd(25) + "| " +
-          `${client.quantity} kg`.padEnd(15) + "\n";
+      item.clients.forEach((client: any, index: number) => {
+        tableData.push([
+          client.clientName,
+          item.itemName,
+          `${client.quantity} kg`
+        ]);
       });
-      pdfContent += "-".repeat(45) + "|" + "-".repeat(27) + "|" + "-".repeat(15) + "\n";
-      pdfContent += "Total".padEnd(30) + "| " +
-        item.itemName.padEnd(25) + "| " +
-        `${item.totalQuantity} kg`.padEnd(15) + "\n\n";
+      // Add total row for each item
+      tableData.push([
+        { content: 'TOTAL', styles: { fontStyle: 'bold' } },
+        { content: item.itemName, styles: { fontStyle: 'bold' } },
+        { content: `${item.totalQuantity} kg`, styles: { fontStyle: 'bold' } }
+      ]);
+      // Add separator
+      tableData.push(['', '', '']);
     });
 
-    // Create and download file
-    const blob = new Blob([pdfContent], { type: 'text/plain;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Todays_Orders_${data.date}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    // Generate table
+    autoTable(doc, {
+      startY: 50,
+      head: [['Client Name', 'Item Name', 'Quantity']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      styles: {
+        fontSize: 10,
+        cellPadding: 5
+      },
+      columnStyles: {
+        0: { cellWidth: 70 },
+        1: { cellWidth: 70 },
+        2: { cellWidth: 40, halign: 'right' }
+      }
+    });
+
+    // Save the PDF
+    doc.save(`Todays_Orders_${data.date}.pdf`);
   };
 
 
@@ -561,22 +650,6 @@ const Orders = () => {
     return matchesSearch;
   });
 
-  const getStatusColor = (status: string) => {
-    const statusLower = status.toLowerCase();
-    switch (statusLower) {
-      case "delivered": return "bg-green-500/10 text-green-500 hover:bg-green-500/20";
-      case "pending": return "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20";
-      case "confirmed": return "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20";
-      case "dispatched": return "bg-purple-500/10 text-purple-500 hover:bg-purple-500/20";
-      case "cancelled": return "bg-red-500/10 text-red-500 hover:bg-red-500/20";
-      default: return "bg-gray-500/10 text-gray-500";
-    }
-  };
-
-  const formatStatus = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -586,9 +659,9 @@ const Orders = () => {
           <p className="text-muted-foreground">Process orders, assign drivers, and manage invoices</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handleExportAll}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={() => setIsRangeModalOpen(true)}>
             <Download className="w-4 h-4" />
-            Export All
+            Export Report
           </Button>
           <Button variant="default" className="gap-2 w-full sm:w-auto bg-primary hover:bg-primary/90" onClick={fetchTodaysOrders} disabled={isExportLoading}>
             <Download className="w-4 h-4" />
@@ -609,6 +682,7 @@ const Orders = () => {
               className="pl-10"
             />
           </div>
+          <div className="flex-1" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Filter by status" />
@@ -976,23 +1050,12 @@ const Orders = () => {
                   <Button
                     variant="outline"
                     className="h-16 flex flex-col gap-1 items-center justify-center"
-                    onClick={() => handleExportTodaysOrders('excel')}
-                    disabled={isExportLoading}
-                  >
-                    <Table className="w-5 h-5" />
-                    <span>Excel</span>
-                    <span className="text-xs text-muted-foreground">Spreadsheet</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="h-16 flex flex-col gap-1 items-center justify-center"
                     onClick={() => handleExportTodaysOrders('pdf')}
                     disabled={isExportLoading}
                   >
                     <FileText className="w-5 h-5" />
-                    <span>PDF/TXT</span>
-                    <span className="text-xs text-muted-foreground">Text Format</span>
+                    <span>PDF</span>
+                    <span className="text-xs text-muted-foreground">Formatted Document</span>
                   </Button>
                 </div>
               </div>
@@ -1004,6 +1067,58 @@ const Orders = () => {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Range Export Modal */}
+      <Dialog open={isRangeModalOpen} onOpenChange={setIsRangeModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Export Orders Report</DialogTitle>
+            <DialogDescription>
+              Select a date range to download a complete report of orders.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <span className="text-sm font-medium">From</span>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <span className="text-sm font-medium">To</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRangeModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleExportAll();
+                setIsRangeModalOpen(false);
+              }}
+              disabled={isExportLoading}
+              className="gap-2"
+            >
+              {isExportLoading ? "Processing..." : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Download Report (PDF)
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
