@@ -92,8 +92,9 @@ const InvoicePage: React.FC = () => {
           });
           // Add total row for each item
           tableData.push([
-            { content: 'TOTAL', colSpan: 2, styles: { fontStyle: 'bold', halign: 'left' } },
-            { content: `${item.totalQuantity} kg`, styles: { fontStyle: 'bold' } }
+            { content: 'TOTAL', colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [230, 230, 230] } },
+            {},
+            { content: `${item.totalQuantity} kg`, styles: { fontStyle: 'bold', fillColor: [230, 230, 230] } }
           ]);
         });
 
