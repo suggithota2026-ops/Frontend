@@ -590,28 +590,28 @@ const Orders = () => {
       // Add each client's order for this item
       item.clients.forEach((client: any, index: number) => {
         if (index === 0) {
-          // For the first client of an item, include the item name with enhanced styling
-          tableData.push({
-            item: { content: item.itemName, styles: { fontStyle: 'bold', textColor: [0, 0, 0] } },
-            client: client.clientName,
-            quantity: `${client.quantity} kg`
-          });
+          // For the first client of an item, include the item name
+          tableData.push([
+            item.itemName,
+            client.clientName,
+            `${client.quantity} kg`
+          ]);
         } else {
-          // For subsequent clients of the same item, leave item name empty for visual merging
-          tableData.push({
-            item: '',
-            client: client.clientName,
-            quantity: `${client.quantity} kg`
-          });
+          // For subsequent clients of the same item, leave item name empty
+          tableData.push([
+            '', // Empty cell for item name since it's the same item
+            client.clientName,
+            `${client.quantity} kg`
+          ]);
         }
       });
       
-      // Add total row for this specific item with subtle background
-      tableData.push({
-        item: { content: 'TOTAL', styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } },
-        client: { content: item.itemName, styles: { fillColor: [240, 240, 240], fontStyle: 'normal', textColor: [0, 0, 0] } },
-        quantity: { content: `${item.totalQuantity} kg`, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
-      });
+      // Add total row for this specific item with different background color
+      tableData.push([
+        { content: 'TOTAL', styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } },
+        { content: item.itemName, styles: { fillColor: [240, 240, 240], fontStyle: 'normal', textColor: [0, 0, 0] } },
+        { content: `${item.totalQuantity} kg`, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
+      ]);
     });
 
     // Generate enhanced table with professional styling
@@ -641,15 +641,15 @@ const Orders = () => {
         lineColor: [220, 220, 220]
       },
       columnStyles: {
-        item: { 
+        0: { 
           cellWidth: 65,
           fontStyle: 'bold'
         },
-        client: { 
+        1: { 
           cellWidth: 85,
           fontStyle: 'normal'
         },
-        quantity: { 
+        2: { 
           cellWidth: 35, 
           halign: 'right',
           fontStyle: 'normal'
@@ -657,26 +657,22 @@ const Orders = () => {
       },
       // Style for the total row and item grouping
       didParseCell: function(data) {
-        // Handle total rows
-        if (data.section === 'body') {
-          const rowIndex = data.row.index;
-          if (rowIndex < tableData.length) {
-            const row = tableData[rowIndex];
-            
-            // Check if this is a total row
-            if (typeof row.item === 'object' && row.item.content === 'TOTAL') {
-              data.cell.styles.fillColor = [240, 240, 240];
-              data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.textColor = [0, 0, 0];
-            }
+        // Apply special styling to total rows
+        if (data.section === 'body' && data.row.index < tableData.length) {
+          const row = tableData[data.row.index];
+          // Check if this is a total row (has object with content property)
+          if (Array.isArray(row) && row[0] && typeof row[0] === 'object' && row[0].content === 'TOTAL') {
+            data.cell.styles.fillColor = [240, 240, 240];
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.textColor = [0, 0, 0];
           }
         }
         
-        // Handle merged item name cells (empty cells)
+        // For empty item name cells (continuation of previous item), adjust styling to make them appear as one continuous cell
         if (data.section === 'body' && data.row.index < tableData.length && data.column.index === 0) {
           const row = tableData[data.row.index];
-          if (row.item === '') {
-            // Make continuation cells appear merged
+          if (Array.isArray(row) && typeof row[0] === 'string' && row[0] === '') {
+            // Make the cell appear as part of the merged item
             data.cell.styles.lineWidth = { right: 0.1, top: 0, bottom: 0, left: 0.1 };
             data.cell.styles.fillColor = [255, 255, 255]; // White background
           }
