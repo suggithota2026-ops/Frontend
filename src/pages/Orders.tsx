@@ -570,16 +570,17 @@ const Orders = () => {
   const exportToPDF = (data: any) => {
     const doc = new jsPDF();
 
-    // Title
-    doc.setFontSize(18);
+    // Professional header section
     doc.setFont('helvetica', 'bold');
-    doc.text("TODAY'S ORDERS SUMMARY", 105, 20, { align: 'center' });
+    doc.setFontSize(20);
+    doc.setTextColor(40, 40, 40);
+    doc.text("TODAY'S ORDERS SUMMARY", 105, 22, { align: 'center' });
 
-    // Date and Total Orders
-    doc.setFontSize(11);
+    // Subtitle with date and order count
     doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${data.date}`, 20, 35);
-    doc.text(`Total Orders: ${data.totalOrders}`, 20, 42);
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Date: ${data.date}  |  Total Orders: ${data.totalOrders}`, 20, 32);
 
     // Prepare table data - rearrange to Item Name, Client, Quantity
     const tableData: any[] = [];
@@ -589,77 +590,111 @@ const Orders = () => {
       // Add each client's order for this item
       item.clients.forEach((client: any, index: number) => {
         if (index === 0) {
-          // For the first client of an item, include the item name
-          tableData.push([
-            item.itemName,
-            client.clientName,
-            `${client.quantity} kg`
-          ]);
+          // For the first client of an item, include the item name with enhanced styling
+          tableData.push({
+            item: { content: item.itemName, styles: { fontStyle: 'bold', textColor: [30, 30, 30] } },
+            client: client.clientName,
+            quantity: `${client.quantity} kg`
+          });
         } else {
-          // For subsequent clients of the same item, leave item name empty
-          tableData.push([
-            '', // Empty cell for item name since it's the same item
-            client.clientName,
-            `${client.quantity} kg`
-          ]);
+          // For subsequent clients of the same item, leave item name empty for visual merging
+          tableData.push({
+            item: '',
+            client: client.clientName,
+            quantity: `${client.quantity} kg`
+          });
         }
       });
       
-      // Add total row for this specific item with different background color
-      tableData.push([
-        { content: 'TOTAL', styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
-        { content: `Clients: ${item.clients.length}`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }, // Client count in second column
-        { content: `${item.totalQuantity} kg`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
-      ]);
+      // Add total row for this specific item with subtle background
+      tableData.push({
+        item: { content: 'TOTAL', styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [60, 60, 60] } },
+        client: { content: item.itemName, styles: { fillColor: [240, 240, 240], fontStyle: 'normal', textColor: [80, 80, 80] } },
+        quantity: { content: `${item.totalQuantity} kg`, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [60, 60, 60] } }
+      });
     });
 
-    // Generate table
+    // Generate enhanced table with professional styling
     autoTable(doc, {
-      startY: 50,
+      startY: 40,
       head: [['Item Name', 'Client', 'Quantity']],
       body: tableData,
-      theme: 'grid',
+      theme: 'plain',
       headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
+        fillColor: [230, 240, 250], // Light blue header
+        textColor: [40, 40, 40],
         fontStyle: 'bold',
-        halign: 'center'
+        halign: 'center',
+        valign: 'middle',
+        fontSize: 9,
+        cellPadding: 3
+      },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: 2, // Reduced padding for compact look
+        textColor: [50, 50, 50],
+        valign: 'middle'
       },
       styles: {
-        fontSize: 10,
-        cellPadding: 5
+        font: 'helvetica',
+        lineWidth: 0.1, // Thin borders
+        lineColor: [220, 220, 220]
       },
       columnStyles: {
-        0: { cellWidth: 70 },
-        1: { cellWidth: 70 },
-        2: { cellWidth: 40, halign: 'right' }
+        item: { 
+          cellWidth: 65,
+          fontStyle: 'bold'
+        },
+        client: { 
+          cellWidth: 85,
+          fontStyle: 'normal'
+        },
+        quantity: { 
+          cellWidth: 35, 
+          halign: 'right',
+          fontStyle: 'normal'
+        }
       },
       // Style for the total row and item grouping
       didParseCell: function(data) {
-        // Apply special styling to total rows
-        if (data.section === 'body' && data.row.index < tableData.length) {
-          const row = tableData[data.row.index];
-          // Check if this is a total row (has object with content property)
-          if (Array.isArray(row) && row[0] && typeof row[0] === 'object' && row[0].content === 'TOTAL') {
-            data.cell.styles.fillColor = [220, 220, 220];
-            data.cell.styles.fontStyle = 'bold';
+        // Handle total rows
+        if (data.section === 'body') {
+          const rowIndex = data.row.index;
+          if (rowIndex < tableData.length) {
+            const row = tableData[rowIndex];
+            
+            // Check if this is a total row
+            if (typeof row.item === 'object' && row.item.content === 'TOTAL') {
+              data.cell.styles.fillColor = [240, 240, 240];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.textColor = [60, 60, 60];
+            }
           }
         }
         
-          // For empty item name cells (continuation of previous item), hide borders to make them appear as one continuous cell
+        // Handle merged item name cells (empty cells)
         if (data.section === 'body' && data.row.index < tableData.length && data.column.index === 0) {
           const row = tableData[data.row.index];
-          if (Array.isArray(row) && typeof row[0] === 'string' && row[0] === '') {
-            // Make the cell appear transparent by hiding its border and setting similar background
-            data.cell.styles.lineWidth = 0; // Remove borders
-            data.cell.styles.fillColor = false; // No fill color
+          if (row.item === '') {
+            // Make continuation cells appear merged
+            data.cell.styles.lineWidth = { right: 0.1, top: 0, bottom: 0, left: 0.1 };
+            data.cell.styles.fillColor = [255, 255, 255]; // White background
           }
         }
-      }
+        
+        // Ensure proper text alignment
+        if (data.column.index === 2) { // Quantity column
+          data.cell.styles.halign = 'right';
+        }
+      },
+      // Reduce row spacing
+      margin: { top: 40 },
+      tableLineWidth: 0.1,
+      tableLineColor: [200, 200, 200]
     });
 
-    // Save the PDF
-    doc.save(`Todays_Orders_${data.date}.pdf`);
+    // Save with descriptive filename
+    doc.save(`Todays_Orders_Summary_${data.date}.pdf`);
   };
 
 
