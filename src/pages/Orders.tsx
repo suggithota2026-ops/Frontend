@@ -631,7 +631,7 @@ const Orders = () => {
       },
       bodyStyles: {
         fontSize: 8,
-        cellPadding: 2, // Reduced padding for compact look
+        cellPadding: { left: 3, right: 3, top: 2, bottom: 2 }, // Consistent padding for all cells
         textColor: [0, 0, 0], // Pure black
         valign: 'middle'
       },
@@ -652,7 +652,8 @@ const Orders = () => {
         2: { 
           cellWidth: 35, 
           halign: 'right',
-          fontStyle: 'normal'
+          fontStyle: 'normal',
+          cellPadding: { left: 5, right: 8, top: 2, bottom: 2 }
         }
       },
       // Style for the total row and item grouping
