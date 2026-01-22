@@ -581,30 +581,47 @@ const Orders = () => {
     doc.text(`Date: ${data.date}`, 20, 35);
     doc.text(`Total Orders: ${data.totalOrders}`, 20, 42);
 
-    // Prepare table data
+    // Prepare table data - rearrange to Item Name, Client, Quantity
     const tableData: any[] = [];
+    
+    // Calculate overall totals
+    let totalUniqueClients = 0;
+    let totalQuantity = 0;
+    
+    // Collect all unique clients and calculate total quantities
+    const allClientsSet = new Set<string>();
+    data.summary.forEach((item: any) => {
+      item.clients.forEach((client: any) => {
+        allClientsSet.add(client.clientName);
+      });
+      totalQuantity += item.totalQuantity;
+    });
+    totalUniqueClients = allClientsSet.size;
+    
+    // Add each item with its clients
     data.summary.forEach((item: any) => {
       item.clients.forEach((client: any, index: number) => {
         tableData.push([
-          client.clientName,
           item.itemName,
+          client.clientName,
           `${client.quantity} kg`
         ]);
       });
-      // Add total row for each item
-      tableData.push([
-        { content: 'TOTAL', styles: { fontStyle: 'bold' } },
-        { content: item.itemName, styles: { fontStyle: 'bold' } },
-        { content: `${item.totalQuantity} kg`, styles: { fontStyle: 'bold' } }
-      ]);
-      // Add separator
-      tableData.push(['', '', '']);
+    });
+    
+    // Add total row with different background color
+    tableData.push({
+      cells: {
+        0: { content: `TOTAL CLIENTS: ${totalUniqueClients}`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
+        1: { content: `TOTAL ITEMS: ${data.summary.length}`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } },
+        2: { content: `TOTAL QTY: ${totalQuantity} kg`, styles: { fillColor: [220, 220, 220], fontStyle: 'bold' } }
+      }
     });
 
     // Generate table
     autoTable(doc, {
       startY: 50,
-      head: [['Client Name', 'Item Name', 'Quantity']],
+      head: [['Item Name', 'Client', 'Quantity']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -621,6 +638,13 @@ const Orders = () => {
         0: { cellWidth: 70 },
         1: { cellWidth: 70 },
         2: { cellWidth: 40, halign: 'right' }
+      },
+      // Style for the total row
+      didParseCell: function(data) {
+        if (data.row.index === tableData.length - 1) {
+          data.cell.styles.fillColor = [220, 220, 220];
+          data.cell.styles.fontStyle = 'bold';
+        }
       }
     });
 
