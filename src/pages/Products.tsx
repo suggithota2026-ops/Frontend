@@ -885,10 +885,10 @@ const Products = () => {
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground uppercase tracking-wider">Minimum Order Quantity</span>
-                  <p className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1">
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="font-medium">{currentProduct.stock} {currentProduct.unit || 'units'}</span>
-                  </p>
+                  </div>
                 </div>
               </div>
 
