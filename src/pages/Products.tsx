@@ -74,9 +74,18 @@ const initialProducts: Product[] = [];
 const getImageUrl = (path: string) => {
   if (!path) return "";
   if (path.startsWith('data:')) return path; // Base64 images
-  if (path.startsWith('http')) return path; // Full URLs
+  
+  // Check if it's already a Cloudinary URL or other external URL
+  if (path.startsWith('http')) {
+    // If it's a Cloudinary URL, return as is
+    if (path.includes('cloudinary.com')) {
+      return path;
+    }
+    return path; // Return other full URLs as is
+  }
 
-  const cleanPath = path.replace(/^uploads\//, '');
+  // Handle local file paths
+  const cleanPath = path.replace(/^uploads\//, '').replace(/^\/uploads\//, '');
   const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   if (isDev) {

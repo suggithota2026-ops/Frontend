@@ -10,6 +10,7 @@ import { Upload, X, Edit3, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -320,6 +321,9 @@ const Brands: React.FC = () => {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Brand</DialogTitle>
+              <DialogDescription>
+                Enter the brand name and upload a logo for the new brand.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -412,6 +416,9 @@ const Brands: React.FC = () => {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Brand</DialogTitle>
+              <DialogDescription>
+                Update the brand name or logo as needed.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">

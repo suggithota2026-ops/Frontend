@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { TopNavbar } from "@/components/dashboard/TopNavbar";
 import { Menu } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -22,6 +22,8 @@ export function DashboardLayout() {
       {/* Mobile Sidebar Sheet */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="p-0 w-64 bg-sidebar">
+          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+          <SheetDescription className="sr-only">Mobile navigation menu for the admin panel</SheetDescription>
           <DashboardSidebar 
             collapsed={false} 
             onCollapse={() => {}} 

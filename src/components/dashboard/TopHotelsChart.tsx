@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 type HotelDataPoint = {
@@ -30,6 +30,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function TopHotelsChart({ data = [] }: { data?: any[] }) {
     const [range, setRange] = useState<RangeKey>("monthly");
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const chartData = useMemo(() => {
         return data.map(h => ({
@@ -46,6 +51,8 @@ export function TopHotelsChart({ data = [] }: { data?: any[] }) {
             : range === "monthly"
                 ? "Revenue performance by client · This month"
                 : "Revenue performance by client · This year";
+
+    const hasData = activeData && activeData.length > 0;
 
     return (
         <div className="dashboard-card animate-fade-in relative overflow-hidden bg-white border border-border/60 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
@@ -74,46 +81,58 @@ export function TopHotelsChart({ data = [] }: { data?: any[] }) {
                     ))}
                 </div>
             </div>
-            <div className="relative h-[320px] w-full bg-white">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={activeData}
-                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                        barCategoryGap={32}
-                    >
-                        <CartesianGrid
-                            strokeDasharray="3 3"
-                            vertical={false}
-                            stroke="hsl(var(--muted-foreground) / 0.15)"
-                        />
-                        <XAxis
-                            dataKey="name"
-                            stroke="hsl(var(--muted-foreground))"
-                            fontSize={12}
-                            tickLine={false}
-                            axisLine={false}
-                            dy={10}
-                        />
-                        <YAxis
-                            stroke="hsl(var(--muted-foreground))"
-                            fontSize={12}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(value) => `₹${value / 1000}k`}
-                        />
-                        <Tooltip
-                            content={<CustomTooltip />}
-                            cursor={{ fill: "transparent" }}
-                        />
-                        <Bar
-                            dataKey="total"
-                            radius={[10, 10, 4, 4]}
-                            animationDuration={900}
-                            fill={BAR_COLOR}
-                            className="transition-all"
-                        />
-                    </BarChart>
-                </ResponsiveContainer>
+            <div className="relative h-[320px] w-full bg-white min-w-[300px]">
+                {isMounted && hasData ? (
+                    <div className="w-full h-full min-h-[320px] min-w-[300px]">
+                        <ResponsiveContainer width="100%" height={300} minWidth={300} minHeight={320}>
+                            <BarChart
+                                data={activeData}
+                                margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+                                barCategoryGap={32}
+                            >
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    vertical={false}
+                                    stroke="hsl(var(--muted-foreground) / 0.15)"
+                                />
+                                <XAxis
+                                    dataKey="name"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    dy={10}
+                                />
+                                <YAxis
+                                    stroke="hsl(var(--muted-foreground))"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `₹${value / 1000}k`}
+                                />
+                                <Tooltip
+                                    content={<CustomTooltip />}
+                                    cursor={{ fill: "transparent" }}
+                                />
+                                <Bar
+                                    dataKey="total"
+                                    radius={[10, 10, 4, 4]}
+                                    animationDuration={900}
+                                    fill={BAR_COLOR}
+                                    className="transition-all"
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : isMounted && !hasData ? (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <p>No data available</p>
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="animate-pulse bg-muted rounded w-full h-full min-h-[320px]" />
+                    </div>
+                )}
             </div>
         </div>
     );

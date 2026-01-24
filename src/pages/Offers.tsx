@@ -16,7 +16,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -66,6 +67,14 @@ interface Offer {
   isActive: boolean;
   title?: string;
   description?: string;
+  metadata?: {
+    offerTitle?: string;
+    offerDescription?: string;
+    categoryIds?: number[];
+    subcategoryNames?: string[];
+    originalValidUntil?: string;
+    [key: string]: any;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -119,7 +128,9 @@ const Offers: React.FC = () => {
       result = result.filter(offer =>
         offer.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
         offer.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        offer.description?.toLowerCase().includes(searchTerm.toLowerCase())
+        offer.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        offer.metadata?.offerTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        offer.metadata?.offerDescription?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -334,9 +345,9 @@ const Offers: React.FC = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="font-medium">{offer.title}</div>
+                                <div className="font-medium">{offer.title || offer.metadata?.offerTitle || offer.code}</div>
                                 <div className="text-sm text-muted-foreground truncate max-w-xs">
-                                  {offer.description}
+                                  {offer.description || offer.metadata?.offerDescription}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -615,7 +626,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
               <Input
                 type="date"
                 value={formData.validUntil ? formData.validUntil.substring(0, 10) : ''}
-                onChange={(e) => handleChange('validUntil', e.target.value)}
+                onChange={(e) => handleChange('validUntil', e.target.value + 'T23:59:59.000Z')}
               />
             </div>
 
@@ -650,11 +661,11 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
           <div>
             <label className="block text-sm font-medium mb-1">Title</label>
             <Input
-              value={formData.metadata?.title || ''}
+              value={formData.metadata?.offerTitle || ''}
               onChange={(e) => {
                 const newMetadata = {
                   ...formData.metadata,
-                  title: e.target.value
+                  offerTitle: e.target.value
                 };
                 handleChange('metadata', newMetadata);
               }}
@@ -664,11 +675,11 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
           <div>
             <label className="block text-sm font-medium mb-1">Description</label>
             <Input
-              value={formData.metadata?.description || ''}
+              value={formData.metadata?.offerDescription || ''}
               onChange={(e) => {
                 const newMetadata = {
                   ...formData.metadata,
-                  description: e.target.value
+                  offerDescription: e.target.value
                 };
                 handleChange('metadata', newMetadata);
               }}

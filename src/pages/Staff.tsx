@@ -50,7 +50,7 @@ const Staff = () => {
         password: "",
         name: "",
         mobileNumber: "",
-        role: "staff",
+        role: "STAFF",
         isActive: true,
     });
 
@@ -77,7 +77,7 @@ const Staff = () => {
             password: "",
             name: "",
             mobileNumber: "",
-            role: "ADMIN",
+            role: "STAFF",
             isActive: true
         });
         setIsDialogOpen(true);
@@ -269,17 +269,30 @@ const Staff = () => {
                                 placeholder="9876543210"
                             />
                         </div>
+                        {!currentStaff && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="password">Password (Required)</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    placeholder="Enter password"
+                                />
+                            </div>
+                        )}
                         <div className="grid gap-2">
                             <Label htmlFor="role">Role</Label>
                             <Select
                                 value={formData.role}
                                 onValueChange={(value) => setFormData({ ...formData, role: value })}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="role">
                                     <SelectValue placeholder="Select a role" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ADMIN">Admin</SelectItem>
+                                    <SelectItem value="STAFF">Staff</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
