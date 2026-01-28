@@ -37,7 +37,7 @@ const LoginPage: React.FC = () => {
         setIsLoading(true);
         try {
             const response = await api.post('/admin/auth/send-otp', { mobileNumber });
-            const { otp } = response.data.data;
+            const { code } = response.data.data;
             setStep('otp');
             toast({
                 title: "OTP Sent",
@@ -45,7 +45,7 @@ const LoginPage: React.FC = () => {
                     <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
                         <p className="text-sm text-foreground mb-1">Verification code sent to {mobileNumber}</p>
                         <p className="text-2xl font-bold tracking-[0.5em] text-primary">
-                            {otp}
+                            {code}
                         </p>
                     </div>
                 ),
@@ -98,14 +98,14 @@ const LoginPage: React.FC = () => {
         setIsResending(true);
         try {
             const response = await api.post('/admin/auth/resend-otp', { mobileNumber });
-            const { otp } = response.data.data;
+            const { code } = response.data.data;
             toast({
                 title: "OTP Resent",
                 description: (
                     <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
                         <p className="text-sm text-foreground mb-1">New verification code sent to {mobileNumber}</p>
                         <p className="text-2xl font-bold tracking-[0.5em] text-primary">
-                            {otp}
+                            {code}
                         </p>
                     </div>
                 ),
