@@ -104,6 +104,7 @@ const Settings = () => {
 
       const payload = {
         name: fullName,
+        username: profileData.username,
         mobileNumber: profileData.phone,
         email: profileData.email,
         bio: profileData.bio,
@@ -293,8 +294,8 @@ const Settings = () => {
                       <Input
                         id="username"
                         value={profileData.username}
-                        disabled
-                        className="bg-muted/50 text-muted-foreground border-transparent"
+                        onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
+                        className="bg-white"
                       />
                     </div>
 
@@ -304,9 +305,10 @@ const Settings = () => {
                         <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="email"
+                          type="email"
                           value={profileData.email}
-                          disabled
-                          className="pl-9 bg-muted/50 text-muted-foreground border-transparent"
+                          onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                          className="pl-9 bg-white"
                         />
                       </div>
                     </div>
