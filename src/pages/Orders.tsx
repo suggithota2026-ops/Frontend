@@ -270,13 +270,16 @@ const Orders = () => {
         return;
       }
 
-      await api.patch(`/admin/orders/${orderId}/status`, {
-        status: order.status, // Keep current status
-        assignedTo: driverId,
+      // ONLY update assignedTo, don't send status to avoid validation issues with case/enum
+      const response = await api.patch(`/admin/orders/${orderId}/status`, {
+        assignedTo: driverId.toString(),
       });
-      const driverName = drivers.find(d => d.id === driverId)?.name || driverId;
-      toast.success(`Assigned ${driverName} to order ${orderId}`);
-      fetchOrders(); // Refresh orders
+
+      if (response.data.success) {
+        const driverName = drivers.find(d => d.id.toString() === driverId.toString())?.name || driverId;
+        toast.success(`Assigned ${driverName} to order ${orderId}`);
+        fetchOrders(); // Refresh orders
+      }
     } catch (error: any) {
       console.error("Error assigning driver:", error);
       toast.error(error.response?.data?.message || "Failed to assign driver");
@@ -989,7 +992,7 @@ const Orders = () => {
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={order.assignedTo || "unassigned"}
+                        value={order.assignedTo?.toString() || "unassigned"}
                         onValueChange={(val) => handleAssignDriver(order.id.toString(), val)}
                       >
                         <SelectTrigger className="w-[180px] h-8 text-xs">
@@ -1001,7 +1004,7 @@ const Orders = () => {
                         <SelectContent>
                           <SelectItem value="unassigned" disabled>Select Driver</SelectItem>
                           {drivers.map(d => (
-                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                            <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -1065,7 +1068,7 @@ const Orders = () => {
                 </div>
                 <div className="space-y-1">
                   <span className="text-xs text-muted-foreground uppercase">Delivery Driver</span>
-                  <p className="font-medium capitalize">{selectedOrder.assignedTo ? (drivers.find(d => d.id === selectedOrder.assignedTo)?.name || selectedOrder.assignedTo) : "Unassigned"}</p>
+                  <p className="font-medium capitalize">{selectedOrder.assignedTo ? (drivers.find(d => d.id.toString() === selectedOrder.assignedTo.toString())?.name || selectedOrder.assignedTo) : "Unassigned"}</p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-xs text-muted-foreground uppercase">Payment Mode</span>
@@ -1204,7 +1207,7 @@ const Orders = () => {
                     <SelectContent>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
                       {drivers.map(d => (
-                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
