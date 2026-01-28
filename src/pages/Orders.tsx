@@ -136,8 +136,10 @@ const Orders = () => {
     return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
   };
 
-  // State for drivers
+  // State for drivers and hotels
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [hotels, setHotels] = useState<any[]>([]);
+  const [selectedExportHotel, setSelectedExportHotel] = useState<string>("all");
 
   // Transform API order to UI format
   const transformOrder = (order: any): Order => {
@@ -197,6 +199,19 @@ const Orders = () => {
     }
   };
 
+  const fetchHotels = async () => {
+    try {
+      const response = await api.get("/admin/hotels", {
+        params: { limit: 1000 } // Fetch all hotels for dropdown
+      });
+      if (response.data.success) {
+        setHotels(response.data.data.hotels);
+      }
+    } catch (error) {
+      console.error("Error fetching hotels:", error);
+    }
+  };
+
   const fetchDrivers = async () => {
     try {
       const response = await api.get("/admin/drivers");
@@ -211,6 +226,7 @@ const Orders = () => {
   useEffect(() => {
     fetchOrders();
     fetchDrivers();
+    fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, statusFilter]);
 
@@ -466,6 +482,9 @@ const Orders = () => {
       }
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
+      if (selectedExportHotel !== "all") {
+        params.hotel = selectedExportHotel;
+      }
 
       const response = await api.get("/admin/orders", { params });
 
@@ -1400,6 +1419,24 @@ const Orders = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <span className="text-sm font-medium">Customer</span>
+              <div className="col-span-3">
+                <Select value={selectedExportHotel} onValueChange={setSelectedExportHotel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Customers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Customers</SelectItem>
+                    {hotels.map((hotel) => (
+                      <SelectItem key={hotel.id} value={hotel.id.toString()}>
+                        {hotel.hotelName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <span className="text-sm font-medium">From</span>
               <Input
