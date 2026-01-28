@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Eye, Download, MoreHorizontal, Truck, FileText } from "lucide-react";
+import { Search, Filter, Eye, Download, MoreHorizontal, Truck, FileText, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -115,6 +116,8 @@ const Orders = () => {
     total: 0,
     pages: 0,
   });
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>(null);
 
   const getStatusColor = (status: string) => {
     const statusLower = status?.toLowerCase() || "";
@@ -303,6 +306,81 @@ const Orders = () => {
     }
   };
 
+  const handleEditOrder = (order: Order) => {
+    setEditFormData({
+      id: order.id,
+      status: order.status,
+      deliveryCharge: order.deliveryCharge,
+      paymentMethod: order.paymentMethod || 'cod',
+      assignedTo: order.assignedTo || 'unassigned',
+      remarks: order.remarks || '',
+      items: order.items.map(item => ({
+        productId: item.productId,
+        productName: item.name || item.productName,
+        quantity: item.quantity,
+        unitPrice: item.price || item.unitPrice,
+        totalPrice: item.amount || item.totalPrice,
+      })),
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEditedOrder = async () => {
+    if (!editFormData) return;
+
+    try {
+      // Update order details
+      const updatePayload = {
+        status: editFormData.status,
+        deliveryCharge: parseFloat(editFormData.deliveryCharge),
+        paymentMethod: editFormData.paymentMethod,
+        assignedTo: editFormData.assignedTo === 'unassigned' ? null : editFormData.assignedTo,
+        specialInstructions: editFormData.remarks,
+        items: editFormData.items.map((item: any) => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: parseFloat(item.quantity),
+          unitPrice: parseFloat(item.unitPrice),
+          totalPrice: parseFloat(item.quantity) * parseFloat(item.unitPrice)
+        })),
+      };
+
+      const response = await api.put(`/admin/orders/${editFormData.id}`, updatePayload);
+
+      if (response.data.success) {
+        toast.success("Order updated successfully!");
+        setIsEditOpen(false);
+        setEditFormData(null);
+        fetchOrders();
+      }
+    } catch (error: any) {
+      console.error("Error updating order:", error);
+      toast.error(error.response?.data?.message || "Failed to update order");
+    }
+  };
+
+  const handleEditItemChange = (index: number, field: string, value: any) => {
+    if (!editFormData) return;
+
+    const updatedItems = [...editFormData.items];
+    updatedItems[index] = {
+      ...updatedItems[index],
+      [field]: value,
+    };
+
+    // Recalculate total price for the item
+    if (field === 'quantity' || field === 'unitPrice') {
+      const quantity = field === 'quantity' ? parseFloat(value) : updatedItems[index].quantity;
+      const unitPrice = field === 'unitPrice' ? parseFloat(value) : updatedItems[index].unitPrice;
+      updatedItems[index].totalPrice = quantity * unitPrice;
+    }
+
+    setEditFormData({
+      ...editFormData,
+      items: updatedItems,
+    });
+  };
+
   /* import html2canvas from 'html2canvas'; import jsPDF from 'jspdf'; import { createRoot } from 'react-dom/client'; import InvoiceTemplate from '@/components/invoice/InvoiceTemplate'; */
 
   const handleDownloadInvoice = async (order: Order) => {
@@ -405,17 +483,17 @@ const Orders = () => {
 
       // Generate PDF report
       const doc = new jsPDF('landscape', 'mm', 'a4'); // Use landscape mode for more columns
-      
+
       // Title
       doc.setFontSize(20);
       doc.text('ORDERS REPORT', 105, 20, { align: 'center' });
-      
+
       // Date range info
       doc.setFontSize(12);
       doc.text(`Date Range: ${startDate} to ${endDate}`, 20, 35);
       doc.text(`Total Orders: ${allOrders.length}`, 20, 42);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 49);
-      
+
       // Prepare table data
       const tableData = allOrders.map((order: any) => {
         const products = order.items
@@ -424,7 +502,7 @@ const Orders = () => {
         const driverName = order.assignedTo
           ? (drivers.find((d: any) => d.id === order.assignedTo)?.name || order.assignedTo)
           : "Unassigned";
-          
+
         return [
           order.id,
           order.customer || `Hotel #${order.hotelId}`,
@@ -584,7 +662,7 @@ const Orders = () => {
 
     // Prepare table data - rearrange to Item Name, Client, Quantity
     const tableData: any[] = [];
-    
+
     // Add each item with its clients and total row
     data.summary.forEach((item: any) => {
       // Add each client's order for this item
@@ -605,7 +683,7 @@ const Orders = () => {
           ]);
         }
       });
-      
+
       // Add total row for this specific item with different background color
       tableData.push([
         { content: 'TOTAL', styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } },
@@ -641,23 +719,23 @@ const Orders = () => {
         lineColor: [220, 220, 220]
       },
       columnStyles: {
-        0: { 
+        0: {
           cellWidth: 65,
           fontStyle: 'bold'
         },
-        1: { 
+        1: {
           cellWidth: 85,
           fontStyle: 'normal'
         },
-        2: { 
-          cellWidth: 35, 
+        2: {
+          cellWidth: 35,
           halign: 'right',
           fontStyle: 'normal',
           cellPadding: { left: 5, right: 8, top: 2, bottom: 2 }
         }
       },
       // Style for the total row and item grouping
-      didParseCell: function(data) {
+      didParseCell: function (data) {
         // Apply special styling to total rows
         if (data.section === 'body' && data.row.index < tableData.length) {
           const row = tableData[data.row.index];
@@ -668,7 +746,7 @@ const Orders = () => {
             data.cell.styles.textColor = [0, 0, 0];
           }
         }
-        
+
         // For empty item name cells (continuation of previous item), adjust styling to make them appear as one continuous cell
         if (data.section === 'body' && data.row.index < tableData.length && data.column.index === 0) {
           const row = tableData[data.row.index];
@@ -678,7 +756,7 @@ const Orders = () => {
             data.cell.styles.fillColor = [255, 255, 255]; // White background
           }
         }
-        
+
         // Ensure proper text alignment
         if (data.column.index === 2) { // Quantity column
           data.cell.styles.halign = 'right';
@@ -917,6 +995,10 @@ const Orders = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditOrder(order)}>
+                            <Edit className="w-4 h-4 mr-2" /> Edit Order
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleViewDetails(order)}>
                             <Eye className="w-4 h-4 mr-2" /> View Details
                           </DropdownMenuItem>
@@ -1024,6 +1106,178 @@ const Orders = () => {
 
               <DialogFooter>
                 <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsViewOpen(false)}>Close</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Order Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Order - #{editFormData?.id}</DialogTitle>
+            <DialogDescription>
+              Modify order details, items, and delivery information.
+            </DialogDescription>
+          </DialogHeader>
+          {editFormData && (
+            <div className="space-y-6">
+              {/* Order Status and Payment */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select
+                    value={editFormData.status}
+                    onValueChange={(val) => setEditFormData({ ...editFormData, status: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="dispatched">Dispatched</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Payment Method</label>
+                  <Select
+                    value={editFormData.paymentMethod}
+                    onValueChange={(val) => setEditFormData({ ...editFormData, paymentMethod: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cod">COD</SelectItem>
+                      <SelectItem value="credit">CREDIT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Delivery Charge and Driver Assignment */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Delivery Charge (₹)</label>
+                  <Input
+                    type="number"
+                    value={editFormData.deliveryCharge}
+                    onChange={(e) => setEditFormData({ ...editFormData, deliveryCharge: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Assign Driver</label>
+                  <Select
+                    value={editFormData.assignedTo}
+                    onValueChange={(val) => setEditFormData({ ...editFormData, assignedTo: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Driver" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {drivers.map(d => (
+                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Remarks */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Remarks / Special Instructions</label>
+                <Textarea
+                  value={editFormData.remarks}
+                  onChange={(e) => setEditFormData({ ...editFormData, remarks: e.target.value })}
+                  placeholder="Add any special instructions..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Order Items */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm">Order Items</h4>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Product</th>
+                        <th className="text-center py-2 px-3 font-medium w-24">Quantity</th>
+                        <th className="text-right py-2 px-3 font-medium w-28">Unit Price</th>
+                        <th className="text-right py-2 px-3 font-medium w-28">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editFormData.items.map((item: any, index: number) => (
+                        <tr key={index} className="border-t">
+                          <td className="py-2 px-3">{item.productName}</td>
+                          <td className="py-2 px-3">
+                            <Input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => handleEditItemChange(index, 'quantity', e.target.value)}
+                              className="h-8 text-center"
+                              min="0"
+                              step="0.01"
+                            />
+                          </td>
+                          <td className="py-2 px-3">
+                            <Input
+                              type="number"
+                              value={item.unitPrice}
+                              onChange={(e) => handleEditItemChange(index, 'unitPrice', e.target.value)}
+                              className="h-8 text-right"
+                              min="0"
+                              step="0.01"
+                            />
+                          </td>
+                          <td className="py-2 px-3 text-right font-medium">
+                            ₹{item.totalPrice?.toFixed(2) || '0.00'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-muted/50 border-t-2">
+                      <tr>
+                        <td colSpan={3} className="py-2 px-3 text-right font-semibold">Subtotal:</td>
+                        <td className="py-2 px-3 text-right font-semibold">
+                          ₹{editFormData.items.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0).toFixed(2)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={3} className="py-2 px-3 text-right font-semibold">Delivery Charge:</td>
+                        <td className="py-2 px-3 text-right font-semibold">
+                          ₹{parseFloat(editFormData.deliveryCharge || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                      <tr className="border-t">
+                        <td colSpan={3} className="py-2 px-3 text-right font-bold text-base">Grand Total:</td>
+                        <td className="py-2 px-3 text-right font-bold text-base">
+                          ₹{(editFormData.items.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0) + parseFloat(editFormData.deliveryCharge || 0)).toFixed(2)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEditedOrder} className="gap-2">
+                  <Edit className="w-4 h-4" />
+                  Save Changes
+                </Button>
               </DialogFooter>
             </div>
           )}

@@ -74,7 +74,7 @@ const initialProducts: Product[] = [];
 const getImageUrl = (path: string) => {
   if (!path) return "";
   if (path.startsWith('data:')) return path; // Base64 images
-  
+
   // Check if it's already a Cloudinary URL or other external URL
   if (path.startsWith('http')) {
     // If it's a Cloudinary URL, return as is

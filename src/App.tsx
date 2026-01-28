@@ -21,7 +21,6 @@ import Brands from "./pages/Brands";
 import InvoicePage from "./pages/InvoicePage";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
-import EditCustomer from "./pages/EditCustomer";
 import { useAuth, AuthProvider } from "./context/AuthContext";
 import { Navigate } from "react-router-dom";
 
@@ -45,7 +44,6 @@ const AppRoutes = () => (
       <Route path="/categories" element={<Categories />} />
       <Route path="/orders" element={<Orders />} />
       <Route path="/hotels" element={<Hotels />} />
-      <Route path="/hotels/edit/:id" element={<EditCustomer />} />
       <Route path="/billing" element={<Billing />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/enquiry" element={<Enquiry />} />
