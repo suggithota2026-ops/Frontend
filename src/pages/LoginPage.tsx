@@ -37,7 +37,7 @@ const LoginPage: React.FC = () => {
         setIsLoading(true);
         try {
             const response = await api.post('/admin/auth/send-otp', { mobileNumber });
-            const { code } = response.data.data;
+            const { otp } = response.data.data;
             setStep('otp');
             toast({
                 title: "OTP Sent",
@@ -45,7 +45,7 @@ const LoginPage: React.FC = () => {
                     <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
                         <p className="text-sm text-foreground mb-1">Verification code sent to {mobileNumber}</p>
                         <p className="text-2xl font-bold tracking-[0.5em] text-primary">
-                            {code}
+                            {otp}
                         </p>
                     </div>
                 ),
@@ -98,14 +98,14 @@ const LoginPage: React.FC = () => {
         setIsResending(true);
         try {
             const response = await api.post('/admin/auth/resend-otp', { mobileNumber });
-            const { code } = response.data.data;
+            const { otp } = response.data.data;
             toast({
                 title: "OTP Resent",
                 description: (
                     <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
                         <p className="text-sm text-foreground mb-1">New verification code sent to {mobileNumber}</p>
                         <p className="text-2xl font-bold tracking-[0.5em] text-primary">
-                            {code}
+                            {otp}
                         </p>
                     </div>
                 ),
@@ -138,7 +138,7 @@ const LoginPage: React.FC = () => {
                     </CardTitle>
                     <CardDescription className="text-muted-foreground">
                         {step === 'mobile'
-                            ? "Enter your registered mobile number to receive an OTP"
+                            ? "Enter your admin mobile number to receive an OTP"
                             : `Enter the 6-digit code sent to ${mobileNumber}`}
                     </CardDescription>
                 </CardHeader>
@@ -195,16 +195,6 @@ const LoginPage: React.FC = () => {
                                     </InputOTPGroup>
                                 </InputOTP>
                                 <div className="flex flex-col gap-2 w-full">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                                        onClick={() => setStep('mobile')}
-                                        disabled={isLoading || isResending}
-                                    >
-                                        Change mobile number?
-                                    </Button>
                                     <Button
                                         type="button"
                                         variant="outline"

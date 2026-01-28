@@ -9,13 +9,13 @@ export default defineConfig(({ mode }) => ({
     port: 8081,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: "http://localhost:8082",
         changeOrigin: true,
         secure: false,
         timeout: 30000,
       },
       "/uploads": {
-        target: "http://localhost:3000",
+        target: "http://localhost:8082",
         changeOrigin: true,
         secure: false,
         timeout: 30000,
