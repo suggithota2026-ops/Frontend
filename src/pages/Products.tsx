@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Table,
   TableBody,
@@ -403,6 +404,12 @@ const Products = () => {
     }
   };
 
+  // Enter key navigation hook
+  const { formRef: productFormRef } = useEnterNavigation({
+    onSubmit: handleSave,
+    disabled: isLoading
+  });
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     // Note: If filterSubcategory is active, 'products' is already filtered by server
@@ -702,12 +709,13 @@ const Products = () => {
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>{currentProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
-            <DialogDescription>
-              {currentProduct ? 'Make changes to the product here.' : 'Add a new grocery item to your inventory.'}
-            </DialogDescription>
-          </DialogHeader>
+          <form ref={productFormRef}>
+            <DialogHeader>
+              <DialogTitle>{currentProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+              <DialogDescription>
+                {currentProduct ? 'Make changes to the product here.' : 'Add a new grocery item to your inventory.'}
+              </DialogDescription>
+            </DialogHeader>
           <div className="grid gap-6 py-4">
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="flex-1 space-y-2">
@@ -846,8 +854,9 @@ const Products = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>{currentProduct ? 'Update Product' : 'Add Product'}</Button>
+            <Button type="submit" onClick={handleSave}>{currentProduct ? 'Update Product' : 'Add Product'}</Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

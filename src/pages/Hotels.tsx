@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, MoreHorizontal, Trash2, Ban, CheckCircle, Search, Edit, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -389,6 +390,9 @@ const Hotels = () => {
     setIsEditOpen(true);
   };
 
+  // Get enter navigation refs
+  const { addFormRef, editFormRef } = useHotelEnterNavigation(handleAddHotel, handleEditHotel, isLoading);
+
   return (
     <div className="space-y-6">
       {/* Main Content - Either Customer List or Add Form */}
@@ -531,7 +535,7 @@ const Hotels = () => {
         </>
       ) : (
         /* Add Customer Form Page */
-        <div className="space-y-6">
+        <form ref={addFormRef} className="space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
             <Button
@@ -721,23 +725,25 @@ const Hotels = () => {
               Cancel
             </Button>
             <Button 
+              type="submit"
               onClick={handleAddHotel} 
               disabled={isLoading || (formData.rateType === 'Fixed Price' && (!formData.contractDuration || formData.customerProductPricing.length === 0))}
             >
               {isLoading ? "Creating..." : "Create Customer Account"}
             </Button>
           </div>
-        </div>
+        </form>
       )}
       {/* Edit Hotel Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Customer Account</DialogTitle>
-            <DialogDescription>
-              Update customer information and pricing configuration.
-            </DialogDescription>
-          </DialogHeader>
+          <form ref={editFormRef}>
+            <DialogHeader>
+              <DialogTitle>Edit Customer Account</DialogTitle>
+              <DialogDescription>
+                Update customer information and pricing configuration.
+              </DialogDescription>
+            </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Customer Information Section */}
             <div className="border rounded-lg p-4">
@@ -897,12 +903,13 @@ const Hotels = () => {
               </div>
             )}
           </div>
+          </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setIsEditOpen(false);
               setCurrentHotel(null);
             }} disabled={isLoading}>Cancel</Button>
-            <Button onClick={handleEditHotel} disabled={isLoading}>
+            <Button type="submit" onClick={handleEditHotel} disabled={isLoading}>
               {isLoading ? "Updating..." : "Update Account"}
             </Button>
           </DialogFooter>
@@ -961,6 +968,21 @@ const Hotels = () => {
       </Dialog>
     </div>
   );
+};
+
+// Enter key navigation hooks
+const useHotelEnterNavigation = (handleAddHotel, handleEditHotel, isLoading) => {
+  const { formRef: addFormRef } = useEnterNavigation({
+    onSubmit: handleAddHotel,
+    disabled: isLoading
+  });
+
+  const { formRef: editFormRef } = useEnterNavigation({
+    onSubmit: handleEditHotel,
+    disabled: isLoading
+  });
+
+  return { addFormRef, editFormRef };
 };
 
 export default Hotels;

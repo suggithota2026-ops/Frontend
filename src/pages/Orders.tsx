@@ -3,6 +3,7 @@ import { Search, Filter, Eye, Download, MoreHorizontal, Truck, FileText, Edit } 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Table,
   TableBody,
@@ -816,6 +817,20 @@ const Orders = () => {
     return matchesSearch;
   });
 
+  // Enter key navigation hooks
+  const { formRef: editOrderFormRef } = useEnterNavigation({
+    onSubmit: handleSaveEditedOrder,
+    disabled: isExportLoading
+  });
+
+  const { formRef: exportRangeFormRef } = useEnterNavigation({
+    onSubmit: async () => {
+      await handleExportAll();
+      setIsRangeModalOpen(false);
+    },
+    disabled: isExportLoading
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1137,12 +1152,13 @@ const Orders = () => {
       {/* Edit Order Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Order - #{editFormData?.id}</DialogTitle>
-            <DialogDescription>
-              Modify order details, items, and delivery information.
-            </DialogDescription>
-          </DialogHeader>
+          <form ref={editOrderFormRef}>
+            <DialogHeader>
+              <DialogTitle>Edit Order - #{editFormData?.id}</DialogTitle>
+              <DialogDescription>
+                Modify order details, items, and delivery information.
+              </DialogDescription>
+            </DialogHeader>
           {editFormData && (
             <div className="space-y-6">
               {/* Order Status and Payment */}
@@ -1296,13 +1312,14 @@ const Orders = () => {
                 <Button variant="outline" onClick={() => setIsEditOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEditedOrder} className="gap-2">
+                <Button type="submit" onClick={handleSaveEditedOrder} className="gap-2">
                   <Edit className="w-4 h-4" />
                   Save Changes
                 </Button>
               </DialogFooter>
             </div>
           )}
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -1415,12 +1432,13 @@ const Orders = () => {
       {/* Range Export Modal */}
       <Dialog open={isRangeModalOpen} onOpenChange={setIsRangeModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Export Orders Report</DialogTitle>
-            <DialogDescription>
-              Select a date range to download a complete report of orders.
-            </DialogDescription>
-          </DialogHeader>
+          <form ref={exportRangeFormRef}>
+            <DialogHeader>
+              <DialogTitle>Export Orders Report</DialogTitle>
+              <DialogDescription>
+                Select a date range to download a complete report of orders.
+              </DialogDescription>
+            </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <span className="text-sm font-medium">Customer</span>
@@ -1464,6 +1482,7 @@ const Orders = () => {
               Cancel
             </Button>
             <Button
+              type="submit"
               onClick={async () => {
                 await handleExportAll();
                 setIsRangeModalOpen(false);
@@ -1479,6 +1498,7 @@ const Orders = () => {
               )}
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
