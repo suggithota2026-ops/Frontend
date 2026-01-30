@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import api from '@/api/axios';
 import { Upload, X, Edit3, Trash2 } from 'lucide-react';
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Dialog,
   DialogContent,
@@ -136,6 +137,12 @@ const Brands: React.FC = () => {
     }
   };
 
+  // Enter key navigation hooks
+  const { formRef: addBrandFormRef } = useEnterNavigation({
+    onSubmit: handleAddBrand,
+    disabled: loading
+  });
+
   const handleDeleteBrand = async (id: number) => {
     // Show custom confirmation dialog
     const confirmed = window.confirm(
@@ -237,6 +244,12 @@ const Brands: React.FC = () => {
     }
   };
 
+  // Enter key navigation hook for edit form
+  const { formRef: editBrandFormRef } = useEnterNavigation({
+    onSubmit: handleUpdateBrand,
+    disabled: loading
+  });
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -319,13 +332,14 @@ const Brands: React.FC = () => {
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New Brand</DialogTitle>
-              <DialogDescription>
-                Enter the brand name and upload a logo for the new brand.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
+            <form ref={addBrandFormRef}>
+              <DialogHeader>
+                <DialogTitle>Add New Brand</DialogTitle>
+                <DialogDescription>
+                  Enter the brand name and upload a logo for the new brand.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="brandName">Brand Name</Label>
                 <Input
@@ -400,6 +414,7 @@ const Brands: React.FC = () => {
                   Cancel
                 </Button>
                 <Button 
+                  type="submit"
                   onClick={handleAddBrand} 
                   disabled={loading}
                   className="bg-primary hover:bg-primary/90"
@@ -408,19 +423,21 @@ const Brands: React.FC = () => {
                 </Button>
               </div>
             </div>
+            </form>
           </DialogContent>
         </Dialog>
         
         {/* Edit Brand Dialog */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Brand</DialogTitle>
-              <DialogDescription>
-                Update the brand name or logo as needed.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
+            <form ref={editBrandFormRef}>
+              <DialogHeader>
+                <DialogTitle>Edit Brand</DialogTitle>
+                <DialogDescription>
+                  Update the brand name or logo as needed.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="editBrandName">Brand Name</Label>
                 <Input
@@ -494,6 +511,7 @@ const Brands: React.FC = () => {
                   Cancel
                 </Button>
                 <Button 
+                  type="submit"
                   onClick={handleUpdateBrand} 
                   disabled={loading}
                   className="bg-primary hover:bg-primary/90"
@@ -502,6 +520,7 @@ const Brands: React.FC = () => {
                 </Button>
               </div>
             </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Select,
   SelectContent,
@@ -237,6 +238,18 @@ const Notifications = () => {
       }
     }
   };
+
+  // Wrapper function for Enter navigation
+  const handlePushOfferWrapper = () => {
+    const event = { preventDefault: () => {} } as React.FormEvent;
+    handlePushOffer(event);
+  };
+
+  // Enter key navigation hook
+  const { formRef: pushOfferFormRef } = useEnterNavigation({
+    onSubmit: handlePushOfferWrapper,
+    disabled: false
+  });
 
   const toggleSetting = (id: string) => {
     setSettings(settings.map(s =>
@@ -633,7 +646,7 @@ const Notifications = () => {
                 <CardDescription>Create and send discount offers to boost engagement.</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handlePushOffer} className="space-y-6 max-w-2xl">
+                <form ref={pushOfferFormRef} onSubmit={handlePushOffer} className="space-y-6 max-w-2xl">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Offer Title</label>
                     <Input

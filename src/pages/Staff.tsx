@@ -5,6 +5,7 @@ import api from "@/api/axios";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -141,6 +142,12 @@ const Staff = () => {
         }
     };
 
+    // Enter key navigation hook
+    const { formRef: staffFormRef } = useEnterNavigation({
+        onSubmit: handleSave,
+        disabled: isLoading
+    });
+
     const filteredStaff = staff.filter(member =>
         member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,13 +241,14 @@ const Staff = () => {
             {/* Add/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>{currentStaff ? 'Edit Staff Member' : 'Add New Staff'}</DialogTitle>
-                        <DialogDescription>
-                            {currentStaff ? 'Update details for this staff member.' : 'Create a new staff login for your team members.'}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <form ref={staffFormRef}>
+                        <DialogHeader>
+                            <DialogTitle>{currentStaff ? 'Edit Staff Member' : 'Add New Staff'}</DialogTitle>
+                            <DialogDescription>
+                                {currentStaff ? 'Update details for this staff member.' : 'Create a new staff login for your team members.'}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="name">Full Name</Label>
                             <Input
@@ -299,10 +307,11 @@ const Staff = () => {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isLoading}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={isLoading}>
+                        <Button type="submit" onClick={handleSave} disabled={isLoading}>
                             {isLoading ? "Saving..." : "Save"}
                         </Button>
                     </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>

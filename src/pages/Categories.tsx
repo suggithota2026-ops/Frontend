@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -135,6 +136,12 @@ const Categories = () => {
       setIsLoading(false);
     }
   };
+
+  // Enter key navigation hook
+  const { formRef: categoryFormRef } = useEnterNavigation({
+    onSubmit: handleSave,
+    disabled: isLoading
+  });
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -273,13 +280,14 @@ const Categories = () => {
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[450px] rounded-2xl border-none shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">{currentCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
-            <DialogDescription>
-              Organization helps customers find products faster.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-6 py-6">
+          <form ref={categoryFormRef}>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">{currentCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
+              <DialogDescription>
+                Organization helps customers find products faster.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-6 py-6">
             <div className="grid gap-2">
               <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category Name</Label>
               <Input
@@ -316,10 +324,11 @@ const Categories = () => {
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} disabled={isLoading} className="font-semibold px-8 hover:bg-muted/50">Cancel</Button>
-            <Button onClick={handleSave} disabled={isLoading} className="font-bold px-8 shadow-lg shadow-primary/20">
+            <Button type="submit" onClick={handleSave} disabled={isLoading} className="font-bold px-8 shadow-lg shadow-primary/20">
               {isLoading ? "Processing..." : (currentCategory ? "Update" : "Save")}
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

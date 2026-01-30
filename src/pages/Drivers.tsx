@@ -5,6 +5,7 @@ import api from "@/api/axios";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -133,6 +134,12 @@ const Drivers = () => {
             setIsLoading(false);
         }
     };
+    
+    // Enter key navigation hook
+    const { formRef: driverFormRef } = useEnterNavigation({
+        onSubmit: handleSave,
+        disabled: isLoading
+    });
 
     const filteredDrivers = drivers.filter(driver =>
         driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -227,13 +234,14 @@ const Drivers = () => {
             {/* Add/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>{currentDriver ? 'Edit Driver' : 'Add New Driver'}</DialogTitle>
-                        <DialogDescription>
-                            {currentDriver ? 'Update details for this driver.' : 'Create a new driver account for delivery management.'}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <form ref={driverFormRef}>
+                        <DialogHeader>
+                            <DialogTitle>{currentDriver ? 'Edit Driver' : 'Add New Driver'}</DialogTitle>
+                            <DialogDescription>
+                                {currentDriver ? 'Update details for this driver.' : 'Create a new driver account for delivery management.'}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="name">Full Name</Label>
                             <Input
@@ -265,10 +273,11 @@ const Drivers = () => {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isLoading}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={isLoading}>
+                        <Button type="submit" onClick={handleSave} disabled={isLoading}>
                             {isLoading ? "Saving..." : "Save"}
                         </Button>
                     </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>

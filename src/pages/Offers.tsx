@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Table,
   TableBody,
@@ -552,6 +553,18 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
     }
   };
 
+  // Wrapper function for Enter navigation
+  const handleSaveWrapper = () => {
+    const event = { preventDefault: () => {} } as React.FormEvent;
+    handleSubmit(event);
+  };
+
+  // Enter key navigation hook
+  const { formRef: editOfferFormRef } = useEnterNavigation({
+    onSubmit: handleSaveWrapper,
+    disabled: false
+  });
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -559,7 +572,7 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
           <DialogTitle>Edit Offer</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={editOfferFormRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Code</label>
