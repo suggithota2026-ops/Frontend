@@ -1,4 +1,4 @@
-import { Search, Bell, ChevronDown, Menu } from "lucide-react";
+import { Bell, ChevronDown, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -96,20 +96,7 @@ export function TopNavbar({ onMenuClick }: TopNavbarProps) {
 
       {/* Right Section */}
       <div className="flex items-center gap-1 sm:gap-2 md:gap-4 shrink-0">
-        {/* Search */}
-        <div className="nav-search hidden md:flex w-48 lg:w-64">
-          <Search className="w-4 h-4 shrink-0" />
-          <input
-            type="text"
-            placeholder="Search anything..."
-            className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground text-sm"
-          />
-        </div>
 
-        {/* Mobile Search Button */}
-        <Button variant="ghost" size="icon" className="md:hidden shrink-0">
-          <Search className="w-4 h-4 sm:w-5 sm:h-5" />
-        </Button>
 
         {/* Notifications */}
         <Link to="/notifications" className="relative p-2 sm:p-2.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors shrink-0">

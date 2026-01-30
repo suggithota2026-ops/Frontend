@@ -37,7 +37,6 @@ import { cn } from "@/lib/utils";
 import api from "@/api/axios";
 
 const notificationSettings = [
-  { id: "new_order", label: "New Order Received", description: "Get notified immediately when a hotel places an order.", enabled: true },
   { id: "order_cancelled", label: "Order Cancelled", description: "Notify when a customer cancels an ongoing order.", enabled: true },
   { id: "low_stock", label: "Low Stock Alert", description: "Alert when product inventory drops below threshold.", enabled: true },
   { id: "review_received", label: "New Product Review", description: "Get notified when a product receives a new review.", enabled: false },

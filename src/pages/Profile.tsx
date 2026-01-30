@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, MouseEvent } from "react";
 import {
     User, Mail, Phone, Calendar, MapPin,
     Briefcase, Camera, Edit2, Save, X,
-    Globe, Shield, CheckCircle2, Trash2
+    Globe, Shield, CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,10 +31,12 @@ const Profile = () => {
         city: "",
         postalCode: "",
         bio: "",
+        address: "",
+        gstNumber: "",
+        businessName: "",
     });
 
     const [avatarUrl, setAvatarUrl] = useState("");
-    const [isDeleting, setIsDeleting] = useState(false);
 
     // Fetch Profile Data
     useEffect(() => {
@@ -67,6 +69,9 @@ const Profile = () => {
                     city: data.city || "",
                     postalCode: data.postalCode || "",
                     bio: data.bio || "",
+                    address: data.address || "",
+                    gstNumber: data.gstNumber || "",
+                    businessName: data.businessName || "",
                 });
 
                 if (data.avatarUrl) {
@@ -79,21 +84,7 @@ const Profile = () => {
         }
     };
 
-    const handleDeleteAvatar = async (e: MouseEvent<HTMLDivElement>) => {
-        e.stopPropagation(); // Prevent any bubbling if necessary
-        if (isDeleting) return;
 
-        try {
-            setIsDeleting(true);
-            await api.put('/admin/auth/profile', { avatarUrl: null });
-            setAvatarUrl("");
-            // Optionally force a refresh or just update local state
-        } catch (error) {
-            console.error("Failed to delete avatar:", error);
-        } finally {
-            setIsDeleting(false);
-        }
-    };
 
     return (
         <div className="space-y-6 max-w-[1400px] mx-auto p-4 md:p-6 animate-in fade-in duration-500">
@@ -123,16 +114,7 @@ const Profile = () => {
                                     </AvatarFallback>
                                 </Avatar>
 
-                                {/* Delete Overlay */}
-                                {avatarUrl && (
-                                    <div
-                                        onClick={handleDeleteAvatar}
-                                        className="absolute inset-0 m-1.5 rounded-full bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer z-20 backdrop-blur-[2px]"
-                                    >
-                                        <Trash2 className="w-8 h-8 text-white mb-1" />
-                                        <span className="text-white text-xs font-medium">Remove</span>
-                                    </div>
-                                )}
+
                             </div>
                             <span className="absolute bottom-6 right-6 w-5 h-5 bg-green-500 border-4 border-white rounded-full translate-x-1/2 translate-y-1/2 shadow-sm z-10" title="Online"></span>
                         </div>
@@ -249,6 +231,24 @@ const Profile = () => {
                             <div className="space-y-2">
                                 <Label className="text-muted-foreground">Postal Code</Label>
                                 <p className="font-medium text-foreground text-sm py-2 border-b border-transparent min-h-[2.5rem] flex items-center">{profileData.postalCode || "-"}</p>
+                            </div>
+
+                            {/* Business Name */}
+                            <div className="space-y-2 md:col-span-2">
+                                <Label className="text-muted-foreground">Business Name</Label>
+                                <p className="font-medium text-foreground text-sm py-2 border-b border-transparent min-h-[2.5rem] flex items-center">{profileData.businessName || "-"}</p>
+                            </div>
+
+                            {/* Business Address */}
+                            <div className="space-y-2 md:col-span-2">
+                                <Label className="text-muted-foreground">Business Address</Label>
+                                <p className="font-medium text-foreground text-sm py-2 border-b border-transparent min-h-[2.5rem] flex items-center whitespace-pre-wrap">{profileData.address || "-"}</p>
+                            </div>
+
+                            {/* GSTIN */}
+                            <div className="space-y-2 md:col-span-2">
+                                <Label className="text-muted-foreground">GSTIN Number</Label>
+                                <p className="font-medium text-foreground text-sm py-2 border-b border-transparent min-h-[2.5rem] flex items-center">{profileData.gstNumber || "-"}</p>
                             </div>
                         </div>
 

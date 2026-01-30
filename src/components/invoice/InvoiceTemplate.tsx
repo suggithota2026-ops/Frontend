@@ -1,4 +1,5 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState, useEffect } from 'react';
+import api from '@/api/axios';
 
 export interface OrderItem {
     productId: number;
@@ -35,22 +36,161 @@ export interface Order {
     paymentMethod?: string;
 }
 
+interface BusinessDetails {
+    name: string;
+    address: string;
+    email: string;
+    phone: string;
+    gstin: string;
+    city: string;
+    country: string;
+    postalCode: string;
+}
+
 interface InvoiceTemplateProps {
     order: Order;
 }
 
 const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ order }, ref) => {
+    const [businessDetails, setBusinessDetails] = useState<BusinessDetails>({
+        name: "",
+        address: "",
+        email: "",
+        phone: "",
+        gstin: "",
+        city: "",
+        country: "",
+        postalCode: ""
+    });
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch business details from admin profile
+    useEffect(() => {
+        const fetchBusinessDetails = async () => {
+            let timeoutId;
+            
+            try {
+                setIsLoading(true);
+                console.log("Fetching business details from profile...");
+                
+                // Add timeout to prevent hanging
+                const controller = new AbortController();
+                timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await api.get('/admin/auth/profile', {
+                    signal: controller.signal
+                });
+                const data = response.data.data;
+                
+                console.log("Profile data received:", data);
+                
+                if (data) {
+                    console.log("Raw address from profile:", data.address);
+                    // Only use actual data from profile, no defaults
+                    let city = data.city || "";
+                    let country = data.country || "";
+                    let postalCode = data.postalCode ? data.postalCode.trim() : "";
+                    let address = data.address ? data.address.trim() : "";
+                    
+                    // Clean up the address - remove extra whitespace and newlines
+                    address = address.replace(/\s+/g, " ").trim();
+                    
+                    // Parse address from Address Information section
+                    // Format: "No. 47, Green Park Avenue  \nNear City Plaza, Andheri East  \nMumbai, Maharashtra"
+                    if (address) {
+                        // Split by newlines first to separate address lines
+                        const addressLines = address.split("\n").map(line => line.trim()).filter(line => line);
+                        
+                        if (addressLines.length > 0) {
+                            // Keep the full address with line breaks preserved for display
+                            address = addressLines.join(", ");
+                            
+                            // Extract city and state information from the lines
+                            addressLines.forEach(line => {
+                                // Extract city if not already set
+                                if (!city) {
+                                    if (line.includes("Mumbai")) city = "Mumbai";
+                                    else if (line.includes("Bangalore")) city = "Bangalore";
+                                    else if (line.includes("Delhi")) city = "Delhi";
+                                }
+                                
+                                // Extract state/country info if not already set
+                                if (!country) {
+                                    if (line.includes("Maharashtra")) country = "India";
+                                    else if (line.includes("Karnataka")) country = "India";
+                                }
+                            });
+                        }
+                    }
+                    
+                    const newBusinessDetails = {
+                        name: data.businessName || data.name || "",
+                        address: address,
+                        email: data.email || "",
+                        phone: data.mobileNumber || "",
+                        gstin: data.gstNumber || "",
+                        city: city,
+                        country: country,
+                        postalCode: postalCode
+                    };
+                    
+                    console.log("Parsed address components:", { address, city, country, postalCode });
+                    console.log("Setting business details:", newBusinessDetails);
+                    setBusinessDetails(newBusinessDetails);
+                }
+                clearTimeout(timeoutId);
+                // Small delay to ensure state is updated before PDF generation
+                setTimeout(() => setIsLoading(false), 100);
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error("Failed to fetch business details:", error);
+                console.error("Error details:", {
+                    message: error.message,
+                    status: error.response?.status,
+                    data: error.response?.data,
+                    isTimeout: error.name === 'AbortError'
+                });
+                
+                // If it's a timeout, log it specifically
+                if (error.name === 'AbortError') {
+                    console.log("Request timed out - backend response too slow");
+                }
+                
+                // Keep empty values if fetch fails - no defaults
+                setIsLoading(false);
+            }
+        };
+
+        fetchBusinessDetails();
+    }, []);
+
     // Helper to safely get values
-    const getCustomerName = () => order.customer || order.hotel?.hotelName || "Valued Customer";
-    const getCustomerAddress = () => order.hotel?.address || "Bangalore, Karnataka";
-    const getCustomerPhone = () => order.hotel?.mobileNumber || "-";
+    const getCustomerName = () => order.customer || order.hotel?.hotelName || "";
+    const getCustomerAddress = () => order.hotel?.address || "";
+    const getCustomerPhone = () => order.hotel?.mobileNumber || "";
     const getInvoiceDate = () => order.date || new Date(order.createdAt).toLocaleDateString('en-IN');
     const getTotal = () => order.total || order.totalAmount || 0;
-    const getRemarks = () => order.remarks || order.specialInstructions || "-";
+    const getRemarks = () => order.remarks || order.specialInstructions || "";
 
     // Assuming Ship To is same as Bill To for now unless separate field exists
     const getShipToName = () => getCustomerName();
     const getShipToAddress = () => getCustomerAddress();
+
+    // Format full business address
+    const getBusinessAddress = () => {
+        const parts = [businessDetails.address, businessDetails.city, businessDetails.country, businessDetails.postalCode]
+            .filter(Boolean);
+        return parts.join(", ");
+    };
+
+    // Don't render anything while loading to prevent PDF generation with loading state
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <p>Loading business details...</p>
+            </div>
+        );
+    }
 
     return (
         <div ref={ref} className="bg-white p-8 max-w-[800px] mx-auto text-black font-sans" style={{ width: '800px', minHeight: '1100px' }}>
@@ -60,11 +200,27 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                     <img src="/Invoice.png" alt="PRK SMILES" className="h-20 w-auto object-contain" />
                 </div>
                 <div className="text-right">
-                    <h1 className="text-2xl font-bold text-gray-900">PRK SMILE ID GREENS</h1>
-                    <p className="text-xs text-gray-600">No. 123, Vegetable Market Road</p>
-                    <p className="text-xs text-gray-600">Bangalore, Karnataka - 560001</p>
-                    <p className="text-xs text-gray-600">Email: info@prksmiles.com | Ph: +91 9876543210</p>
-                    <p className="text-xs font-bold mt-1">GSTIN: 29ABCDE1234F1Z5</p>
+                    {businessDetails.name && (
+                        <h1 className="text-2xl font-bold text-gray-900">{businessDetails.name}</h1>
+                    )}
+                    {businessDetails.address && (
+                        <p className="text-xs text-gray-600 whitespace-pre-wrap">{businessDetails.address}</p>
+                    )}
+                    {(businessDetails.city || businessDetails.country || businessDetails.postalCode) && (
+                        <p className="text-xs text-gray-600">
+                            {[businessDetails.city, businessDetails.country, businessDetails.postalCode].filter(Boolean).join(", ")}
+                        </p>
+                    )}
+                    {(businessDetails.email || businessDetails.phone) && (
+                        <p className="text-xs text-gray-600">
+                            {businessDetails.email && `Email: ${businessDetails.email}`}
+                            {businessDetails.email && businessDetails.phone && " | "}
+                            {businessDetails.phone && `Ph: ${businessDetails.phone}`}
+                        </p>
+                    )}
+                    {businessDetails.gstin && (
+                        <p className="text-xs font-bold mt-1">GSTIN: {businessDetails.gstin}</p>
+                    )}
                 </div>
             </div>
 
@@ -77,16 +233,26 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                 {/* Bill To */}
                 <div className="w-1/3 p-3 border-r border-gray-300">
                     <h3 className="font-bold mb-1 text-gray-700 uppercase text-xs">Bill To:</h3>
-                    <p className="font-bold text-sm">{getCustomerName()}</p>
-                    <p className="whitespace-pre-wrap text-gray-600 text-xs">{getCustomerAddress()}</p>
-                    <p className="mt-1 text-xs"><span className="font-semibold">Ph:</span> {getCustomerPhone()}</p>
+                    {getCustomerName() && (
+                        <p className="font-bold text-sm">{getCustomerName()}</p>
+                    )}
+                    {getCustomerAddress() && (
+                        <p className="whitespace-pre-wrap text-gray-600 text-xs">{getCustomerAddress()}</p>
+                    )}
+                    {getCustomerPhone() && (
+                        <p className="mt-1 text-xs"><span className="font-semibold">Ph:</span> {getCustomerPhone()}</p>
+                    )}
                 </div>
 
                 {/* Ship To */}
                 <div className="w-1/3 p-3 border-r border-gray-300">
                     <h3 className="font-bold mb-1 text-gray-700 uppercase text-xs">Ship To:</h3>
-                    <p className="font-bold text-sm">{getShipToName()}</p>
-                    <p className="whitespace-pre-wrap text-gray-600 text-xs">{getShipToAddress()}</p>
+                    {getShipToName() && (
+                        <p className="font-bold text-sm">{getShipToName()}</p>
+                    )}
+                    {getShipToAddress() && (
+                        <p className="whitespace-pre-wrap text-gray-600 text-xs">{getShipToAddress()}</p>
+                    )}
                 </div>
 
                 {/* Invoice Info */}
@@ -104,8 +270,12 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                         <div className="font-semibold text-gray-600">Payment Mode:</div>
                         <div className="uppercase font-bold">{order.paymentMethod || 'COD'}</div>
 
-                        <div className="font-semibold text-gray-600">Remarks:</div>
-                        <div className="whitespace-pre-wrap break-words max-w-[180px]" title={getRemarks()}>{getRemarks()}</div>
+                        {getRemarks() && (
+                            <>
+                                <div className="font-semibold text-gray-600">Remarks:</div>
+                                <div className="whitespace-pre-wrap break-words max-w-[180px]" title={getRemarks()}>{getRemarks()}</div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -192,7 +362,7 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                         <p>3. All disputes are subject to Bangalore Jurisdiction only.</p>
                     </div>
                     <div className="text-center">
-                        <p className="font-bold mb-8">For PRK SMILE ID GREENS</p>
+                        <p className="font-bold mb-8">For {businessDetails.name}</p>
                         <p className="text-xs border-t border-gray-400 pt-1 px-4">Authorized Signatory</p>
                     </div>
                 </div>

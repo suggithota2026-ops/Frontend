@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   User, Landmark, Shield, Save, Loader2,
-  Edit3, X, Camera, Mail, Globe, MapPin
+  Edit3, X, Camera, Mail, Globe, MapPin, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ const Settings = () => {
   // Profile
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [deletingAvatar, setDeletingAvatar] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(Date.now()); // Force re-render of file input
   const [profileData, setProfileData] = useState({
     firstName: "",
@@ -38,7 +39,10 @@ const Settings = () => {
     dob: "",
     country: "",
     city: "",
-    postalCode: ""
+    postalCode: "",
+    address: "",
+    gstNumber: "",
+    businessName: ""
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,7 +90,10 @@ const Settings = () => {
           dob: data.dob || "",
           country: data.country || "",
           city: data.city || "",
-          postalCode: data.postalCode || ""
+          postalCode: data.postalCode || "",
+          address: data.address || "",
+          gstNumber: data.gstNumber || "",
+          businessName: data.businessName || ""
         });
       }
     } catch (error) {
@@ -106,13 +113,16 @@ const Settings = () => {
         name: fullName,
         username: profileData.username,
         mobileNumber: profileData.phone,
-        email: profileData.email,
-        bio: profileData.bio,
-        avatarUrl: profileData.avatarUrl,
-        dob: profileData.dob,
-        country: profileData.country,
-        city: profileData.city,
-        postalCode: profileData.postalCode
+        email: profileData.email || null,
+        bio: profileData.bio || null,
+        avatarUrl: profileData.avatarUrl || null,
+        dob: profileData.dob || null,
+        country: profileData.country || null,
+        city: profileData.city || null,
+        postalCode: profileData.postalCode || null,
+        address: profileData.address || null,
+        gstNumber: profileData.gstNumber || null,
+        businessName: profileData.businessName || null
       };
 
       await api.put('/admin/auth/profile', payload);
@@ -165,6 +175,30 @@ const Settings = () => {
       }
       // Reset input
       setFileInputKey(Date.now());
+    }
+  };
+
+  const handleDeleteAvatar = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (deletingAvatar) return;
+
+    try {
+      setDeletingAvatar(true);
+      const deleteToast = toast.loading("Removing avatar...");
+
+      await api.put('/admin/auth/profile', {
+        avatarUrl: null
+      });
+
+      setProfileData(prev => ({ ...prev, avatarUrl: "" }));
+      toast.dismiss(deleteToast);
+      toast.success("Avatar removed successfully");
+    } catch (error) {
+      console.error("Failed to delete avatar:", error);
+      toast.dismiss();
+      toast.error("Failed to remove avatar");
+    } finally {
+      setDeletingAvatar(false);
     }
   };
 
@@ -232,8 +266,21 @@ const Settings = () => {
                         {profileData.firstName[0]}{profileData.lastName[0]}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <Camera className="w-8 h-8 text-white/90" />
+                    <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 overflow-hidden">
+                      <div className="flex flex-col items-center gap-2">
+                        <Camera className="w-6 h-6 text-white/90" />
+                        <span className="text-[10px] text-white/90 font-medium uppercase tracking-wider">Change</span>
+                      </div>
+
+                      {profileData.avatarUrl && (
+                        <div
+                          onClick={handleDeleteAvatar}
+                          className="absolute bottom-0 inset-x-0 bg-red-600/80 py-1.5 flex items-center justify-center hover:bg-red-600 transition-colors"
+                          title="Remove Image"
+                        >
+                          <Trash2 className="w-4 h-4 text-white" />
+                        </div>
+                      )}
                     </div>
                     <input
                       ref={fileInputRef}
@@ -370,8 +417,39 @@ const Settings = () => {
                         placeholder="94107"
                       />
                     </div>
-                  </div>
 
+                    <div className="space-y-2">
+                      <Label htmlFor="businessName">Business Name</Label>
+                      <Input
+                        id="businessName"
+                        value={profileData.businessName}
+                        onChange={(e) => setProfileData({ ...profileData, businessName: e.target.value })}
+                        placeholder="Enter your business name"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Business Address</Label>
+                    <Textarea
+                      id="address"
+                      value={profileData.address}
+                      onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                      className="min-h-[100px] resize-y"
+                      placeholder="Enter your business address..."
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="gstNumber">GSTIN Number</Label>
+                    <Input
+                      id="gstNumber"
+                      value={profileData.gstNumber}
+                      onChange={(e) => setProfileData({ ...profileData, gstNumber: e.target.value.toUpperCase() })}
+                      placeholder="Enter GSTIN number"
+                    />
+                  </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="bio">Bio</Label>
                     <Textarea

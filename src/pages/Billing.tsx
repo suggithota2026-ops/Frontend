@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { Download, FileText, Printer, Filter, CreditCard, DollarSign, PieChart as PieChartIcon, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/api/axios";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import {
   Card,
   CardContent,
@@ -97,17 +101,173 @@ const Billing = () => {
     fetchBillingData();
   }, [period]);
 
-  const handleDownloadReport = (type: string) => {
-    toast.success(`Downloading ${type} report...`);
-    // Mock download logic
-    setTimeout(() => {
-      const element = document.createElement("a");
-      const file = new Blob(["Report Content Placeholder"], { type: 'text/plain' });
-      element.href = URL.createObjectURL(file);
-      element.download = `report_${type}_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(element); // Required for this to work in FireFox
-      element.click();
-    }, 1000);
+  const handleDownloadReport = async (type: string) => {
+    setIsLoading(true);
+    try {
+      toast.info(`Preparing ${type.toUpperCase()} report...`);
+
+      // Helper to trigger CSV download
+      const triggerDownload = (content: string, fname: string) => {
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fname);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      if (type === 'gstr1') {
+        const invoices = billingData.invoices || [];
+        if (invoices.length === 0) {
+          toast.error("No invoice data available to export");
+          return;
+        }
+
+        const doc = new jsPDF('landscape');
+        doc.setFontSize(22);
+        doc.text("GSTR-1 Sales Report", 140, 20, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.text(`Period: ${period.toUpperCase()}`, 20, 30);
+        doc.text(`Total Invoices: ${invoices.length}`, 20, 35);
+
+        const tableData = invoices.map((inv: any) => [
+          inv.id,
+          inv.date,
+          inv.client,
+          `INR ${(inv.amount - inv.gst).toFixed(2)}`,
+          '18%',
+          `INR ${inv.gst.toFixed(2)}`,
+          `INR ${inv.amount.toFixed(2)}`,
+          inv.status
+        ]);
+
+        autoTable(doc, {
+          startY: 45,
+          head: [['Inv No', 'Date', 'Customer', 'Taxable Val', 'Rate', 'GST Amt', 'Total', 'Status']],
+          body: tableData,
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185] }
+        });
+
+        doc.save(`report_gstr1_${new Date().toISOString().split('T')[0]}.pdf`);
+        toast.success("GSTR-1 PDF report downloaded!");
+
+      } else if (type === 'item_sales') {
+        const response = await api.get(`/admin/reports/${period}`);
+        if (response.data.success) {
+          const orders = response.data.data.orders || [];
+          const itemSales: any = {};
+
+          orders.forEach((order: any) => {
+            if (order.items && Array.isArray(order.items)) {
+              order.items.forEach((item: any) => {
+                const name = item.productName || item.name;
+                const unit = item.unit || 'kg';
+                if (!itemSales[name]) {
+                  itemSales[name] = { name, quantity: 0, total: 0, unit };
+                }
+                itemSales[name].quantity += parseFloat(item.quantity || 0);
+                itemSales[name].total += parseFloat(item.totalPrice || item.amount || 0);
+              });
+            }
+          });
+
+          const doc = new jsPDF();
+          doc.setFontSize(22);
+          doc.text("Item-wise Sales Report", 105, 20, { align: 'center' });
+
+          doc.setFontSize(10);
+          doc.text(`Period: ${period.toUpperCase()}`, 20, 30);
+          doc.text(`Report Date: ${new Date().toLocaleDateString()}`, 20, 35);
+
+          const tableData = Object.values(itemSales).map((item: any) => [
+            item.name,
+            `${item.quantity.toFixed(2)} ${item.unit}`,
+            `INR ${item.total.toFixed(2)}`
+          ]);
+
+          autoTable(doc, {
+            startY: 45,
+            head: [['Product Name', 'Total Quantity', 'Total Sales (INR)']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [142, 68, 173] }
+          });
+
+          doc.save(`item_wise_sales_${new Date().toISOString().split('T')[0]}.pdf`);
+          toast.success("Item-wise sales PDF report downloaded!");
+        }
+      } else if (type === 'gstr3b') {
+        const doc = new jsPDF();
+
+        // PDF Header
+        doc.setFontSize(20);
+        doc.setTextColor(40, 40, 40);
+        doc.text("GSTR-3B Monthly Return Summary", 105, 20, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.text(`Period: ${period.toUpperCase()}`, 20, 30);
+        doc.text(`Export Date: ${new Date().toLocaleDateString()}`, 20, 35);
+
+        // Summary Table
+        const summaryData = [
+          ['Total Taxable Value', `INR ${(billingData.revenue - billingData.gst).toLocaleString()}`],
+          ['Integrated Tax (IGST)', 'INR 0.00'],
+          ['Central Tax (CGST)', `INR ${(billingData.gst / 2).toLocaleString()}`],
+          ['State Tax (SGST)', `INR ${(billingData.gst / 2).toLocaleString()}`],
+          ['Total GST Amount', `INR ${billingData.gst.toLocaleString()}`],
+          ['Total Gross Sales', `INR ${billingData.revenue.toLocaleString()}`],
+          ['Total Invoices', `${billingData.invoicesCount}`],
+        ];
+
+        autoTable(doc, {
+          startY: 45,
+          head: [['Description', 'Value']],
+          body: summaryData,
+          theme: 'striped',
+          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+          columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' } }
+        });
+
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Generated by PRK Smile Admin Panel. This is a computer-generated summary for filing reference.", 20, doc.internal.pageSize.height - 10);
+
+        doc.save(`gstr3b_summary_${new Date().toISOString().split('T')[0]}.pdf`);
+        toast.success("GSTR-3B PDF report downloaded!");
+      } else {
+        // Summary PDF
+        const doc = new jsPDF();
+        doc.setFontSize(20);
+        doc.text("Business Performance Summary", 105, 25, { align: 'center' });
+
+        const summaryData = [
+          ['Metric', 'Value'],
+          ['Total Revenue', `INR ${billingData.revenue.toLocaleString()}`],
+          ['Total GST', `INR ${billingData.gst.toLocaleString()}`],
+          ['Total Invoices', billingData.invoicesCount.toString()]
+        ];
+
+        autoTable(doc, {
+          startY: 40,
+          body: summaryData,
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185] }
+        });
+
+        doc.save(`business_summary_${new Date().toISOString().split('T')[0]}.pdf`);
+        toast.success("Business Summary PDF downloaded!");
+      }
+
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to generate report");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDownloadInvoice = (id: string) => {
@@ -335,7 +495,7 @@ const Billing = () => {
                     </div>
                     <div>
                       <p className="font-medium">GSTR-1 Report</p>
-                      <p className="text-xs text-muted-foreground">Sales & Outward Supplies (CSV)</p>
+                      <p className="text-xs text-muted-foreground">Sales & Outward Supplies (PDF)</p>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => handleDownloadReport('gstr1')}>Download</Button>
@@ -359,7 +519,7 @@ const Billing = () => {
                     </div>
                     <div>
                       <p className="font-medium">Item-wise Sales</p>
-                      <p className="text-xs text-muted-foreground"> Detailed product sales report (Excel)</p>
+                      <p className="text-xs text-muted-foreground">Detailed product sales report (PDF)</p>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => handleDownloadReport('item_sales')}>Download</Button>
