@@ -557,9 +557,7 @@ const Brands: React.FC = () => {
                     }
                   }}
                 />
-                <Badge className="absolute -top-2 -right-2 text-xs">
-                  #{brand.id}
-                </Badge>
+                {/* Removed brand ID badge from UI */}
               </div>
               <h3 className="font-semibold text-lg text-foreground">{brand.name}</h3>
               <p className="text-xs text-muted-foreground mt-1">
