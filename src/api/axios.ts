@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Backend URL - use Render for deployed builds, /api for local dev
-const BACKEND_URL = 'https://prk-smile-backend.onrender.com/api';
+// Backend URL: from env (Vercel/Render) or fallback for local/production
+const BACKEND_URL =
+  (import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'https://backend-ho7i.onrender.com') + '/api';
 const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 const api = axios.create({
