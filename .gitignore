@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Env (secrets); keep a committed template if you use one: !.env.example
+.env
+.env.*
+!.env.example
+
+# Tooling / caches
+coverage
+*.tsbuildinfo
+.eslintcache
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
