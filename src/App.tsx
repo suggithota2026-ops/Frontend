@@ -21,6 +21,9 @@ import Brands from "./pages/Brands";
 import InvoicePage from "./pages/InvoicePage";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
+import WebsiteHome from "./pages/WebsiteHome";
+import WebsiteAbout from "./pages/WebsiteAbout";
+import WebsiteContact from "./pages/WebsiteContact";
 import { useAuth, AuthProvider } from "./context/AuthContext";
 import { Navigate } from "react-router-dom";
 
@@ -37,25 +40,65 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => (
   <Routes>
+    {/* Public website */}
+    <Route path="/" element={<WebsiteHome />} />
+    <Route path="/about" element={<WebsiteAbout />} />
+    <Route path="/contact" element={<WebsiteContact />} />
+
+    {/* Auth / admin panel */}
     <Route path="/login" element={<LoginPage />} />
-    <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/products" element={<Products />} />
-      <Route path="/categories" element={<Categories />} />
-      <Route path="/orders" element={<Orders />} />
-      <Route path="/hotels" element={<Hotels />} />
-      <Route path="/billing" element={<Billing />} />
-      <Route path="/notifications" element={<Notifications />} />
-      <Route path="/enquiry" element={<Enquiry />} />
-      <Route path="/offers" element={<Offers />} />
-      <Route path="/brands" element={<Brands />} />
-      <Route path="/invoice" element={<InvoicePage />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/staff" element={<Staff />} />
-      <Route path="/drivers" element={<Drivers />} />
+    <Route
+      path="/admin"
+      element={
+        <ProtectedRoute>
+          <DashboardLayout />
+        </ProtectedRoute>
+      }
+    >
+      <Route index element={<Dashboard />} />
+      <Route path="products" element={<Products />} />
+      <Route path="categories" element={<Categories />} />
+      <Route path="orders" element={<Orders />} />
+      <Route path="hotels" element={<Hotels />} />
+      <Route path="billing" element={<Billing />} />
+      <Route path="notifications" element={<Notifications />} />
+      <Route path="enquiry" element={<Enquiry />} />
+      <Route path="offers" element={<Offers />} />
+      <Route path="brands" element={<Brands />} />
+      <Route path="invoice" element={<InvoicePage />} />
+      <Route path="settings" element={<Settings />} />
+      <Route path="profile" element={<Profile />} />
+      <Route path="staff" element={<Staff />} />
+      <Route path="drivers" element={<Drivers />} />
     </Route>
-    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+    {/* Old admin URLs (no /admin prefix) — keep bookmarks / manual entry working */}
+    {(
+      [
+        "products",
+        "categories",
+        "orders",
+        "hotels",
+        "staff",
+        "drivers",
+        "billing",
+        "enquiry",
+        "offers",
+        "brands",
+        "notifications",
+        "settings",
+        "profile",
+        "invoice",
+      ] as const
+    ).map((seg) => (
+      <Route
+        key={seg}
+        path={seg}
+        element={<Navigate to={`/admin/${seg}`} replace />}
+      />
+    ))}
+
+    {/* Catch-all */}
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

@@ -82,7 +82,7 @@ const LoginPage: React.FC = () => {
                 title: "Welcome back!",
                 description: `Logged in as ${user.name || user.username}`,
             });
-            navigate('/');
+            navigate('/admin');
         } catch (error: any) {
             toast({
                 variant: "destructive",

@@ -20,20 +20,21 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
+/** Must match nested routes under `/admin` in App.tsx */
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Package, label: "Products", path: "/products" },
-  { icon: FolderOpen, label: "Categories", path: "/categories" },
-  { icon: ShoppingCart, label: "Orders", path: "/orders" },
-  { icon: Building2, label: "Customers", path: "/hotels" },
-  { icon: Users, label: "Staff", path: "/staff" },
-  { icon: Truck, label: "Drivers", path: "/drivers" },
-  { icon: CreditCard, label: "Billing", path: "/billing" },
-  { icon: MessageSquare, label: "Enquiry", path: "/enquiry" },
-  { icon: Percent, label: "Offers", path: "/offers" },
-  { icon: FolderOpen, label: "Brands", path: "/brands" },
-  { icon: Bell, label: "Notifications", path: "/notifications" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
+  { icon: Package, label: "Products", path: "/admin/products" },
+  { icon: FolderOpen, label: "Categories", path: "/admin/categories" },
+  { icon: ShoppingCart, label: "Orders", path: "/admin/orders" },
+  { icon: Building2, label: "Customers", path: "/admin/hotels" },
+  { icon: Users, label: "Staff", path: "/admin/staff" },
+  { icon: Truck, label: "Drivers", path: "/admin/drivers" },
+  { icon: CreditCard, label: "Billing", path: "/admin/billing" },
+  { icon: MessageSquare, label: "Enquiry", path: "/admin/enquiry" },
+  { icon: Percent, label: "Offers", path: "/admin/offers" },
+  { icon: FolderOpen, label: "Brands", path: "/admin/brands" },
+  { icon: Bell, label: "Notifications", path: "/admin/notifications" },
+  { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 
 interface DashboardSidebarProps {
@@ -94,7 +95,11 @@ export function DashboardSidebar({ collapsed, onCollapse, onNavigate }: Dashboar
       <nav className="flex-1 px-3 py-4 overflow-y-auto min-h-0">
         <ul className="space-y-1">
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const { pathname } = location;
+            const isActive =
+              item.path === "/admin"
+                ? pathname === "/admin" || pathname === "/admin/"
+                : pathname === item.path || pathname.startsWith(`${item.path}/`);
             return (
               <li key={item.label}>
                 <button

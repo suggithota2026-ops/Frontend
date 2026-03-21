@@ -3,7 +3,7 @@ import axios from 'axios';
 // Backend URL: from env (Vercel/Render) or fallback for local/production
 const BACKEND_URL =
   (import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'https://backend-ho7i.onrender.com') + '/api';
-const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isDev = import.meta.env.DEV;
 
 const api = axios.create({
     baseURL: isDev ? '/api' : BACKEND_URL,

@@ -252,7 +252,7 @@ const EditCustomer = () => {
     } catch (error: any) {
       console.error("Error fetching customer:", error);
       toast.error(error.response?.data?.message || "Failed to fetch customer");
-      navigate("/hotels");
+      navigate("/admin/hotels");
     } finally {
       setIsLoading(false);
     }
@@ -291,7 +291,7 @@ const EditCustomer = () => {
         customerProductPricing: formData.customerProductPricing || undefined,
       });
       toast.success("Customer updated successfully");
-      navigate("/hotels");
+      navigate("/admin/hotels");
     } catch (error: any) {
       console.error("Error updating customer:", error);
       toast.error(error.response?.data?.message || "Failed to update customer");
@@ -328,7 +328,7 @@ const EditCustomer = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate("/hotels")}
+          onClick={() => navigate("/admin/hotels")}
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>

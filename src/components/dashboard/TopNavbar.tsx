@@ -99,13 +99,13 @@ export function TopNavbar({ onMenuClick }: TopNavbarProps) {
 
 
         {/* Notifications */}
-        <Link to="/notifications" className="relative p-2 sm:p-2.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors shrink-0">
+        <Link to="/admin/notifications" className="relative p-2 sm:p-2.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors shrink-0">
           <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
           <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary rounded-full" />
         </Link>
 
         {/* Profile */}
-        <Link to="/profile" className="flex items-center gap-1 sm:gap-2 md:gap-3 pl-1 sm:pl-2 md:pl-3 pr-1 sm:pr-2 py-1 sm:py-1.5 rounded-lg hover:bg-muted transition-colors shrink-0">
+        <Link to="/admin/profile" className="flex items-center gap-1 sm:gap-2 md:gap-3 pl-1 sm:pl-2 md:pl-3 pr-1 sm:pr-2 py-1 sm:py-1.5 rounded-lg hover:bg-muted transition-colors shrink-0">
           <Avatar className="w-7 h-7 sm:w-8 sm:h-8">
             <AvatarImage src={userData.avatarUrl} className="object-cover" />
             <AvatarFallback className="text-xs sm:text-sm bg-primary/10 text-primary">

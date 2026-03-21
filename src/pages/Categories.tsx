@@ -246,7 +246,7 @@ const Categories = () => {
               <div className="mt-6 pt-4 border-t border-border/50 flex items-center justify-between">
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/30 text-muted-foreground hover:bg-primary/5 hover:text-primary transition-all cursor-pointer group/stat"
-                  onClick={() => navigate(`/products?category=${category.id}`)}
+                  onClick={() => navigate(`/admin/products?category=${category.id}`)}
                 >
                   <Package className="w-4 h-4 group-hover/stat:scale-125 transition-transform" />
                   <span className="text-xs font-bold">{category.products || 0} Products</span>
