@@ -38,6 +38,8 @@ const WebsiteContact = () => {
     []
   );
 
+  const normalizeDigits = (value: string) => value.replace(/\D/g, "");
+
   const validate = (): boolean => {
     const e: FormErrors = {};
 
@@ -45,13 +47,14 @@ const WebsiteContact = () => {
       e.hotelName = "Name must be at least 2 characters";
     }
 
-    const contact = formData.contactNumber.trim();
+    const contact = normalizeDigits(formData.contactNumber).trim();
     if (!/^[0-9]{10}$/.test(contact)) {
       e.contactNumber = "Contact number must be 10 digits";
     }
 
+    // Backend allows `email` to be omitted; only validate format if provided.
     const email = formData.email.trim();
-    if (!email || !isValidEmail(email)) {
+    if (email && !isValidEmail(email)) {
       e.email = "Please enter a valid email";
     }
 
@@ -59,7 +62,7 @@ const WebsiteContact = () => {
       e.address = "Address must be at least 5 characters";
     }
 
-    const pin = formData.pinCode.trim();
+    const pin = normalizeDigits(formData.pinCode).trim();
     if (!/^[0-9]{6}$/.test(pin)) {
       e.pinCode = "PIN code must be 6 digits";
     }
@@ -79,7 +82,13 @@ const WebsiteContact = () => {
   const onChange =
     (key: keyof ContactFormState) =>
     (evt: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const value = evt.target.value;
+      const rawValue = evt.target.value;
+      const value =
+        key === "contactNumber"
+          ? normalizeDigits(rawValue).slice(0, 10)
+          : key === "pinCode"
+            ? normalizeDigits(rawValue).slice(0, 6)
+            : rawValue;
       setFormData((p) => ({ ...p, [key]: value }));
       setSubmitError(null);
       if (errors[key]) {
@@ -97,10 +106,10 @@ const WebsiteContact = () => {
     try {
       await api.post("/contact/send-message", {
         hotelName: formData.hotelName.trim(),
-        contactNumber: formData.contactNumber.trim(),
+        contactNumber: normalizeDigits(formData.contactNumber).trim(),
         address: formData.address.trim(),
         city: formData.city.trim(),
-        pinCode: formData.pinCode.trim(),
+        pinCode: normalizeDigits(formData.pinCode).trim(),
         landmark: formData.landmark.trim() || undefined,
         email: formData.email.trim() || undefined,
         message: formData.message.trim(),
