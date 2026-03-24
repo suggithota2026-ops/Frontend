@@ -204,22 +204,7 @@ const WebsiteHome = () => {
                 mobile app
               </p>
 
-              <div className="mb-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <a
-                  href="https://play.google.com/store/apps/details?id=com.prksmile"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex transition-transform duration-300 hover:scale-105"
-                  aria-label="Get it on Google Play"
-                >
-                  <img
-                    src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-                    alt="Get it on Google Play"
-                    className="h-16 w-auto"
-                    loading="lazy"
-                  />
-                </a>
-              </div>
+              <div className="mb-8" />
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
                 {[
