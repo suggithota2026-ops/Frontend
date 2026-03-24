@@ -209,15 +209,15 @@ const WebsiteHome = () => {
                   href="https://play.google.com/store/apps/details?id=com.prksmile"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-lg bg-black px-6 py-3 text-white shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-800"
+                  className="inline-flex transition-transform duration-300 hover:scale-105"
+                  aria-label="Get it on Google Play"
                 >
-                  <svg className="mr-3 h-8 w-8" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M3,20.5V3.5L20,12L3,20.5z" />
-                  </svg>
-                  <div className="text-left">
-                    <div className="text-xs font-medium">GET IT ON</div>
-                    <div className="text-lg font-bold">Google Play</div>
-                  </div>
+                  <img
+                    src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
+                    alt="Get it on Google Play"
+                    className="h-16 w-auto"
+                    loading="lazy"
+                  />
                 </a>
               </div>
 
