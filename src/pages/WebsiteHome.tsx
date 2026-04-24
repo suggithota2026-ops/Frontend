@@ -1,4 +1,5 @@
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
+import { WebsiteFooter } from "@/components/website/WebsiteFooter";
 
 const WebsiteHome = () => {
   return (
@@ -290,13 +291,7 @@ const WebsiteHome = () => {
         </section>
       </main>
 
-      <footer className="bg-gray-950 py-10 text-sm text-gray-300">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="border-t border-white/10 pt-8 text-center text-gray-400">
-            <p>© {new Date().getFullYear()} Suggi Thota. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <WebsiteFooter />
     </div>
   );
 };
