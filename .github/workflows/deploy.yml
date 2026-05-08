@@ -19,6 +19,11 @@ jobs:
           script: |
             cd /var/www/suggithota/website
             git pull origin main
-            npm install
+            npm ci
             npm run build
-            pm2 restart suggi-website
+            if pm2 describe suggi-website > /dev/null; then
+              pm2 restart suggi-website --update-env
+            else
+              pm2 start npm --name "suggi-website" -- start
+            fi
+            pm2 save
