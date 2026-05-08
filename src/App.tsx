@@ -25,6 +25,8 @@ import LoginPage from "./pages/LoginPage";
 import WebsiteHome from "./pages/WebsiteHome";
 import WebsiteAbout from "./pages/WebsiteAbout";
 import WebsiteContact from "./pages/WebsiteContact";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
 import { useAuth, AuthProvider } from "./context/AuthContext";
 import { Navigate } from "react-router-dom";
 import { PERMISSIONS } from "./config/permissions";
@@ -65,6 +67,8 @@ const AppRoutes = () => (
     <Route path="/" element={<WebsiteHome />} />
     <Route path="/about" element={<WebsiteAbout />} />
     <Route path="/contact" element={<WebsiteContact />} />
+    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+    <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
 
     {/* Auth / admin panel */}
     <Route path="/login" element={<LoginPage />} />
