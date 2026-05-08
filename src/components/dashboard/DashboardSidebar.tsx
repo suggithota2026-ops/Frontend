@@ -19,22 +19,23 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { PERMISSIONS } from "@/config/permissions";
 
 /** Must match nested routes under `/admin` in App.tsx */
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
-  { icon: Package, label: "Products", path: "/admin/products" },
-  { icon: FolderOpen, label: "Categories", path: "/admin/categories" },
-  { icon: ShoppingCart, label: "Orders", path: "/admin/orders" },
-  { icon: Building2, label: "Customers", path: "/admin/hotels" },
-  { icon: Users, label: "Staff", path: "/admin/staff" },
-  { icon: Truck, label: "Drivers", path: "/admin/drivers" },
-  { icon: CreditCard, label: "Billing", path: "/admin/billing" },
-  { icon: MessageSquare, label: "Enquiry", path: "/admin/enquiry" },
-  { icon: Percent, label: "Offers", path: "/admin/offers" },
-  { icon: FolderOpen, label: "Brands", path: "/admin/brands" },
-  { icon: Bell, label: "Notifications", path: "/admin/notifications" },
-  { icon: Settings, label: "Settings", path: "/admin/settings" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/admin", permission: PERMISSIONS.DASHBOARD_VIEW },
+  { icon: Package, label: "Products", path: "/admin/products", permission: PERMISSIONS.PRODUCTS_VIEW },
+  { icon: FolderOpen, label: "Categories", path: "/admin/categories", permission: PERMISSIONS.CATEGORIES_VIEW },
+  { icon: ShoppingCart, label: "Orders", path: "/admin/orders", permission: PERMISSIONS.ORDERS_VIEW },
+  { icon: Building2, label: "Customers", path: "/admin/hotels", permission: PERMISSIONS.CUSTOMERS_VIEW },
+  { icon: Users, label: "Staff", path: "/admin/staff", permission: PERMISSIONS.STAFF_VIEW },
+  { icon: Truck, label: "Drivers", path: "/admin/drivers", permission: PERMISSIONS.DRIVERS_VIEW },
+  { icon: CreditCard, label: "Billing", path: "/admin/billing", permission: PERMISSIONS.BILLING_VIEW },
+  { icon: MessageSquare, label: "Enquiry", path: "/admin/enquiry", permission: PERMISSIONS.ENQUIRY_VIEW },
+  { icon: Percent, label: "Offers", path: "/admin/offers", permission: PERMISSIONS.OFFERS_VIEW },
+  { icon: FolderOpen, label: "Brands", path: "/admin/brands", permission: PERMISSIONS.BRANDS_VIEW },
+  { icon: Bell, label: "Notifications", path: "/admin/notifications", permission: PERMISSIONS.NOTIFICATIONS_VIEW },
+  { icon: Settings, label: "Settings", path: "/admin/settings", permission: PERMISSIONS.SETTINGS_VIEW },
 ];
 
 interface DashboardSidebarProps {
@@ -47,7 +48,12 @@ export function DashboardSidebar({ collapsed, onCollapse, onNavigate }: Dashboar
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const role = String(user?.role || "").toUpperCase();
+  const userPermissions = user?.permissions || [];
+  const visibleMenuItems = menuItems.filter((item) =>
+    role === "ADMIN" ? true : userPermissions.includes(item.permission)
+  );
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -94,7 +100,7 @@ export function DashboardSidebar({ collapsed, onCollapse, onNavigate }: Dashboar
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto min-h-0">
         <ul className="space-y-1">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const { pathname } = location;
             const isActive =
               item.path === "/admin"

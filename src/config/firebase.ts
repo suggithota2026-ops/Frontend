@@ -1,21 +1,27 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import { initializeApp, getApps, FirebaseApp, FirebaseOptions } from "firebase/app";
 import { getAnalytics, Analytics, isSupported } from "firebase/analytics";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getAuth, Auth } from "firebase/auth";
 import { getMessaging, Messaging } from "firebase/messaging";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyDJ0Jc5Vl9gxkhQM-vKsyl6Acep-EDirtk",
-  authDomain: "prk-smiles.firebaseapp.com",
-  projectId: "prk-smiles",
-  storageBucket: "prk-smiles.firebasestorage.app",
-  messagingSenderId: "96495423870",
-  appId: "1:96495423870:web:c5ae43caf8a9b4681e232f",
-  measurementId: "G-EL5LME26LR"
+function readEnv(key: keyof ImportMetaEnv, fallback: string): string {
+  const raw = import.meta.env[key];
+  if (typeof raw !== "string") return fallback;
+  const t = raw.trim();
+  return t.length > 0 ? t : fallback;
+}
+
+// Defaults match project suggi-thota-5a10e; override via Frontend/.env (VITE_*).
+const firebaseConfig: FirebaseOptions = {
+  apiKey: readEnv("VITE_FIREBASE_API_KEY", "AIzaSyBKBsiRVHhSQM79Ru5i5MJYw8lDFJtm-0A"),
+  authDomain: readEnv("VITE_FIREBASE_AUTH_DOMAIN", "suggi-thota-5a10e.firebaseapp.com"),
+  projectId: readEnv("VITE_FIREBASE_PROJECT_ID", "suggi-thota-5a10e"),
+  storageBucket: readEnv("VITE_FIREBASE_STORAGE_BUCKET", "suggi-thota-5a10e.firebasestorage.app"),
+  messagingSenderId: readEnv("VITE_FIREBASE_MESSAGING_SENDER_ID", "540616187955"),
+  appId: readEnv("VITE_FIREBASE_APP_ID", "1:540616187955:web:24f244d7b7f4ea7f16c346"),
+  measurementId: readEnv("VITE_FIREBASE_MEASUREMENT_ID", "G-F16TGLQ2XV"),
 };
 
 // Initialize Firebase

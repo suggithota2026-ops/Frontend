@@ -290,15 +290,24 @@ const Hotels = () => {
 
     setIsLoading(true);
     try {
+      const normalizedMobile = (formData.mobileNumber || "").replace(/\D/g, "");
+      if (normalizedMobile.length !== 10) {
+        toast.error("Please enter correct mobile number");
+        return;
+      }
+
       await api.post("/admin/hotels", {
-        hotelName: formData.hotelName,
-        mobileNumber: formData.mobileNumber,
-        address: formData.address,
-        gstNumber: formData.gstNumber || undefined,
+        hotelName: formData.hotelName?.trim(),
+        mobileNumber: normalizedMobile,
+        address: formData.address?.trim(),
+        gstNumber: formData.gstNumber ? formData.gstNumber.trim().toUpperCase() : undefined,
         creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
         rateType: formData.rateType || undefined,
         contractDuration: formData.contractDuration || undefined,
-        customerProductPricing: formData.customerProductPricing || undefined,
+        customerProductPricing: (formData.customerProductPricing || []).map((p) => ({
+          productId: Number(p.productId),
+          fixedPrice: Number(p.fixedPrice),
+        })) || undefined,
       });
       toast.success("Customer created successfully");
       setShowAddForm(false);
@@ -315,7 +324,25 @@ const Hotels = () => {
       fetchHotels();
     } catch (error: any) {
       console.error("Error creating customer:", error);
-      toast.error(error.response?.data?.message || "Failed to create customer");
+      const apiMsg = error.response?.data?.message;
+      const details = error.response?.data?.errors;
+      const firstDetail =
+        Array.isArray(details) && details.length > 0
+          ? details[0]?.message || details[0]
+          : null;
+
+      const detailText = typeof firstDetail === "string" ? firstDetail.toLowerCase() : "";
+      if (detailText.includes("mobilenumber")) {
+        toast.error("Please enter correct mobile number");
+      } else if (detailText.includes("gstnumber")) {
+        toast.error("Please enter correct GST number");
+      } else if (detailText.includes("address")) {
+        toast.error("Please enter correct address");
+      } else if (detailText.includes("hotelname")) {
+        toast.error("Please enter correct customer name");
+      } else {
+        toast.error(firstDetail || apiMsg || "Failed to create customer");
+      }
     } finally {
       setIsLoading(false);
     }

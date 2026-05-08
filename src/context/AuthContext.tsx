@@ -7,6 +7,7 @@ interface User {
     mobileNumber?: string;
     name: string;
     role: string;
+    permissions?: string[];
 }
 
 interface AuthContextType {

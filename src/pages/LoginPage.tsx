@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/api/axios';
@@ -13,15 +13,36 @@ import {
     InputOTPSlot,
 } from "@/components/ui/input-otp";
 
+function axiosErrorMessage(error: unknown, fallback: string): string {
+    const ax = error as { response?: { data?: { message?: string } }; message?: string };
+    const msg = ax?.response?.data?.message;
+    if (msg) return String(msg);
+    const m = ax?.message;
+    if (m) return String(m);
+    return fallback;
+}
+
 const LoginPage: React.FC = () => {
     const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
     const [mobileNumber, setMobileNumber] = useState('');
     const [otp, setOtp] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isResending, setIsResending] = useState(false);
+    /** Canonical mobile from DB — used for verify/resend */
+    const [serverMobile, setServerMobile] = useState<string | null>(null);
     const { login } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const phoneE164 = useMemo(() => {
+        const digits = mobileNumber.replace(/\D/g, '').slice(-10);
+        return digits ? `+91${digits}` : '';
+    }, [mobileNumber]);
+
+    const goBackToMobile = () => {
+        setStep('mobile');
+        setOtp('');
+        setServerMobile(null);
+    };
 
     const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,26 +57,25 @@ const LoginPage: React.FC = () => {
 
         setIsLoading(true);
         try {
-            const response = await api.post('/admin/auth/send-otp', { mobileNumber });
-            const { code } = response.data.data;
+            if (!phoneE164 || phoneE164.length < 12 || !phoneE164.startsWith('+')) {
+                throw new Error('Please enter a valid 10-digit Indian mobile number.');
+            }
+
+            const response = await api.post('/admin/auth/send-otp', {
+                mobileNumber: mobileNumber.trim(),
+            });
+            const raw = response.data?.data?.mobileNumber;
+            setServerMobile(typeof raw === 'string' && raw.length > 0 ? raw : phoneE164);
             setStep('otp');
             toast({
-                title: "OTP Sent",
-                description: (
-                    <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
-                        <p className="text-sm text-foreground mb-1">Verification code sent to {mobileNumber}</p>
-                        <p className="text-2xl font-bold tracking-[0.5em] text-primary">
-                            {code}
-                        </p>
-                    </div>
-                ),
-                duration: 10000,
+                title: 'Code sent',
+                description: 'Check your phone for the verification code sent via SMS.',
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.response?.data?.message || "Failed to send OTP. Please check if the mobile number is registered.",
+                description: axiosErrorMessage(error, 'Failed to send OTP. Please try again.'),
             });
         } finally {
             setIsLoading(false);
@@ -73,9 +93,21 @@ const LoginPage: React.FC = () => {
             return;
         }
 
+        if (!serverMobile) {
+            toast({
+                variant: "destructive",
+                title: "Session expired",
+                description: "Please go back and request a new code.",
+            });
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const response = await api.post('/admin/auth/verify-otp', { mobileNumber, otp });
+            const response = await api.post('/admin/auth/verify-otp', {
+                mobileNumber: serverMobile,
+                otp,
+            });
             const { token, user } = response.data.data;
             login(token, user);
             toast({
@@ -83,11 +115,21 @@ const LoginPage: React.FC = () => {
                 description: `Logged in as ${user.name || user.username}`,
             });
             navigate('/admin');
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const ax = error as { response?: { data?: { message?: string }; status?: number } };
+            const serverMsg = ax?.response?.data?.message ? String(ax.response.data.message) : '';
+            const status = ax?.response?.status;
+            let desc =
+                serverMsg ||
+                axiosErrorMessage(error, 'Invalid OTP. Please try again.');
+            if (status === 404 && serverMsg.toLowerCase().includes('admin')) {
+                desc =
+                    'This phone is not linked to an admin user. Set the admin mobileNumber in the database to match the number you use.';
+            }
             toast({
                 variant: "destructive",
                 title: "Verification Failed",
-                description: error.response?.data?.message || "Invalid OTP. Please try again.",
+                description: desc,
             });
         } finally {
             setIsLoading(false);
@@ -97,25 +139,20 @@ const LoginPage: React.FC = () => {
     const handleResendOtp = async () => {
         setIsResending(true);
         try {
-            const response = await api.post('/admin/auth/resend-otp', { mobileNumber });
-            const { code } = response.data.data;
+            if (!serverMobile) {
+                throw new Error('Session expired. Enter your mobile number again.');
+            }
+
+            await api.post('/admin/auth/resend-otp', { mobileNumber: serverMobile });
             toast({
-                title: "OTP Resent",
-                description: (
-                    <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
-                        <p className="text-sm text-foreground mb-1">New verification code sent to {mobileNumber}</p>
-                        <p className="text-2xl font-bold tracking-[0.5em] text-primary">
-                            {code}
-                        </p>
-                    </div>
-                ),
-                duration: 10000,
+                title: 'Code sent',
+                description: 'A new verification code has been sent to your phone.',
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.response?.data?.message || "Failed to resend OTP. Please try again.",
+                description: axiosErrorMessage(error, 'Failed to resend OTP. Please try again.'),
             });
         } finally {
             setIsResending(false);
@@ -197,6 +234,16 @@ const LoginPage: React.FC = () => {
                                 <div className="flex flex-col gap-2 w-full">
                                     <Button
                                         type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs text-muted-foreground"
+                                        onClick={goBackToMobile}
+                                        disabled={isLoading || isResending}
+                                    >
+                                        Change mobile number
+                                    </Button>
+                                    <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
                                         className="text-xs transition-colors"
@@ -243,7 +290,6 @@ const LoginPage: React.FC = () => {
                 </CardFooter>
             </Card>
 
-            {/* Background decorative elements */}
             <div className="fixed top-[-10%] right-[-5%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[100px] -z-10 animate-pulse"></div>
             <div className="fixed bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[100px] -z-10 delay-1000 animate-pulse"></div>
         </div>

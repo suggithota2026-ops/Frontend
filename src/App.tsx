@@ -13,6 +13,7 @@ import Billing from "./pages/Billing";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
 import Staff from "./pages/Staff";
+import StaffFormPage from "./pages/StaffFormPage";
 import Drivers from "./pages/Drivers";
 import Settings from "./pages/Settings";
 import Enquiry from "./pages/Enquiry";
@@ -26,6 +27,7 @@ import WebsiteAbout from "./pages/WebsiteAbout";
 import WebsiteContact from "./pages/WebsiteContact";
 import { useAuth, AuthProvider } from "./context/AuthContext";
 import { Navigate } from "react-router-dom";
+import { PERMISSIONS } from "./config/permissions";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +36,25 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!token) return <Navigate to="/login" replace />;
+
+  return <>{children}</>;
+};
+
+const PermissionRoute = ({
+  children,
+  permission,
+}: {
+  children: React.ReactNode;
+  permission: string;
+}) => {
+  const { user } = useAuth();
+  const role = String(user?.role || "").toUpperCase();
+  if (role === "ADMIN") return <>{children}</>;
+
+  const permissions = user?.permissions || [];
+  if (!permissions.includes(permission)) {
+    return <Navigate to="/admin" replace />;
+  }
 
   return <>{children}</>;
 };
@@ -55,21 +76,23 @@ const AppRoutes = () => (
         </ProtectedRoute>
       }
     >
-      <Route index element={<Dashboard />} />
-      <Route path="products" element={<Products />} />
-      <Route path="categories" element={<Categories />} />
-      <Route path="orders" element={<Orders />} />
-      <Route path="hotels" element={<Hotels />} />
-      <Route path="billing" element={<Billing />} />
-      <Route path="notifications" element={<Notifications />} />
-      <Route path="enquiry" element={<Enquiry />} />
-      <Route path="offers" element={<Offers />} />
-      <Route path="brands" element={<Brands />} />
+      <Route index element={<PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW}><Dashboard /></PermissionRoute>} />
+      <Route path="products" element={<PermissionRoute permission={PERMISSIONS.PRODUCTS_VIEW}><Products /></PermissionRoute>} />
+      <Route path="categories" element={<PermissionRoute permission={PERMISSIONS.CATEGORIES_VIEW}><Categories /></PermissionRoute>} />
+      <Route path="orders" element={<PermissionRoute permission={PERMISSIONS.ORDERS_VIEW}><Orders /></PermissionRoute>} />
+      <Route path="hotels" element={<PermissionRoute permission={PERMISSIONS.CUSTOMERS_VIEW}><Hotels /></PermissionRoute>} />
+      <Route path="billing" element={<PermissionRoute permission={PERMISSIONS.BILLING_VIEW}><Billing /></PermissionRoute>} />
+      <Route path="notifications" element={<PermissionRoute permission={PERMISSIONS.NOTIFICATIONS_VIEW}><Notifications /></PermissionRoute>} />
+      <Route path="enquiry" element={<PermissionRoute permission={PERMISSIONS.ENQUIRY_VIEW}><Enquiry /></PermissionRoute>} />
+      <Route path="offers" element={<PermissionRoute permission={PERMISSIONS.OFFERS_VIEW}><Offers /></PermissionRoute>} />
+      <Route path="brands" element={<PermissionRoute permission={PERMISSIONS.BRANDS_VIEW}><Brands /></PermissionRoute>} />
       <Route path="invoice" element={<InvoicePage />} />
-      <Route path="settings" element={<Settings />} />
-      <Route path="profile" element={<Profile />} />
-      <Route path="staff" element={<Staff />} />
-      <Route path="drivers" element={<Drivers />} />
+      <Route path="settings" element={<PermissionRoute permission={PERMISSIONS.SETTINGS_VIEW}><Settings /></PermissionRoute>} />
+      <Route path="profile" element={<PermissionRoute permission={PERMISSIONS.PROFILE_VIEW}><Profile /></PermissionRoute>} />
+      <Route path="staff" element={<PermissionRoute permission={PERMISSIONS.STAFF_VIEW}><Staff /></PermissionRoute>} />
+      <Route path="staff/new" element={<PermissionRoute permission={PERMISSIONS.STAFF_MANAGE}><StaffFormPage /></PermissionRoute>} />
+      <Route path="staff/:id/edit" element={<PermissionRoute permission={PERMISSIONS.STAFF_MANAGE}><StaffFormPage /></PermissionRoute>} />
+      <Route path="drivers" element={<PermissionRoute permission={PERMISSIONS.DRIVERS_VIEW}><Drivers /></PermissionRoute>} />
     </Route>
 
     {/* Old admin URLs (no /admin prefix) — keep bookmarks / manual entry working */}

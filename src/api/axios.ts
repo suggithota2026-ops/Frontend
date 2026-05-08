@@ -18,9 +18,14 @@ console.log('Is Dev:', isDev);
 console.log('Active BaseURL:', api.defaults.baseURL);
 console.log('-----------------');
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token (do not override an explicit Authorization header)
 api.interceptors.request.use(
     (config) => {
+        const h = config.headers;
+        const existing = h?.Authorization ?? (h as { authorization?: string })?.authorization;
+        if (existing) {
+            return config;
+        }
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;

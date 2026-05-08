@@ -1,32 +1,16 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Users, MoreHorizontal, Edit, Trash2, Search, Phone, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/api/axios";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 
 interface StaffMember {
     id: number;
@@ -36,24 +20,13 @@ interface StaffMember {
     role: string;
     isActive: boolean;
     createdAt: string;
+    permissions?: string[];
 }
 
 const Staff = () => {
+    const navigate = useNavigate();
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Form State
-    const [formData, setFormData] = useState({
-        username: "",
-        password: "",
-        name: "",
-        mobileNumber: "",
-        role: "STAFF",
-        isActive: true,
-    });
 
     const fetchStaff = async () => {
         try {
@@ -71,32 +44,6 @@ const Staff = () => {
         fetchStaff();
     }, []);
 
-    const handleOpenAdd = () => {
-        setCurrentStaff(null);
-        setFormData({
-            username: "",
-            password: "",
-            name: "",
-            mobileNumber: "",
-            role: "STAFF",
-            isActive: true
-        });
-        setIsDialogOpen(true);
-    };
-
-    const handleOpenEdit = (member: StaffMember) => {
-        setCurrentStaff(member);
-        setFormData({
-            username: member.username,
-            password: "", // Don't show password
-            name: member.name,
-            mobileNumber: member.mobileNumber,
-            role: member.role,
-            isActive: member.isActive,
-        });
-        setIsDialogOpen(true);
-    };
-
     const handleDelete = async (id: number) => {
         if (confirm("Are you sure you want to delete this staff member?")) {
             try {
@@ -112,42 +59,6 @@ const Staff = () => {
         }
     };
 
-    const handleSave = async () => {
-        if (!formData.username) {
-            toast.error("Please fill in all required fields");
-            return;
-        }
-        setIsLoading(true);
-
-        try {
-            let response;
-            if (currentStaff) {
-                const updateData = { ...formData };
-                if (!updateData.password) delete (updateData as any).password;
-                response = await api.put(`/admin/users/${currentStaff.id}`, updateData);
-            } else {
-                response = await api.post("/admin/staff", formData);
-            }
-
-            if (response.data.success) {
-                toast.success(currentStaff ? "Staff updated" : "Staff added");
-                fetchStaff();
-                setIsDialogOpen(false);
-            }
-        } catch (error: any) {
-            console.error("Error saving staff:", error);
-            toast.error(error.response?.data?.message || "Failed to save staff");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Enter key navigation hook
-    const { formRef: staffFormRef } = useEnterNavigation({
-        onSubmit: handleSave,
-        disabled: isLoading
-    });
-
     const filteredStaff = staff.filter(member =>
         member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,7 +73,7 @@ const Staff = () => {
                     <h1 className="text-2xl font-bold text-foreground">Staff Management</h1>
                     <p className="text-muted-foreground">Manage your administrative and ground staff</p>
                 </div>
-                <Button onClick={handleOpenAdd} className="gap-2 w-full sm:w-auto">
+                <Button onClick={() => navigate("/admin/staff/new")} className="gap-2 w-full sm:w-auto">
                     <Plus className="w-4 h-4" />
                     Add Staff Member
                 </Button>
@@ -205,12 +116,14 @@ const Staff = () => {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleOpenEdit(member)}>
+                                    <DropdownMenuItem onClick={() => navigate(`/admin/staff/${member.id}/edit`)}>
                                         <Edit className="w-4 h-4 mr-2" /> Edit
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(member.id)}>
-                                        <Trash2 className="w-4 h-4 mr-2" /> Delete
-                                    </DropdownMenuItem>
+                                    {member.role?.toUpperCase() !== "ADMIN" && (
+                                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(member.id)}>
+                                            <Trash2 className="w-4 h-4 mr-2" /> Delete
+                                        </DropdownMenuItem>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
@@ -237,83 +150,6 @@ const Staff = () => {
                     </div>
                 ))}
             </div>
-
-            {/* Add/Edit Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <form ref={staffFormRef}>
-                        <DialogHeader>
-                            <DialogTitle>{currentStaff ? 'Edit Staff Member' : 'Add New Staff'}</DialogTitle>
-                            <DialogDescription>
-                                {currentStaff ? 'Update details for this staff member.' : 'Create a new staff login for your team members.'}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">Full Name</Label>
-                            <Input
-                                id="name"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="John Doe"
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="username">Username (Required)</Label>
-                            <Input
-                                id="username"
-                                value={formData.username}
-                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                placeholder="johndoe123"
-                                disabled={!!currentStaff}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="mobile">Mobile Number</Label>
-                            <Input
-                                id="mobile"
-                                value={formData.mobileNumber}
-                                onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
-                                placeholder="9876543210"
-                            />
-                        </div>
-                        {!currentStaff && (
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Password (Required)</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    placeholder="Enter password"
-                                />
-                            </div>
-                        )}
-                        <div className="grid gap-2">
-                            <Label htmlFor="role">Role</Label>
-                            <Select
-                                value={formData.role}
-                                onValueChange={(value) => setFormData({ ...formData, role: value })}
-                            >
-                                <SelectTrigger id="role">
-                                    <SelectValue placeholder="Select a role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ADMIN">Admin</SelectItem>
-                                    <SelectItem value="STAFF">Staff</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isLoading}>Cancel</Button>
-                        <Button type="submit" onClick={handleSave} disabled={isLoading}>
-                            {isLoading ? "Saving..." : "Save"}
-                        </Button>
-                    </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 };
