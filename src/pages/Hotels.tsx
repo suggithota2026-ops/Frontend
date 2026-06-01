@@ -239,8 +239,9 @@ const Hotels = () => {
     const confirmMessage =
       "⚠️ WARNING: Delete Customer Account?\n\n" +
       `Customer: ${hotel.hotelName}\n\n` +
-      "NOTE: Customers with existing orders cannot be deleted due to data integrity requirements.\n\n" +
-      "If this customer has orders, consider BLOCKING instead of deleting.\n\n" +
+      "NOTE: Customers with pending, confirmed, or dispatched orders cannot be deleted.\n" +
+      "Hotels with only delivered or cancelled orders can be deleted.\n\n" +
+      "If this customer has active orders, consider BLOCKING instead of deleting.\n\n" +
       "Do you want to proceed with deletion?";
 
     if (!confirm(confirmMessage)) {
@@ -256,9 +257,9 @@ const Hotels = () => {
       const errorMessage = error.response?.data?.message || "Failed to delete customer";
 
       // Provide helpful guidance for the common case
-      if (errorMessage.includes("existing orders")) {
+      if (errorMessage.includes("pending or active orders")) {
         toast.error(
-          "Cannot delete customer with existing orders. Use the Block option instead to prevent new orders while preserving order history.",
+          "Cannot delete customer with pending or active orders. Deliver or cancel all orders first, or use Block instead.",
           { duration: 6000 }
         );
       } else {

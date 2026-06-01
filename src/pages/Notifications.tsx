@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Bell, Send, Tag, Users, AlertTriangle, CheckCircle2, ShoppingCart, Settings, XCircle, Package, Loader2, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -64,6 +74,9 @@ const Notifications = () => {
     description: ""
   });
   const [editingOfferId, setEditingOfferId] = useState<number | null>(null);
+  const [offerToDelete, setOfferToDelete] = useState<any | null>(null);
+  const [isDeleteOfferDialogOpen, setIsDeleteOfferDialogOpen] = useState(false);
+  const [isDeletingOffer, setIsDeletingOffer] = useState(false);
   const [offers, setOffers] = useState<any[]>([]);
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersPagination, setOffersPagination] = useState({
@@ -71,6 +84,29 @@ const Notifications = () => {
     totalPages: 1,
     total: 0,
   });
+
+  const availableSubcategories = useMemo(() => {
+    if (selectedCategoryIds.length === 0) return [];
+
+    const sourceCategories = categories.filter((cat) => selectedCategoryIds.includes(cat.id));
+
+    const subcategoryMap = new Map<string, { name: string; categoryName: string }>();
+
+    sourceCategories.forEach((category) => {
+      (category.subcategories || []).forEach((sub: { id?: string; name?: string }) => {
+        if (sub?.name && !subcategoryMap.has(sub.name)) {
+          subcategoryMap.set(sub.name, { name: sub.name, categoryName: category.name });
+        }
+      });
+    });
+
+    return Array.from(subcategoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [categories, selectedCategoryIds]);
+
+  useEffect(() => {
+    const availableNames = availableSubcategories.map((sub) => sub.name);
+    setSelectedSubcategoryNames((prev) => prev.filter((name) => availableNames.includes(name)));
+  }, [availableSubcategories]);
 
   useEffect(() => {
     fetchNotifications();
@@ -370,29 +406,36 @@ const Notifications = () => {
     toast.info("Edit cancelled");
   };
 
-  const handleDeleteOffer = async (offerId: number) => {
-    if (window.confirm("Are you sure you want to delete this offer? This action cannot be undone.")) {
-      try {
-        const response = await api.delete(`/admin/offers-admin/${offerId}`);
-        if (response.data.success) {
-          toast.success("Offer deleted successfully");
-          // Refresh the offers list
-          fetchOffers(offersPagination.page);
-        }
-      } catch (error: any) {
-        console.error('Error deleting offer:', error);
+  const openDeleteOfferDialog = (offer: any) => {
+    setOfferToDelete(offer);
+    setIsDeleteOfferDialogOpen(true);
+  };
 
-        // Check if it's an authorization error
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          toast.error("Session expired or insufficient permissions. Please log in again.");
-          // Redirect to login after a short delay
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 1500);
-        } else {
-          toast.error("Failed to delete offer");
-        }
+  const confirmDeleteOffer = async () => {
+    if (!offerToDelete) return;
+
+    try {
+      setIsDeletingOffer(true);
+      const response = await api.delete(`/admin/offers-admin/${offerToDelete.id}`);
+      if (response.data.success) {
+        toast.success("Offer deleted successfully");
+        fetchOffers(offersPagination.page);
       }
+    } catch (error: any) {
+      console.error('Error deleting offer:', error);
+
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        toast.error("Session expired or insufficient permissions. Please log in again.");
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+      } else {
+        toast.error("Failed to delete offer");
+      }
+    } finally {
+      setIsDeletingOffer(false);
+      setIsDeleteOfferDialogOpen(false);
+      setOfferToDelete(null);
     }
   };
 
@@ -744,16 +787,39 @@ const Notifications = () => {
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Subcategory Filter</label>
-                      <Input
-                        placeholder="e.g., Organic, Premium"
-                        value={selectedSubcategoryNames.join(", ")}
-                        onChange={(e) => {
-                          // Allow comma-separated subcategory names
-                          const names = e.target.value.split(",").map(name => name.trim()).filter(name => name);
-                          setSelectedSubcategoryNames(names);
+                      <Select
+                        onValueChange={(value) => {
+                          if (!selectedSubcategoryNames.includes(value)) {
+                            setSelectedSubcategoryNames([...selectedSubcategoryNames, value]);
+                          }
                         }}
-                        className="font-mono"
-                      />
+                        disabled={availableSubcategories.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              selectedCategoryIds.length === 0
+                                ? "Select category first"
+                                : availableSubcategories.length === 0
+                                  ? "No subcategories available"
+                                  : "Select subcategory"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSubcategories.map((sub) => (
+                            <SelectItem
+                              key={sub.name}
+                              value={sub.name}
+                              disabled={selectedSubcategoryNames.includes(sub.name)}
+                            >
+                              {selectedCategoryIds.length !== 1
+                                ? `${sub.name} (${sub.categoryName})`
+                                : sub.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
                       {selectedSubcategoryNames.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
@@ -929,7 +995,7 @@ const Notifications = () => {
                                 <Button size="sm" variant="outline" onClick={() => handleEditOffer(offer)}>
                                   Edit
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleDeleteOffer(offer.id)}>
+                                <Button size="sm" variant="outline" onClick={() => openDeleteOfferDialog(offer)}>
                                   Delete
                                 </Button>
                               </div>
@@ -1164,6 +1230,40 @@ const Notifications = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={isDeleteOfferDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteOfferDialogOpen(open);
+          if (!open) setOfferToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete offer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete offer{" "}
+              <span className="font-semibold text-foreground">
+                {offerToDelete?.code || offerToDelete?.title}
+              </span>
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingOffer}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteOffer();
+              }}
+              disabled={isDeletingOffer}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingOffer ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

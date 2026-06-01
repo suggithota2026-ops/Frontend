@@ -107,8 +107,8 @@ const Orders = () => {
   const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
   const [todaysOrdersData, setTodaysOrdersData] = useState<any>(null);
   const [isExportLoading, setIsExportLoading] = useState(false);
-  const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [editingDeliveryId, setEditingDeliveryId] = useState<number | null>(null);
   const [tempDeliveryCharge, setTempDeliveryCharge] = useState<string>("");
   const [pagination, setPagination] = useState({
@@ -144,6 +144,9 @@ const Orders = () => {
 
   // Transform API order to UI format
   const transformOrder = (order: any): Order => {
+    const matchedHotel = hotels.find((h: any) => h.id === order.hotelId);
+    const hotel = order.hotel || matchedHotel;
+
     const transformedItems = order.items.map((item: OrderItem) => ({
       ...item,
       name: item.productName,
@@ -155,7 +158,8 @@ const Orders = () => {
 
     return {
       ...order,
-      customer: order.hotel?.hotelName || `Hotel #${order.hotelId}`,
+      hotel,
+      customer: hotel?.hotelName || `Hotel #${order.hotelId}`,
       date: new Date(order.createdAt).toLocaleDateString('en-IN', {
         year: 'numeric',
         month: 'short',
@@ -471,6 +475,20 @@ const Orders = () => {
     }
   };
 
+  const getExportDateRangeLabel = () => {
+    if (startDate && endDate) return `${startDate} to ${endDate}`;
+    if (startDate) return `From ${startDate}`;
+    if (endDate) return `Until ${endDate}`;
+    return "All dates";
+  };
+
+  const getExportFilename = () => {
+    if (startDate && endDate) return `orders_report_${startDate}_to_${endDate}.pdf`;
+    if (startDate) return `orders_report_from_${startDate}.pdf`;
+    if (endDate) return `orders_report_until_${endDate}.pdf`;
+    return "orders_report_all.pdf";
+  };
+
   const handleExportAll = async () => {
     setIsExportLoading(true);
     toast.info("Preparing export data...");
@@ -500,7 +518,7 @@ const Orders = () => {
 
       // Validation: Check if orders exist
       if (allOrders.length === 0) {
-        toast.error("No orders found for the selected date range.");
+        toast.error("No orders found for the selected filters.");
         return;
       }
 
@@ -513,7 +531,7 @@ const Orders = () => {
 
       // Date range info
       doc.setFontSize(12);
-      doc.text(`Date Range: ${startDate} to ${endDate}`, 20, 35);
+      doc.text(`Date Range: ${getExportDateRangeLabel()}`, 20, 35);
       doc.text(`Total Orders: ${allOrders.length}`, 20, 42);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 49);
 
@@ -570,7 +588,7 @@ const Orders = () => {
       });
 
       // Save the PDF
-      doc.save(`orders_report_${startDate}_to_${endDate}.pdf`);
+      doc.save(getExportFilename());
 
       toast.success(`Exported ${allOrders.length} orders successfully!`);
     } catch (error) {
@@ -840,7 +858,11 @@ const Orders = () => {
           <p className="text-muted-foreground">Process orders, assign drivers, and manage invoices</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={() => setIsRangeModalOpen(true)}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={() => {
+            setStartDate("");
+            setEndDate("");
+            setIsRangeModalOpen(true);
+          }}>
             <Download className="w-4 h-4" />
             Export Report
           </Button>
@@ -1436,7 +1458,7 @@ const Orders = () => {
             <DialogHeader>
               <DialogTitle>Export Orders Report</DialogTitle>
               <DialogDescription>
-                Select a date range to download a complete report of orders.
+                Optionally select a date range. Leave dates empty to download all orders.
               </DialogDescription>
             </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1465,6 +1487,7 @@ const Orders = () => {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="col-span-3"
+                placeholder="Optional"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -1474,6 +1497,7 @@ const Orders = () => {
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="col-span-3"
+                placeholder="Optional"
               />
             </div>
           </div>

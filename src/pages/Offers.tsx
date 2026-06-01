@@ -91,35 +91,36 @@ const Offers: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [currentOffer, setCurrentOffer] = useState<Offer | null>(null);
 
+  const fetchOffers = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/admin/offers-admin');
+
+      if (response.data.success) {
+        const offersData = response.data.data?.offers || [];
+        setOffers(offersData);
+        setFilteredOffers(offersData);
+      }
+    } catch (error) {
+      console.error('Error fetching offers:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch offers. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch offers from API
   useEffect(() => {
-    const fetchOffers = async () => {
-      try {
-        setLoading(true);
-        const response = await api.get('/admin/offers-admin');
-
-        if (response.data.success) {
-          const offersData = response.data.data?.offers || [];
-          setOffers(offersData);
-          setFilteredOffers(offersData);
-        }
-      } catch (error) {
-        console.error('Error fetching offers:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch offers. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOffers();
-  }, [token, toast]);
+  }, [token]);
 
   // Filter offers based on search term and status
   useEffect(() => {
@@ -193,31 +194,65 @@ const Offers: React.FC = () => {
 
   const handleSaveChanges = async (updatedOffer: Offer) => {
     try {
-      // Ensure we use the offers-admin endpoint
       const response = await api.put(`/admin/offers-admin/${updatedOffer.id}`, updatedOffer);
 
       if (response.data.success) {
-        // Update local state
+        const savedOffer = response.data.data?.offer || updatedOffer;
         const updatedOffers = offers.map(offer =>
-          offer.id === updatedOffer.id ? updatedOffer : offer
+          offer.id === updatedOffer.id ? savedOffer : offer
         );
         setOffers(updatedOffers);
 
         toast({
           title: 'Offer updated',
-          description: `Offer "${updatedOffer.code}" has been updated successfully.`,
+          description: `Offer "${savedOffer.code}" has been updated successfully.`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating offer:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update offer. Please try again.',
+        description: error.response?.data?.message || 'Failed to update offer. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setIsEditDialogOpen(false);
       setCurrentOffer(null);
+    }
+  };
+
+  const handleCreateOffer = async (newOffer: Offer) => {
+    try {
+      const response = await api.post('/admin/offers-admin', {
+        code: newOffer.code,
+        discountType: newOffer.discountType,
+        discountValue: newOffer.discountValue,
+        validFrom: newOffer.validFrom,
+        validUntil: newOffer.validUntil,
+        minOrderAmount: newOffer.minOrderAmount,
+        maxDiscountAmount: newOffer.maxDiscountAmount,
+        usageLimit: newOffer.usageLimit,
+        isActive: newOffer.isActive,
+        metadata: newOffer.metadata,
+      });
+
+      if (response.data.success) {
+        await fetchOffers();
+
+        toast({
+          title: 'Offer created',
+          description: `Offer "${newOffer.code}" has been created successfully.`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error creating offer:', error);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to create offer. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreateDialogOpen(false);
     }
   };
 
@@ -250,7 +285,7 @@ const Offers: React.FC = () => {
               Manage promotional offers and discounts for your customers
             </p>
           </div>
-          <Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
             <PlusIcon className="mr-2 h-4 w-4" />
             Create New Offer
           </Button>
@@ -495,11 +530,20 @@ const Offers: React.FC = () => {
         </Card>
       </div>
 
+      {/* Create Offer Dialog */}
+      <OfferFormDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        mode="create"
+        onSave={handleCreateOffer}
+      />
+
       {/* Edit Offer Dialog */}
       {currentOffer && (
-        <EditOfferDialog
+        <OfferFormDialog
           isOpen={isEditDialogOpen}
           onClose={() => setIsEditDialogOpen(false)}
+          mode="edit"
           offer={currentOffer}
           onSave={handleSaveChanges}
         />
@@ -508,26 +552,48 @@ const Offers: React.FC = () => {
   );
 };
 
-// Edit Offer Dialog Component
-interface EditOfferDialogProps {
+const getDefaultOffer = (): Offer => ({
+  id: 0,
+  code: '',
+  discountType: 'percentage',
+  discountValue: 0,
+  validFrom: new Date().toISOString(),
+  validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  usedCount: 0,
+  isActive: true,
+  metadata: {
+    offerTitle: '',
+    offerDescription: '',
+  },
+  createdAt: '',
+  updatedAt: '',
+});
+
+// Offer Form Dialog Component
+interface OfferFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  offer: Offer;
-  onSave: (updatedOffer: Offer) => void;
+  mode: 'create' | 'edit';
+  offer?: Offer;
+  onSave: (offer: Offer) => void | Promise<void>;
 }
 
-const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
+const OfferFormDialog: React.FC<OfferFormDialogProps> = ({
   isOpen,
   onClose,
+  mode,
   offer,
   onSave
 }) => {
   const { toast } = useToast();
-  const [formData, setFormData] = useState<Offer>(offer);
+  const [formData, setFormData] = useState<Offer>(offer || getDefaultOffer());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    setFormData(offer);
-  }, [offer]);
+    if (isOpen) {
+      setFormData(offer || getDefaultOffer());
+    }
+  }, [offer, isOpen]);
 
   const handleChange = (field: keyof Offer, value: any) => {
     setFormData(prev => ({
@@ -536,43 +602,64 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      onSave(formData);
+
+    if (!formData.code.trim()) {
       toast({
-        title: 'Success',
-        description: 'Offer updated successfully.',
+        title: 'Validation error',
+        description: 'Offer code is required.',
+        variant: 'destructive',
       });
+      return;
+    }
+
+    if (!formData.validUntil) {
+      toast({
+        title: 'Validation error',
+        description: 'Valid until date is required.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await onSave(formData);
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to update offer. Please try again.',
+        description: mode === 'create' ? 'Failed to create offer.' : 'Failed to update offer.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Wrapper function for Enter navigation
   const handleSaveWrapper = () => {
     const event = { preventDefault: () => {} } as React.FormEvent;
     handleSubmit(event);
   };
 
-  // Enter key navigation hook
-  const { formRef: editOfferFormRef } = useEnterNavigation({
+  const { formRef: offerFormRef } = useEnterNavigation({
     onSubmit: handleSaveWrapper,
-    disabled: false
+    disabled: isSubmitting
   });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Offer</DialogTitle>
+          <DialogTitle>{mode === 'create' ? 'Create New Offer' : 'Edit Offer'}</DialogTitle>
+          {mode === 'create' && (
+            <DialogDescription>
+              Fill in the details below to create a new promotional offer.
+            </DialogDescription>
+          )}
         </DialogHeader>
 
-        <form ref={editOfferFormRef} onSubmit={handleSubmit} className="space-y-4">
+        <form ref={offerFormRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Code</label>
@@ -700,10 +787,12 @@ const EditOfferDialog: React.FC<EditOfferDialogProps> = ({
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Offer' : 'Save Changes'}
+            </Button>
           </div>
         </form>
       </DialogContent>
