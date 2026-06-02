@@ -40,6 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import api from "@/api/axios";
 import { toast } from "sonner";
+import type { AxiosError } from "axios";
 
 interface Subcategory {
   id: string;
@@ -201,6 +202,18 @@ const Products = () => {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const getApiErrorMessage = (error: unknown, fallback: string) => {
+    const axiosError = error as AxiosError<any>;
+    const apiMessage = axiosError?.response?.data?.message;
+    const details = axiosError?.response?.data?.errors;
+    const firstDetailMessage =
+      Array.isArray(details) && details.length > 0
+        ? details[0]?.message || details[0]
+        : null;
+
+    return firstDetailMessage || apiMessage || fallback;
+  };
 
   // Filtering state
   const [filterCategory, setFilterCategory] = useState<number | null>(urlCategoryId ? parseInt(urlCategoryId) : null);
@@ -397,10 +410,9 @@ const Products = () => {
       }
     } catch (error) {
       console.error("Error saving product:", error);
-      toast.error("Failed to save product");
+      toast.error(getApiErrorMessage(error, "Failed to save product"));
     } finally {
       setIsLoading(false);
-      setIsDialogOpen(false);
     }
   };
 
