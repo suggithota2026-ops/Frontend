@@ -408,6 +408,9 @@ const Orders = () => {
   /* import html2canvas from 'html2canvas'; import jsPDF from 'jspdf'; import { createRoot } from 'react-dom/client'; import InvoiceTemplate from '@/components/invoice/InvoiceTemplate'; */
 
   const handleDownloadInvoice = async (order: Order) => {
+    let container: HTMLDivElement | null = null;
+    let root: ReturnType<typeof import('react-dom/client').createRoot> | null = null;
+
     try {
       toast.info(`Generating invoice for ${order.id}...`);
 
@@ -417,37 +420,48 @@ const Orders = () => {
       const { createRoot } = await import('react-dom/client');
       const { default: InvoiceTemplate } = await import('@/components/invoice/InvoiceTemplate');
 
-      // Create a hidden container
-      const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.top = '-9999px';
-      container.style.left = '-9999px';
+      // Must stay in the viewport (not -9999px) or html2canvas often captures a blank page
+      container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '0';
+      container.style.top = '0';
+      container.style.zIndex = '-1';
+      container.style.opacity = '0';
+      container.style.pointerEvents = 'none';
+      container.style.overflow = 'hidden';
       document.body.appendChild(container);
 
-      // Render the template
-      const root = createRoot(container);
+      root = createRoot(container);
 
-      // Wait for render
-      await new Promise<void>((resolve) => {
-        root.render(
-          <InvoiceTemplate order={order} ref={(el) => {
-            if (el) resolve();
-          }} />
-        );
-        // Small timeout to ensure styles are applied
-        setTimeout(resolve, 500);
+      // Wait until profile/business details are loaded (live API is slower than localhost)
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          reject(new Error('Invoice template timed out waiting for business details'));
+        }, 15000);
+
+        const handleReady = () => {
+          window.clearTimeout(timeout);
+          resolve();
+        };
+
+        root.render(<InvoiceTemplate order={order} onReady={handleReady} />);
       });
 
-      // Give it a moment to fully render
-      await new Promise(r => setTimeout(r, 500));
+      // Wait for browser paint after React commit
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
-      const element = container.firstElementChild as HTMLElement;
+      const element = container.querySelector('[data-invoice-pdf-root]') as HTMLElement | null;
       if (!element) throw new Error("Invoice template failed to render");
 
       const canvas = await html2canvas(element, {
-        scale: 2, // Higher scale for better quality
+        scale: 2,
         logging: false,
-        useCORS: true // Important for images if any
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -463,15 +477,16 @@ const Orders = () => {
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       pdf.save(`Invoice-${order.id}.pdf`);
 
-      // Cleanup
-      root.unmount();
-      document.body.removeChild(container);
-
       toast.success("Invoice downloaded!");
 
     } catch (error: any) {
       console.error("Error generating invoice:", error);
-      toast.error("Failed to generate invoice locally");
+      toast.error(error?.message || "Failed to generate invoice");
+    } finally {
+      root?.unmount();
+      if (container?.parentNode) {
+        container.parentNode.removeChild(container);
+      }
     }
   };
 

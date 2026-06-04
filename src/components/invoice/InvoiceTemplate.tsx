@@ -49,9 +49,11 @@ interface BusinessDetails {
 
 interface InvoiceTemplateProps {
     order: Order;
+    /** Called when business profile fetch finished and the invoice DOM is ready for capture */
+    onReady?: () => void;
 }
 
-const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ order }, ref) => {
+const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ order, onReady }, ref) => {
     const [businessDetails, setBusinessDetails] = useState<BusinessDetails>({
         name: "",
         address: "",
@@ -164,6 +166,14 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
         fetchBusinessDetails();
     }, []);
 
+    useEffect(() => {
+        if (!isLoading) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => onReady?.());
+            });
+        }
+    }, [isLoading, onReady]);
+
     // Helper to safely get values
     const getCustomerName = () => order.customer || order.hotel?.hotelName || "";
     const getCustomerAddress = () => order.hotel?.address || "";
@@ -193,11 +203,16 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
     }
 
     return (
-        <div ref={ref} className="bg-white p-8 max-w-[800px] mx-auto text-black font-sans" style={{ width: '800px', minHeight: '1100px' }}>
+        <div
+            ref={ref}
+            data-invoice-pdf-root
+            className="bg-white p-8 max-w-[800px] mx-auto text-black font-sans"
+            style={{ width: '800px', minHeight: '1100px', backgroundColor: '#ffffff', color: '#000000' }}
+        >
             {/* Header */}
             <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
                 <div className="flex items-center">
-                    <img src="/Invoice.png" alt="PRK SMILES" className="h-20 w-auto object-contain" />
+                    <img src="/Invoice.png" alt="PRK SMILES" className="h-20 w-auto object-contain" crossOrigin="anonymous" />
                 </div>
                 <div className="text-right">
                     {businessDetails.name && (
