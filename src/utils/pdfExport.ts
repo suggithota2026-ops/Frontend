@@ -18,9 +18,6 @@ export const generateOrdersReportPDF = (allOrders: any[], drivers: any[], startD
 
     // Prepare table data
     const tableData = allOrders.map((order: any) => {
-        const products = order.items
-            ? order.items.map((item: any) => `${item.name || item.productName} (${item.quantity})`).join(", ")
-            : "N/A";
         const driverName = order.assignedTo
             ? (drivers.find((d: any) => d.id === order.assignedTo)?.name || order.assignedTo)
             : "Unassigned";
@@ -31,7 +28,6 @@ export const generateOrdersReportPDF = (allOrders: any[], drivers: any[], startD
             order.date || new Date(order.createdAt).toLocaleDateString(),
             formatStatus(order.status),
             driverName,
-            products,
             `₹${(order.deliveryCharge || 0).toFixed(2)}`,
             `₹${(order.total || order.totalAmount || 0).toFixed(2)}`
         ];
@@ -40,7 +36,7 @@ export const generateOrdersReportPDF = (allOrders: any[], drivers: any[], startD
     // Generate table
     autoTable(doc, {
         startY: 50,
-        head: [['ID', 'Client', 'Date', 'Status', 'Driver', 'Products', 'Delivery', 'Total']],
+        head: [['ID', 'Client', 'Date', 'Status', 'Driver', 'Delivery', 'Total']],
         body: tableData,
         theme: 'grid',
         headStyles: {
@@ -56,13 +52,12 @@ export const generateOrdersReportPDF = (allOrders: any[], drivers: any[], startD
         },
         columnStyles: {
             0: { cellWidth: 15 },
-            1: { cellWidth: 35 },
+            1: { cellWidth: 45 },
             2: { cellWidth: 25 },
-            3: { cellWidth: 20 },
-            4: { cellWidth: 25 },
-            5: { cellWidth: 40 },
-            6: { cellWidth: 18, halign: 'right' },
-            7: { cellWidth: 20, halign: 'right' }
+            3: { cellWidth: 25 },
+            4: { cellWidth: 30 },
+            5: { cellWidth: 25, halign: 'right' },
+            6: { cellWidth: 25, halign: 'right' }
         }
     });
 

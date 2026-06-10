@@ -1,5 +1,6 @@
 import React, { forwardRef, useState, useEffect } from 'react';
 import api from '@/api/axios';
+import { amountInWords } from '@/utils/amountInWords';
 
 export interface OrderItem {
     productId: number;
@@ -361,8 +362,9 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                         <span>Grand Total</span>
                         <span>₹{getTotal().toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="text-xs text-right mt-1 text-gray-500">
-                        (Amount in words: {numberToWords(Math.round(getTotal()))} Only)
+                    <div className="text-xs mt-2 px-2 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-left">
+                        <span className="font-semibold">Amount in words: </span>
+                        {amountInWords(getTotal())} Only
                     </div>
                 </div>
             </div>
@@ -385,17 +387,5 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
         </div>
     );
 });
-
-// Simple number to words converter (Indian Numbering System mostly uses Lakhs/Crores but this is a simple approximation for English)
-function numberToWords(num: number): string {
-    if (num === 0) return "Zero";
-
-    const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-
-    // This is a very basic implementation. For production robust library like 'number-to-words' is recommended.
-    // However, for this snippet:
-    return "Rupees ..."; // Placeholder to avoid massive function.
-}
 
 export default InvoiceTemplate;

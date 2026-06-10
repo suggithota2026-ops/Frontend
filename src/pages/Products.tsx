@@ -230,7 +230,9 @@ const Products = () => {
   const fetchProducts = async (subId?: string | null) => {
     setIsLoading(true);
     try {
-      const url = subId ? `/admin/products/subcategory/${subId}` : "/admin/products";
+      const url = subId
+        ? `/admin/products/subcategory/${subId}?limit=1000`
+        : "/admin/products?limit=1000";
       const response = await api.get(url);
       if (response.data.success) {
         setProducts(response.data.data.products);
@@ -374,6 +376,11 @@ const Products = () => {
   };
 
   const handleSave = async () => {
+    if (!currentProduct && !formData.categoryId) {
+      toast.error("Please select a category");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const formDataToSend = new FormData();
@@ -405,7 +412,22 @@ const Products = () => {
 
       if (response.data.success) {
         toast.success(currentProduct ? "Product updated" : "Product added");
-        fetchProducts(filterSubcategory);
+
+        if (!currentProduct) {
+          const saved = response.data.data;
+          if (saved?.categoryId) {
+            setFilterCategory(saved.categoryId);
+          }
+          const newSubId = saved?.subcategory || null;
+          if (newSubId !== filterSubcategory) {
+            setFilterSubcategory(newSubId);
+          } else {
+            fetchProducts(newSubId);
+          }
+        } else {
+          fetchProducts(filterSubcategory);
+        }
+
         setIsDialogOpen(false);
       }
     } catch (error) {
@@ -619,7 +641,7 @@ const Products = () => {
                           key={product.id}
                           style={{ animationDelay: `${Math.min(idx * 50, 1000)}ms` }}
                           className={cn(
-                            "group transition-colors animate-roll-in opacity-0",
+                            "group transition-colors animate-roll-in",
                             !product.isActive ? 'opacity-60 bg-muted/20' : 'hover:bg-muted/10'
                           )}
                         >

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Eye, Download, MoreHorizontal, Truck, FileText, Edit } from "lucide-react";
+import { Search, Filter, Eye, Download, MoreHorizontal, Truck, FileText, Edit, Trash2, Printer, Sheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,12 +34,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import api from "@/api/axios";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { generateOrdersReportPDF } from '@/utils/pdfExport';
+import * as XLSX from 'xlsx';
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg
@@ -106,6 +116,9 @@ const Orders = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
   const [todaysOrdersData, setTodaysOrdersData] = useState<any>(null);
+  const [exportSummaryDate, setExportSummaryDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [exportSummaryStartTime, setExportSummaryStartTime] = useState('00:00');
+  const [exportSummaryEndTime, setExportSummaryEndTime] = useState('23:59');
   const [isExportLoading, setIsExportLoading] = useState(false);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -119,6 +132,9 @@ const Orders = () => {
   });
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<any>(null);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
 
   const getStatusColor = (status: string) => {
     const statusLower = status?.toLowerCase() || "";
@@ -349,6 +365,39 @@ const Orders = () => {
     setIsEditOpen(true);
   };
 
+  const handleDeleteOrder = (order: Order) => {
+    setOrderToDelete(order);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+
+    setIsDeletingOrder(true);
+    try {
+      const response = await api.delete(`/admin/orders/${orderToDelete.id}`);
+      if (response.data.success) {
+        toast.success("Order deleted");
+        if (selectedOrder?.id === orderToDelete.id) {
+          setIsViewOpen(false);
+          setSelectedOrder(null);
+        }
+        if (isEditOpen && editFormData?.id === orderToDelete.id) {
+          setIsEditOpen(false);
+          setEditFormData(null);
+        }
+        setIsDeleteDialogOpen(false);
+        setOrderToDelete(null);
+        fetchOrders();
+      }
+    } catch (error: any) {
+      console.error("Error deleting order:", error);
+      toast.error(error.response?.data?.message || "Failed to delete order");
+    } finally {
+      setIsDeletingOrder(false);
+    }
+  };
+
   const handleSaveEditedOrder = async () => {
     if (!editFormData) return;
 
@@ -497,115 +546,145 @@ const Orders = () => {
     return "All dates";
   };
 
-  const getExportFilename = () => {
-    if (startDate && endDate) return `orders_report_${startDate}_to_${endDate}.pdf`;
-    if (startDate) return `orders_report_from_${startDate}.pdf`;
-    if (endDate) return `orders_report_until_${endDate}.pdf`;
-    return "orders_report_all.pdf";
+  const getExportFilename = (format: 'pdf' | 'excel') => {
+    const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+    if (startDate && endDate) return `orders_report_${startDate}_to_${endDate}.${ext}`;
+    if (startDate) return `orders_report_from_${startDate}.${ext}`;
+    if (endDate) return `orders_report_until_${endDate}.${ext}`;
+    return `orders_report_all.${ext}`;
   };
 
-  const handleExportAll = async () => {
+  const buildExportTableRows = (allOrders: Order[]) =>
+    allOrders.map((order) => {
+      const driverName = order.assignedTo
+        ? (drivers.find((d) => d.id.toString() === order.assignedTo?.toString())?.name || order.assignedTo)
+        : "Unassigned";
+
+      return [
+        order.id,
+        order.customer || `Hotel #${order.hotelId}`,
+        order.date || new Date(order.createdAt).toLocaleDateString('en-GB'),
+        formatStatus(order.status),
+        driverName,
+        Number(order.deliveryCharge || 0),
+        Number(order.total || order.totalAmount || 0),
+      ];
+    });
+
+  const fetchOrdersForExport = async () => {
+    const params: Record<string, string | number> = {
+      page: 1,
+      limit: 5000,
+    };
+    if (statusFilter !== "all") {
+      params.status = statusFilter.toLowerCase();
+    }
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (selectedExportHotel !== "all") {
+      params.hotel = selectedExportHotel;
+    }
+
+    const response = await api.get("/admin/orders", { params });
+    if (!response.data.success) {
+      throw new Error("Failed to fetch data for export");
+    }
+
+    return response.data.data.orders.map(transformOrder) as Order[];
+  };
+
+  const handleExportAll = async (format: 'pdf' | 'excel' = 'pdf') => {
     setIsExportLoading(true);
     toast.info("Preparing export data...");
 
     try {
-      // Fetch ALL orders matching filters (high limit)
-      const params: any = {
-        page: 1,
-        limit: 5000, // Large enough to get all matching orders
-      };
-      if (statusFilter !== "all") {
-        params.status = statusFilter.toLowerCase();
-      }
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-      if (selectedExportHotel !== "all") {
-        params.hotel = selectedExportHotel;
-      }
+      const allOrders = await fetchOrdersForExport();
 
-      const response = await api.get("/admin/orders", { params });
-
-      if (!response.data.success) {
-        throw new Error("Failed to fetch data for export");
-      }
-
-      const allOrders = response.data.data.orders.map(transformOrder);
-
-      // Validation: Check if orders exist
       if (allOrders.length === 0) {
         toast.error("No orders found for the selected filters.");
         return;
       }
 
-      // Generate PDF report
-      const doc = new jsPDF('landscape', 'mm', 'a4'); // Use landscape mode for more columns
+      const tableData = buildExportTableRows(allOrders);
+      const headers = ['ID', 'Client', 'Date', 'Status', 'Delivery Team', 'Delivery (Rs)', 'Total (Rs)'];
 
-      // Title
-      doc.setFontSize(20);
-      doc.text('ORDERS REPORT', 105, 20, { align: 'center' });
-
-      // Date range info
-      doc.setFontSize(12);
-      doc.text(`Date Range: ${getExportDateRangeLabel()}`, 20, 35);
-      doc.text(`Total Orders: ${allOrders.length}`, 20, 42);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 49);
-
-      // Prepare table data
-      const tableData = allOrders.map((order: any) => {
-        const products = order.items
-          ? order.items.map((item: any) => `${item.name || item.productName} (${item.quantity})`).join("; ")
-          : "N/A";
-        const driverName = order.assignedTo
-          ? (drivers.find((d: any) => d.id === order.assignedTo)?.name || order.assignedTo)
-          : "Unassigned";
-
-        return [
-          order.id,
-          order.customer || `Hotel #${order.hotelId}`,
-          order.date || new Date(order.createdAt).toLocaleDateString('en-GB'), // Use consistent date format
-          formatStatus(order.status),
-          driverName,
-          products,
-          `Rs ${(order.deliveryCharge || 0).toFixed(2)}`,
-          `Rs ${(order.total || 0).toFixed(2)}`
+      if (format === 'excel') {
+        const worksheetData = [
+          ['ORDERS REPORT'],
+          [`Date Range: ${getExportDateRangeLabel()}`],
+          [`Total Orders: ${allOrders.length}`],
+          [`Generated on: ${new Date().toLocaleDateString('en-IN')}`],
+          [],
+          headers,
+          ...tableData,
         ];
-      });
 
-      // Generate table
-      autoTable(doc, {
-        startY: 60,
-        head: [['ID', 'Client', 'Date', 'Status', 'Delivery Team', 'Products', 'Delivery (Rs)', 'Total (Rs)']],
-        body: tableData,
-        theme: 'grid',
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontStyle: 'bold',
-          halign: 'center',
-          fontSize: 9
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 3,
-          overflow: 'linebreak',
-          valign: 'top'
-        },
-        columnStyles: {
-          0: { cellWidth: 15 },
-          1: { cellWidth: 45 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 60 },
-          6: { cellWidth: 25, halign: 'right' },
-          7: { cellWidth: 25, halign: 'right' }
-        }
-      });
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+        worksheet['!cols'] = [
+          { wch: 8 },
+          { wch: 30 },
+          { wch: 14 },
+          { wch: 14 },
+          { wch: 22 },
+          { wch: 16 },
+          { wch: 16 },
+        ];
 
-      // Save the PDF
-      doc.save(getExportFilename());
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+        XLSX.writeFile(workbook, getExportFilename('excel'));
+      } else {
+        const doc = new jsPDF('landscape', 'mm', 'a4');
 
-      toast.success(`Exported ${allOrders.length} orders successfully!`);
+        doc.setFontSize(20);
+        doc.text('ORDERS REPORT', 105, 20, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.text(`Date Range: ${getExportDateRangeLabel()}`, 20, 35);
+        doc.text(`Total Orders: ${allOrders.length}`, 20, 42);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 49);
+
+        autoTable(doc, {
+          startY: 60,
+          head: [headers],
+          body: tableData.map((row) => [
+            row[0],
+            row[1],
+            row[2],
+            row[3],
+            row[4],
+            `Rs ${Number(row[5]).toFixed(2)}`,
+            `Rs ${Number(row[6]).toFixed(2)}`,
+          ]),
+          theme: 'grid',
+          headStyles: {
+            fillColor: [41, 128, 185],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'center',
+            fontSize: 9,
+          },
+          styles: {
+            fontSize: 8,
+            cellPadding: 3,
+            overflow: 'linebreak',
+            valign: 'top',
+          },
+          columnStyles: {
+            0: { cellWidth: 15 },
+            1: { cellWidth: 55 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 25 },
+            4: { cellWidth: 40 },
+            5: { cellWidth: 30, halign: 'right' },
+            6: { cellWidth: 30, halign: 'right' },
+          },
+        });
+
+        doc.save(getExportFilename('pdf'));
+      }
+
+      toast.success(`Exported ${allOrders.length} orders as ${format.toUpperCase()}!`);
     } catch (error) {
       console.error("Export error:", error);
       toast.error("Failed to export orders");
@@ -614,21 +693,36 @@ const Orders = () => {
     }
   };
 
-  const fetchTodaysOrders = async () => {
+  const fetchOrdersSummary = async (
+    date = exportSummaryDate,
+    startTime = exportSummaryStartTime,
+    endTime = exportSummaryEndTime
+  ) => {
     setIsExportLoading(true);
     try {
-      const response = await api.get('/admin/orders/today/summary');
+      const response = await api.get('/admin/orders/today/summary', {
+        params: { date, startTime, endTime },
+      });
       if (response.data.success) {
         setTodaysOrdersData(response.data.data);
-        setIsExportModalOpen(true);
       }
     } catch (error: any) {
-      console.error("Error fetching today's orders:", error);
-      toast.error(error.response?.data?.message || "Failed to fetch today's orders");
+      console.error("Error fetching orders summary:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch orders summary");
     } finally {
       setIsExportLoading(false);
     }
   };
+
+  const openExportSummaryModal = () => {
+    setIsExportModalOpen(true);
+  };
+
+  useEffect(() => {
+    if (!isExportModalOpen) return;
+    fetchOrdersSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExportModalOpen, exportSummaryDate, exportSummaryStartTime, exportSummaryEndTime]);
 
   const handleExportTodaysOrders = async (format: 'csv' | 'pdf') => {
     if (!todaysOrdersData) return;
@@ -643,7 +737,7 @@ const Orders = () => {
           exportToPDF(todaysOrdersData);
           break;
       }
-      toast.success(`Today's orders exported as ${format.toUpperCase()} successfully!`);
+      toast.success(`Orders summary exported as ${format.toUpperCase()} successfully!`);
       setIsExportModalOpen(false);
     } catch (error) {
       console.error(`Error exporting to ${format}:`, error);
@@ -694,7 +788,7 @@ const Orders = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Todays_Orders_${data.date}.csv`;
+    a.download = `Orders_Summary_${data.date}_${data.startTime || '00-00'}_to_${data.endTime || '23-59'}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -708,13 +802,17 @@ const Orders = () => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(0, 0, 0); // Pure black
-    doc.text("TODAY'S ORDERS SUMMARY", 105, 22, { align: 'center' });
+    doc.text("ORDERS SUMMARY", 105, 22, { align: 'center' });
 
     // Subtitle with date and order count
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0); // Pure black
-    doc.text(`Date: ${data.date}  |  Total Orders: ${data.totalOrders}`, 20, 32);
+    doc.text(
+      `Date: ${data.date}  |  Time: ${data.startTime || '00:00'} - ${data.endTime || '23:59'}  |  Total Orders: ${data.totalOrders}`,
+      20,
+      32
+    );
 
     // Prepare table data - rearrange to Item Name, Client, Quantity
     const tableData: any[] = [];
@@ -825,13 +923,101 @@ const Orders = () => {
     });
 
     // Save with descriptive filename
-    doc.save(`Todays_Orders_Summary_${data.date}.pdf`);
+    doc.save(`Orders_Summary_${data.date}_${data.startTime || '00-00'}_to_${data.endTime || '23-59'}.pdf`);
   };
 
 
   const handleViewDetails = (order: any) => {
     setSelectedOrder(order);
     setIsViewOpen(true);
+  };
+
+  const handlePrintOrderDetails = (order: Order) => {
+    const driverName = order.assignedTo
+      ? drivers.find((d) => d.id.toString() === order.assignedTo?.toString())?.name || order.assignedTo
+      : "Unassigned";
+
+    const itemsRows = (order.items || [])
+      .map((item: OrderItem) => {
+        const name = item.name || item.productName || "Item";
+        const qty = item.quantity ?? 0;
+        const amount = item.amount || item.totalPrice || 0;
+        return `<tr>
+          <td>${name}</td>
+          <td style="text-align:center">${qty}</td>
+          <td style="text-align:right">₹${Number(amount).toLocaleString("en-IN")}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const subtotal = order.subtotal ?? 0;
+    const deliveryCharge = order.deliveryCharge ?? 0;
+    const total = order.total || order.totalAmount || 0;
+
+    const printHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Order #${order.id}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; color: #111; padding: 24px; font-size: 13px; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .subtitle { color: #555; margin-bottom: 20px; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 24px; }
+    .field label { display: block; font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 2px; letter-spacing: 0.05em; }
+    .field p { font-weight: 600; }
+    .full { grid-column: 1 / -1; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+    th { background: #f5f5f5; font-size: 11px; text-transform: uppercase; }
+    .totals { margin-top: 16px; width: 100%; max-width: 280px; margin-left: auto; }
+    .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
+    .totals .grand { font-weight: bold; font-size: 15px; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <h1>Order Details — #${order.id}</h1>
+  <p class="subtitle">Printed on ${new Date().toLocaleString("en-IN")}</p>
+  <div class="grid">
+    <div class="field"><label>Client</label><p>${order.customer || "-"}</p></div>
+    <div class="field"><label>Date</label><p>${order.date || "-"}</p></div>
+    <div class="field"><label>Status</label><p>${formatStatus(order.status)}</p></div>
+    <div class="field"><label>Delivery Driver</label><p>${driverName}</p></div>
+    <div class="field"><label>Payment Mode</label><p>${(order.paymentMethod || "COD").toUpperCase()}</p></div>
+    <div class="field full"><label>Remarks</label><p>${order.remarks || "-"}</p></div>
+  </div>
+  <h2 style="font-size:14px;margin-bottom:8px;">Order Items</h2>
+  <table>
+    <thead>
+      <tr><th>Product</th><th style="text-align:center;width:80px">Qty</th><th style="text-align:right;width:100px">Amount</th></tr>
+    </thead>
+    <tbody>${itemsRows}</tbody>
+  </table>
+  <div class="totals">
+    <div><span>Subtotal</span><span>₹${Number(subtotal).toLocaleString("en-IN")}</span></div>
+    <div><span>Delivery Charge</span><span>₹${Number(deliveryCharge).toLocaleString("en-IN")}</span></div>
+    <div class="grand"><span>Total</span><span>₹${Number(total).toLocaleString("en-IN")}</span></div>
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open("", "_blank", "width=800,height=600");
+    if (!printWindow) {
+      toast.error("Please allow popups to print order details");
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+    printWindow.focus();
+
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
   };
 
   const handleClientClick = (clientName: string) => {
@@ -858,7 +1044,7 @@ const Orders = () => {
 
   const { formRef: exportRangeFormRef } = useEnterNavigation({
     onSubmit: async () => {
-      await handleExportAll();
+      await handleExportAll('pdf');
       setIsRangeModalOpen(false);
     },
     disabled: isExportLoading
@@ -881,7 +1067,7 @@ const Orders = () => {
             <Download className="w-4 h-4" />
             Export Report
           </Button>
-          <Button variant="default" className="gap-2 w-full sm:w-auto bg-primary hover:bg-primary/90" onClick={fetchTodaysOrders} disabled={isExportLoading}>
+          <Button variant="default" className="gap-2 w-full sm:w-auto bg-primary hover:bg-primary/90" onClick={openExportSummaryModal} disabled={isExportLoading}>
             <Download className="w-4 h-4" />
             {isExportLoading ? "Loading..." : "Export Today's Orders"}
           </Button>
@@ -1080,6 +1266,13 @@ const Orders = () => {
                           <DropdownMenuItem onClick={() => handleDownloadInvoice(order)}>
                             <FileText className="w-4 h-4 mr-2" /> Download Invoice
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            onClick={() => handleDeleteOrder(order)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete Order
+                          </DropdownMenuItem>
 
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -1178,7 +1371,15 @@ const Orders = () => {
                 </div>
               )}
 
-              <DialogFooter>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto gap-2"
+                  onClick={() => handlePrintOrderDetails(selectedOrder)}
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </Button>
                 <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsViewOpen(false)}>Close</Button>
               </DialogFooter>
             </div>
@@ -1360,109 +1561,153 @@ const Orders = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Export Today's Orders Modal */}
+      {/* Export Orders Summary Modal */}
       <Dialog open={isExportModalOpen} onOpenChange={setIsExportModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[680px]">
           <DialogHeader>
-            <DialogTitle>Export Today's Orders</DialogTitle>
+            <DialogTitle>Export Orders Summary</DialogTitle>
             <DialogDescription>
-              Export today's orders summary in various formats. Shows client-wise item breakdown with totals.
+              Select a date and time range to fetch orders. Shows client-wise item breakdown with totals.
             </DialogDescription>
           </DialogHeader>
 
-          {todaysOrdersData && (
-            <div className="space-y-6">
-              {/* Summary Info */}
-              <div className="bg-muted/30 rounded-lg p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Date</p>
-                    <p className="font-medium">{todaysOrdersData.date}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Orders</p>
-                    <p className="font-medium">{todaysOrdersData.totalOrders}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Items</p>
-                    <p className="font-medium">{todaysOrdersData.summary.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Export Format</p>
-                    <p className="font-medium">Choose below</p>
-                  </div>
+          <div className="space-y-5">
+            {/* Date & Time Selection */}
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Date</label>
+                  <Input
+                    type="date"
+                    value={exportSummaryDate}
+                    onChange={(e) => setExportSummaryDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start Time</label>
+                  <Input
+                    type="time"
+                    value={exportSummaryStartTime}
+                    onChange={(e) => setExportSummaryStartTime(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Time</label>
+                  <Input
+                    type="time"
+                    value={exportSummaryEndTime}
+                    onChange={(e) => setExportSummaryEndTime(e.target.value)}
+                  />
                 </div>
               </div>
-
-              {/* Preview Table */}
-              <div>
-                <h4 className="font-semibold mb-3">Preview (First 5 items)</h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th className="text-left py-2 px-3 font-medium">Client</th>
-                        <th className="text-left py-2 px-3 font-medium">Item</th>
-                        <th className="text-right py-2 px-3 font-medium">Quantity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {todaysOrdersData.summary.slice(0, 5).flatMap((item: any) =>
-                        item.clients.map((client: any, idx: number) => (
-                          <tr key={`${item.itemName}-${client.clientName}-${idx}`} className="border-t">
-                            <td className="py-2 px-3">{client.clientName}</td>
-                            <td className="py-2 px-3">{item.itemName}</td>
-                            <td className="py-2 px-3 text-right">{client.quantity} kg</td>
-                          </tr>
-                        ))
-                      )}
-                      {todaysOrdersData.summary.length > 5 && (
-                        <tr className="border-t bg-muted/50">
-                          <td colSpan={3} className="py-2 px-3 text-center text-muted-foreground italic">
-                            ... and {todaysOrdersData.summary.length - 5} more items
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Export Options */}
-              <div>
-                <h4 className="font-semibold mb-3">Export Options</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Button
-                    variant="outline"
-                    className="h-16 flex flex-col gap-1 items-center justify-center"
-                    onClick={() => handleExportTodaysOrders('csv')}
-                    disabled={isExportLoading}
-                  >
-                    <FileText className="w-5 h-5" />
-                    <span>CSV</span>
-                    <span className="text-xs text-muted-foreground">Comma Separated</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="h-16 flex flex-col gap-1 items-center justify-center"
-                    onClick={() => handleExportTodaysOrders('pdf')}
-                    disabled={isExportLoading}
-                  >
-                    <FileText className="w-5 h-5" />
-                    <span>PDF</span>
-                    <span className="text-xs text-muted-foreground">Formatted Document</span>
-                  </Button>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsExportModalOpen(false)}>
-                  Cancel
-                </Button>
-              </DialogFooter>
             </div>
-          )}
+
+            {todaysOrdersData && (
+              <>
+                {/* Summary Info */}
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Date</p>
+                      <p className="font-semibold">
+                        {new Date(`${todaysOrdersData.date}T00:00:00`).toLocaleDateString('en-GB')}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Time Range</p>
+                      <p className="font-semibold">{todaysOrdersData.startTime} - {todaysOrdersData.endTime}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Orders</p>
+                      <p className="font-semibold">{todaysOrdersData.totalOrders}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Items</p>
+                      <p className="font-semibold">{todaysOrdersData.summary.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview Table */}
+                <div>
+                  <h4 className="font-semibold mb-3">Preview (First 5 items)</h4>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left py-2 px-3 font-medium">Client</th>
+                          <th className="text-left py-2 px-3 font-medium">Item</th>
+                          <th className="text-right py-2 px-3 font-medium">Quantity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {todaysOrdersData.totalOrders === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="py-8 px-3 text-center text-muted-foreground">
+                              No orders found for the selected date and time range.
+                            </td>
+                          </tr>
+                        ) : (
+                          <>
+                            {todaysOrdersData.summary.slice(0, 5).flatMap((item: any) =>
+                              item.clients.map((client: any, idx: number) => (
+                                <tr key={`${item.itemName}-${client.clientName}-${idx}`} className="border-t">
+                                  <td className="py-2 px-3">{client.clientName}</td>
+                                  <td className="py-2 px-3">{item.itemName}</td>
+                                  <td className="py-2 px-3 text-right">{client.quantity} kg</td>
+                                </tr>
+                              ))
+                            )}
+                            {todaysOrdersData.summary.length > 5 && (
+                              <tr className="border-t bg-muted/50">
+                                <td colSpan={3} className="py-2 px-3 text-center text-muted-foreground italic">
+                                  ... and {todaysOrdersData.summary.length - 5} more items
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Export Options */}
+                <div>
+                  <h4 className="font-semibold mb-3">Export Options</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      className="h-20 flex flex-col gap-1 items-center justify-center"
+                      onClick={() => handleExportTodaysOrders('csv')}
+                      disabled={isExportLoading || todaysOrdersData.totalOrders === 0}
+                    >
+                      <FileText className="w-5 h-5" />
+                      <span>CSV</span>
+                      <span className="text-xs text-muted-foreground">Comma Separated</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      className="h-20 flex flex-col gap-1 items-center justify-center"
+                      onClick={() => handleExportTodaysOrders('pdf')}
+                      disabled={isExportLoading || todaysOrdersData.totalOrders === 0}
+                    >
+                      <FileText className="w-5 h-5" />
+                      <span>PDF</span>
+                      <span className="text-xs text-muted-foreground">Formatted Document</span>
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button variant="outline" onClick={() => setIsExportModalOpen(false)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1473,7 +1718,7 @@ const Orders = () => {
             <DialogHeader>
               <DialogTitle>Export Orders Report</DialogTitle>
               <DialogDescription>
-                Optionally select a date range. Leave dates empty to download all orders.
+                Optionally select a date range. Leave dates empty to download all orders as PDF or Excel.
               </DialogDescription>
             </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1516,14 +1761,31 @@ const Orders = () => {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsRangeModalOpen(false)}>
               Cancel
             </Button>
             <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                await handleExportAll('excel');
+                setIsRangeModalOpen(false);
+              }}
+              disabled={isExportLoading}
+              className="gap-2"
+            >
+              {isExportLoading ? "Processing..." : (
+                <>
+                  <Sheet className="w-4 h-4" />
+                  Download Excel
+                </>
+              )}
+            </Button>
+            <Button
               type="submit"
               onClick={async () => {
-                await handleExportAll();
+                await handleExportAll('pdf');
                 setIsRangeModalOpen(false);
               }}
               disabled={isExportLoading}
@@ -1532,7 +1794,7 @@ const Orders = () => {
               {isExportLoading ? "Processing..." : (
                 <>
                   <Download className="w-4 h-4" />
-                  Download Report (PDF)
+                  Download PDF
                 </>
               )}
             </Button>
@@ -1540,6 +1802,44 @@ const Orders = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setOrderToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete order{" "}
+              <span className="font-semibold text-foreground">#{orderToDelete?.id}</span>
+              {orderToDelete?.customer ? (
+                <>
+                  {" "}for{" "}
+                  <span className="font-semibold text-foreground">{orderToDelete.customer}</span>
+                </>
+              ) : null}
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingOrder}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteOrder();
+              }}
+              disabled={isDeletingOrder}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingOrder ? "Deleting..." : "Delete Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
