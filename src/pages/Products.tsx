@@ -202,6 +202,33 @@ const Products = () => {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const emptyFormData = (): Omit<Product, 'id'> => ({
+    name: "",
+    category: "",
+    categoryId: 0,
+    subcategory: "",
+    price: 0,
+    unit: "kg",
+    stock: 0,
+    images: [],
+    isActive: true,
+    image: "",
+  });
+
+  const normalizeSavedProduct = (saved: Record<string, unknown>): Product => ({
+    id: saved.id as number,
+    name: saved.name as string,
+    categoryId: saved.categoryId as number,
+    category: (saved.category as Product['category']) || { id: saved.categoryId as number, name: "" },
+    subcategory: (saved.subcategory as string) || undefined,
+    price: Number(saved.price),
+    unit: (saved.unit as string) || "kg",
+    stock: Number(saved.stock ?? 0),
+    images: (saved.images as string[]) || [],
+    isActive: saved.isActive !== false,
+  });
 
   const getApiErrorMessage = (error: unknown, fallback: string) => {
     const axiosError = error as AxiosError<any>;
@@ -227,25 +254,45 @@ const Products = () => {
   }, [urlCategoryId]);
 
   // Fetch Data
-  const fetchProducts = async (subId?: string | null) => {
-    setIsLoading(true);
+  const fetchProducts = async (subId?: string | null, options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     try {
-      const url = subId
+      const listUrl = subId
         ? `/admin/products/subcategory/${subId}?limit=1000`
         : "/admin/products?limit=1000";
-      const response = await api.get(url);
-      if (response.data.success) {
-        setProducts(response.data.data.products);
-        // If this is the initial load (no subId), set allProducts too
+
+      const requests: Promise<unknown>[] = [api.get(listUrl)];
+      if (subId) {
+        requests.push(api.get("/admin/products?limit=1000"));
+      }
+
+      const [listResponse, allResponse] = await Promise.all(requests);
+
+      const listData = (listResponse as { data: { success: boolean; data: { products: Product[] } } }).data;
+      if (listData.success) {
+        setProducts(listData.data.products);
         if (!subId) {
-          setAllProducts(response.data.data.products);
+          setAllProducts(listData.data.products);
+        }
+      }
+
+      if (subId && allResponse) {
+        const allData = (allResponse as { data: { success: boolean; data: { products: Product[] } } }).data;
+        if (allData.success) {
+          setAllProducts(allData.data.products);
         }
       }
     } catch (error) {
       console.error("Error fetching products:", error);
-      toast.error("Failed to fetch products");
+      if (!options?.silent) {
+        toast.error("Failed to fetch products");
+      }
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -271,18 +318,7 @@ const Products = () => {
   }, [filterSubcategory]);
 
   // Form State
-  const [formData, setFormData] = useState<Omit<Product, 'id'>>({
-    name: "",
-    category: "",
-    categoryId: 0,
-    subcategory: "",
-    price: 0,
-    unit: "kg",
-    stock: 0,
-    images: [],
-    isActive: true,
-    image: "",
-  });
+  const [formData, setFormData] = useState<Omit<Product, 'id'>>(emptyFormData());
 
   const selectedCategoryObj = categories.find(c => c.id === formData.categoryId);
   const availableSubcategories = selectedCategoryObj?.subcategories || [];
@@ -290,18 +326,7 @@ const Products = () => {
   // Handlers
   const handleOpenAdd = () => {
     setCurrentProduct(null);
-    setFormData({
-      name: "",
-      category: "",
-      categoryId: 0,
-      subcategory: "",
-      price: 0,
-      unit: "kg",
-      stock: 0,
-      images: [],
-      isActive: true,
-      image: "",
-    });
+    setFormData(emptyFormData());
     setIsDialogOpen(true);
   };
 
@@ -376,15 +401,22 @@ const Products = () => {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+
+    if (!formData.name.trim()) {
+      toast.error("Please enter a product name");
+      return;
+    }
+
     if (!currentProduct && !formData.categoryId) {
       toast.error("Please select a category");
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
+      formDataToSend.append('name', formData.name.trim());
       formDataToSend.append('category', formData.categoryId.toString());
       if (formData.subcategory) formDataToSend.append('subcategory', formData.subcategory);
       formDataToSend.append('price', formData.price.toString());
@@ -392,56 +424,68 @@ const Products = () => {
       formDataToSend.append('stock', formData.stock.toString());
       formDataToSend.append('isActive', formData.isActive.toString());
 
-      // If it's a new image (base64 from FileReader)
       if (formData.image && formData.image.startsWith('data:image')) {
-        const response = await fetch(formData.image);
-        const blob = await response.blob();
+        const imageResponse = await fetch(formData.image);
+        const blob = await imageResponse.blob();
         formDataToSend.append('images', blob, 'product.jpg');
       }
 
-      let response;
-      if (currentProduct) {
-        response = await api.put(`/admin/products/${currentProduct.id}`, formDataToSend, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+      const uploadConfig = {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+      };
+
+      const response = currentProduct
+        ? await api.put(`/admin/products/${currentProduct.id}`, formDataToSend, uploadConfig)
+        : await api.post('/admin/products', formDataToSend, uploadConfig);
+
+      if (!response.data.success) {
+        toast.error(response.data.message || "Failed to save product");
+        return;
+      }
+
+      toast.success(currentProduct ? "Product updated" : "Product added");
+
+      const saved = response.data.data;
+      const savedProduct = saved ? normalizeSavedProduct(saved) : null;
+      const newSubId = saved?.subcategory || null;
+
+      if (savedProduct) {
+        const upsertProduct = (list: Product[]) => {
+          const exists = list.some((p) => p.id === savedProduct.id);
+          return exists
+            ? list.map((p) => (p.id === savedProduct.id ? savedProduct : p))
+            : [savedProduct, ...list];
+        };
+        setProducts((prev) => upsertProduct(prev));
+        setAllProducts((prev) => upsertProduct(prev));
+      }
+
+      if (!currentProduct && saved?.categoryId) {
+        setFilterCategory(saved.categoryId);
+      }
+
+      if (newSubId !== filterSubcategory) {
+        setFilterSubcategory(newSubId);
       } else {
-        response = await api.post('/admin/products', formDataToSend, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await fetchProducts(newSubId, { silent: true });
       }
 
-      if (response.data.success) {
-        toast.success(currentProduct ? "Product updated" : "Product added");
-
-        if (!currentProduct) {
-          const saved = response.data.data;
-          if (saved?.categoryId) {
-            setFilterCategory(saved.categoryId);
-          }
-          const newSubId = saved?.subcategory || null;
-          if (newSubId !== filterSubcategory) {
-            setFilterSubcategory(newSubId);
-          } else {
-            fetchProducts(newSubId);
-          }
-        } else {
-          fetchProducts(filterSubcategory);
-        }
-
-        setIsDialogOpen(false);
-      }
+      setFormData(emptyFormData());
+      setCurrentProduct(null);
+      setIsDialogOpen(false);
     } catch (error) {
       console.error("Error saving product:", error);
       toast.error(getApiErrorMessage(error, "Failed to save product"));
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
   // Enter key navigation hook
   const { formRef: productFormRef } = useEnterNavigation({
     onSubmit: handleSave,
-    disabled: isLoading
+    disabled: isSaving
   });
 
   const filteredProducts = products.filter(product => {
@@ -743,7 +787,13 @@ const Products = () => {
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
-          <form ref={productFormRef}>
+          <form
+            ref={productFormRef}
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
             <DialogHeader>
               <DialogTitle>{currentProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
               <DialogDescription>
@@ -801,7 +851,7 @@ const Products = () => {
                   <div className="grid gap-2">
                     <Label htmlFor="category">Category Name</Label>
                     <Select
-                      value={formData.categoryId.toString()}
+                      value={formData.categoryId > 0 ? formData.categoryId.toString() : undefined}
                       onValueChange={(value) => {
                         const catId = Number(value);
                         const catObj = categories.find(c => c.id === catId);
@@ -887,8 +937,12 @@ const Products = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" onClick={handleSave}>{currentProduct ? 'Update Product' : 'Add Product'}</Button>
+            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving..." : (currentProduct ? 'Update Product' : 'Add Product')}
+            </Button>
           </DialogFooter>
           </form>
         </DialogContent>
