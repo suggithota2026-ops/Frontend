@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import api from "@/api/axios";
 import { toast } from "sonner";
 import type { AxiosError } from "axios";
+import { compressImageFile } from "@/utils/compressImage";
 
 interface Subcategory {
   id: string;
@@ -203,6 +204,7 @@ const Products = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const emptyFormData = (): Omit<Product, 'id'> => ({
     name: "",
@@ -232,6 +234,12 @@ const Products = () => {
 
   const getApiErrorMessage = (error: unknown, fallback: string) => {
     const axiosError = error as AxiosError<any>;
+    if (axiosError?.response?.status === 413) {
+      return "Image is too large. Please use a smaller photo (under 1 MB).";
+    }
+    if (!axiosError?.response && axiosError?.code === "ERR_NETWORK") {
+      return "Upload failed — try a smaller image or check your connection.";
+    }
     const apiMessage = axiosError?.response?.data?.message;
     const details = axiosError?.response?.data?.errors;
     const firstDetailMessage =
@@ -327,12 +335,14 @@ const Products = () => {
   const handleOpenAdd = () => {
     setCurrentProduct(null);
     setFormData(emptyFormData());
+    setImageFile(null);
     setIsDialogOpen(true);
   };
 
   const handleOpenEdit = (product: Product) => {
     setCurrentProduct(product);
     setFormData({ ...product });
+    setImageFile(null);
     setIsDialogOpen(true);
   };
 
@@ -374,14 +384,22 @@ const Products = () => {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, image: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      const compressed = await compressImageFile(file);
+      setImageFile(compressed);
+      setFormData((prev) => ({
+        ...prev,
+        image: URL.createObjectURL(compressed),
+      }));
+    } catch (error) {
+      console.error("Error processing image:", error);
+      toast.error("Could not process image. Try a smaller JPG or PNG.");
+    } finally {
+      e.target.value = "";
     }
   };
 
@@ -424,10 +442,8 @@ const Products = () => {
       formDataToSend.append('stock', formData.stock.toString());
       formDataToSend.append('isActive', formData.isActive.toString());
 
-      if (formData.image && formData.image.startsWith('data:image')) {
-        const imageResponse = await fetch(formData.image);
-        const blob = await imageResponse.blob();
-        formDataToSend.append('images', blob, 'product.jpg');
+      if (imageFile) {
+        formDataToSend.append('images', imageFile, imageFile.name || 'product.jpg');
       }
 
       const uploadConfig = {
@@ -472,6 +488,7 @@ const Products = () => {
       }
 
       setFormData(emptyFormData());
+      setImageFile(null);
       setCurrentProduct(null);
       setIsDialogOpen(false);
     } catch (error) {
