@@ -116,7 +116,8 @@ const Orders = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
   const [todaysOrdersData, setTodaysOrdersData] = useState<any>(null);
-  const [exportSummaryDate, setExportSummaryDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [exportSummaryStartDate, setExportSummaryStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [exportSummaryEndDate, setExportSummaryEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [exportSummaryStartTime, setExportSummaryStartTime] = useState('00:00');
   const [exportSummaryEndTime, setExportSummaryEndTime] = useState('23:59');
   const [isExportLoading, setIsExportLoading] = useState(false);
@@ -693,15 +694,20 @@ const Orders = () => {
     }
   };
 
-  const fetchOrdersSummary = async (
-    date = exportSummaryDate,
-    startTime = exportSummaryStartTime,
-    endTime = exportSummaryEndTime
-  ) => {
+  const fetchOrdersSummary = async () => {
+    const startDateTime = `${exportSummaryStartDate}T${exportSummaryStartTime}:00`;
+    const endDateTime = `${exportSummaryEndDate}T${exportSummaryEndTime}:00`;
+
+    if (new Date(startDateTime) >= new Date(endDateTime)) {
+      toast.error('Start date-time must be before end date-time');
+      setTodaysOrdersData(null);
+      return;
+    }
+
     setIsExportLoading(true);
     try {
       const response = await api.get('/admin/orders/today/summary', {
-        params: { date, startTime, endTime },
+        params: { startDateTime, endDateTime },
       });
       if (response.data.success) {
         setTodaysOrdersData(response.data.data);
@@ -722,7 +728,7 @@ const Orders = () => {
     if (!isExportModalOpen) return;
     fetchOrdersSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExportModalOpen, exportSummaryDate, exportSummaryStartTime, exportSummaryEndTime]);
+  }, [isExportModalOpen, exportSummaryStartDate, exportSummaryEndDate, exportSummaryStartTime, exportSummaryEndTime]);
 
   const handleExportTodaysOrders = async (format: 'csv' | 'pdf') => {
     if (!todaysOrdersData) return;
@@ -788,7 +794,7 @@ const Orders = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Orders_Summary_${data.date}_${data.startTime || '00-00'}_to_${data.endTime || '23-59'}.csv`;
+    a.download = `Orders_Summary_${data.startDate}_${data.startTime || '00-00'}_to_${data.endDate}_${data.endTime || '23-59'}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -809,7 +815,7 @@ const Orders = () => {
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0); // Pure black
     doc.text(
-      `Date: ${data.date}  |  Time: ${data.startTime || '00:00'} - ${data.endTime || '23:59'}  |  Total Orders: ${data.totalOrders}`,
+      `Range: ${data.startDate} ${data.startTime || '00:00'} - ${data.endDate} ${data.endTime || '23:59'}  |  Total Orders: ${data.totalOrders}`,
       20,
       32
     );
@@ -923,7 +929,7 @@ const Orders = () => {
     });
 
     // Save with descriptive filename
-    doc.save(`Orders_Summary_${data.date}_${data.startTime || '00-00'}_to_${data.endTime || '23-59'}.pdf`);
+    doc.save(`Orders_Summary_${data.startDate}_${data.startTime || '00-00'}_to_${data.endDate}_${data.endTime || '23-59'}.pdf`);
   };
 
 
@@ -1574,13 +1580,13 @@ const Orders = () => {
           <div className="space-y-5">
             {/* Date & Time Selection */}
             <div className="rounded-lg border bg-muted/20 p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Date</label>
+                  <label className="text-sm font-medium">Start Date</label>
                   <Input
                     type="date"
-                    value={exportSummaryDate}
-                    onChange={(e) => setExportSummaryDate(e.target.value)}
+                    value={exportSummaryStartDate}
+                    onChange={(e) => setExportSummaryStartDate(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -1589,6 +1595,14 @@ const Orders = () => {
                     type="time"
                     value={exportSummaryStartTime}
                     onChange={(e) => setExportSummaryStartTime(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Date</label>
+                  <Input
+                    type="date"
+                    value={exportSummaryEndDate}
+                    onChange={(e) => setExportSummaryEndDate(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -1610,7 +1624,9 @@ const Orders = () => {
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">Date</p>
                       <p className="font-semibold">
-                        {new Date(`${todaysOrdersData.date}T00:00:00`).toLocaleDateString('en-GB')}
+                        {todaysOrdersData.startDate === todaysOrdersData.endDate
+                          ? new Date(`${todaysOrdersData.startDate}T00:00:00`).toLocaleDateString('en-GB')
+                          : `${new Date(`${todaysOrdersData.startDate}T00:00:00`).toLocaleDateString('en-GB')} - ${new Date(`${todaysOrdersData.endDate}T00:00:00`).toLocaleDateString('en-GB')}`}
                       </p>
                     </div>
                     <div className="space-y-1">
