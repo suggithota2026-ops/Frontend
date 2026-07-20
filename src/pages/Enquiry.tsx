@@ -418,15 +418,16 @@ This will:
 
       {/* View Details Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pr-12 pt-6 pb-4 shrink-0 border-b">
             <DialogTitle>{selectedMessage ? `Enquiry Details - ${selectedMessage.hotelName}` : 'Enquiry Details'}</DialogTitle>
             <DialogDescription>
               View complete enquiry information and add internal notes.
             </DialogDescription>
           </DialogHeader>
           {selectedMessage && (
-            <div className="space-y-6">
+            <>
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-6">
               {/* Status Badge */}
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className={getStatusColor(selectedMessage.status)}>
@@ -459,7 +460,7 @@ This will:
                         <Label className="text-xs text-muted-foreground uppercase flex items-center gap-1">
                           <Mail className="w-3 h-3" /> Email
                         </Label>
-                        <p className="font-medium text-sm">{selectedMessage.email}</p>
+                        <p className="font-medium text-sm break-all">{selectedMessage.email}</p>
                       </div>
                     )}
                   </div>
@@ -474,13 +475,13 @@ This will:
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <p className="text-sm">{selectedMessage.address}</p>
+                  <p className="text-sm break-words">{selectedMessage.address}</p>
                   {selectedMessage.landmark && (
                     <p className="text-sm text-muted-foreground">
                       Landmark: {selectedMessage.landmark}
                     </p>
                   )}
-                  <div className="flex gap-4 text-sm">
+                  <div className="flex flex-wrap gap-4 text-sm">
                     <span>
                       <strong>City:</strong> {selectedMessage.city}
                     </span>
@@ -499,7 +500,7 @@ This will:
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{selectedMessage.message}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{selectedMessage.message}</p>
                 </CardContent>
               </Card>
 
@@ -519,8 +520,9 @@ This will:
                   <span className="font-bold text-xs">Chat on WhatsApp</span>
                 </Button>
               </div>
+              </div>
 
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter className="gap-2 sm:gap-0 shrink-0 border-t px-6 py-4 bg-background">
                 {selectedMessage.status === "pending" && (
                   <div className="flex gap-2 w-full sm:w-auto">
                     <Button
@@ -551,7 +553,7 @@ This will:
                   Close
                 </Button>
               </DialogFooter>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

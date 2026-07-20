@@ -42,7 +42,7 @@ export function DashboardLayout() {
           {/* Main Content */}
           <main className="flex-1 flex flex-col min-h-0 w-full overflow-hidden">
             <TopNavbar onMenuClick={() => setMobileOpen(true)} />
-            <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden w-full">
+            <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden w-full hide-scrollbar">
               <Outlet />
             </div>
           </main>

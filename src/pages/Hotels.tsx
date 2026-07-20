@@ -764,15 +764,15 @@ const Hotels = () => {
       )}
       {/* Edit Hotel Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
-          <form ref={editFormRef}>
-            <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+          <form ref={editFormRef} className="flex flex-col max-h-[90vh] min-h-0">
+            <DialogHeader className="px-6 pr-12 pt-6 pb-4 shrink-0 border-b">
               <DialogTitle>Edit Customer Account</DialogTitle>
               <DialogDescription>
                 Update customer information and pricing configuration.
               </DialogDescription>
             </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 px-6 py-4 flex-1 min-h-0 overflow-y-auto">
             {/* Customer Information Section */}
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Customer Information</h3>
@@ -931,8 +931,7 @@ const Hotels = () => {
               </div>
             )}
           </div>
-          </form>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t px-6 py-4 bg-background">
             <Button variant="outline" onClick={() => {
               setIsEditOpen(false);
               setCurrentHotel(null);
@@ -941,12 +940,13 @@ const Hotels = () => {
               {isLoading ? "Updating..." : "Update Account"}
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       {/* Product Selection Modal */}
       <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Select Product for Fixed Pricing</DialogTitle>
             <DialogDescription>

@@ -208,7 +208,7 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
             ref={ref}
             data-invoice-pdf-root
             className="bg-white p-8 max-w-[800px] mx-auto text-black font-sans"
-            style={{ width: '800px', minHeight: '1100px', backgroundColor: '#ffffff', color: '#000000' }}
+            style={{ width: '800px', backgroundColor: '#ffffff', color: '#000000' }}
         >
             {/* Header */}
             <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
@@ -312,21 +312,21 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                 </thead>
                 <tbody>
                     {order.items.map((item, index) => (
-                        <tr key={index} className="border-b border-gray-200">
-                            <td className="py-2 px-2 text-center border-r border-gray-300">{index + 1}</td>
-                            <td className="py-2 px-2 border-r border-gray-300 font-medium">{item.name || item.productName}</td>
-                            <td className="py-2 px-2 text-center border-r border-gray-300 text-gray-500">1234</td>
-                            <td className="py-2 px-2 text-center border-r border-gray-300">{item.quantity}</td>
-                            <td className="py-2 px-2 text-center border-r border-gray-300">{item.unit || "Kgs"}</td>
-                            <td className="py-2 px-2 text-right border-r border-gray-300">₹{(item.price || item.unitPrice || 0).toFixed(2)}</td>
-                            <td className="py-2 px-2 text-right border-r border-gray-300">₹{(item.discount || 0).toFixed(2)}</td>
-                            <td className="py-2 px-2 text-right font-semibold">₹{(item.amount || ((item.price || item.unitPrice || 0) * item.quantity)).toFixed(2)}</td>
+                        <tr key={index} data-invoice-item-row className="border-b border-gray-200">
+                            <td className="py-1.5 px-2 text-center border-r border-gray-300">{index + 1}</td>
+                            <td className="py-1.5 px-2 border-r border-gray-300 font-medium">{item.name || item.productName}</td>
+                            <td className="py-1.5 px-2 text-center border-r border-gray-300 text-gray-500">1234</td>
+                            <td className="py-1.5 px-2 text-center border-r border-gray-300">{item.quantity}</td>
+                            <td className="py-1.5 px-2 text-center border-r border-gray-300">{item.unit || "Kgs"}</td>
+                            <td className="py-1.5 px-2 text-right border-r border-gray-300">₹{Number(item.price || item.unitPrice || 0).toFixed(2)}</td>
+                            <td className="py-1.5 px-2 text-right border-r border-gray-300">₹{Number(item.discount || 0).toFixed(2)}</td>
+                            <td className="py-1.5 px-2 text-right font-semibold">₹{Number(item.amount || ((item.price || item.unitPrice || 0) * item.quantity) || 0).toFixed(2)}</td>
                         </tr>
                     ))}
-                    {/* Fill empty rows to make it look like a full page invoice if needed */}
-                    {Array.from({ length: Math.max(0, 10 - order.items.length) }).map((_, i) => (
+                    {/* Fill empty rows only for short invoices */}
+                    {order.items.length < 10 && Array.from({ length: 10 - order.items.length }).map((_, i) => (
                         <tr key={`empty-${i}`} className="border-b border-gray-100">
-                            <td className="py-4 border-r border-gray-300">&nbsp;</td>
+                            <td className="py-3 border-r border-gray-300">&nbsp;</td>
                             <td className="border-r border-gray-300">&nbsp;</td>
                             <td className="border-r border-gray-300">&nbsp;</td>
                             <td className="border-r border-gray-300">&nbsp;</td>
@@ -340,7 +340,7 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
             </table>
 
             {/* Totals */}
-            <div className="flex justify-end mb-8">
+            <div data-invoice-keep-together className="flex justify-end mb-8">
                 <div className="w-1/2">
                     <div className="flex justify-between border-b border-gray-300 py-2">
                         <span className="font-semibold text-sm">Sub Total</span>
@@ -370,7 +370,7 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
             </div>
 
             {/* Footer */}
-            <div className="mt-auto pt-8 border-t-2 border-gray-800">
+            <div data-invoice-keep-together className="mt-auto pt-8 border-t-2 border-gray-800">
                 <div className="flex justify-between items-end">
                     <div className="text-xs text-gray-600 max-w-[60%]">
                         <p className="font-bold mb-1">Terms & Conditions:</p>

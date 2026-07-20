@@ -402,6 +402,11 @@ const Orders = () => {
   const handleSaveEditedOrder = async () => {
     if (!editFormData) return;
 
+    if (!editFormData.items?.length) {
+      toast.error("Order must have at least one item");
+      return;
+    }
+
     try {
       // Update order details
       const updatePayload = {
@@ -425,7 +430,10 @@ const Orders = () => {
         toast.success("Order updated successfully!");
         setIsEditOpen(false);
         setEditFormData(null);
-        fetchOrders();
+        if (selectedOrder?.id === editFormData.id) {
+          setSelectedOrder(transformOrder(response.data.data));
+        }
+        await fetchOrders();
       }
     } catch (error: any) {
       console.error("Error updating order:", error);
@@ -455,6 +463,21 @@ const Orders = () => {
     });
   };
 
+  const handleRemoveEditItem = (index: number) => {
+    if (!editFormData) return;
+
+    if (editFormData.items.length <= 1) {
+      toast.error("Order must have at least one item");
+      return;
+    }
+
+    const updatedItems = editFormData.items.filter((_: any, i: number) => i !== index);
+    setEditFormData({
+      ...editFormData,
+      items: updatedItems,
+    });
+  };
+
   /* import html2canvas from 'html2canvas'; import jsPDF from 'jspdf'; import { createRoot } from 'react-dom/client'; import InvoiceTemplate from '@/components/invoice/InvoiceTemplate'; */
 
   const handleDownloadInvoice = async (order: Order) => {
@@ -464,21 +487,33 @@ const Orders = () => {
     try {
       toast.info(`Generating invoice for ${order.id}...`);
 
+      // Always use latest order from API so deleted items are not billed
+      let invoiceOrder = order;
+      try {
+        const orderResponse = await api.get(`/admin/orders/${order.id}`);
+        if (orderResponse.data.success && orderResponse.data.data) {
+          invoiceOrder = transformOrder(orderResponse.data.data);
+        }
+      } catch (fetchError) {
+        console.warn("Could not refresh order before invoice; using list data", fetchError);
+      }
+
       // Dynamic import to avoid SSR/Initial load issues if any, and ensuring libraries are loaded
       const html2canvas = (await import('html2canvas')).default;
       const jsPDF = (await import('jspdf')).default;
       const { createRoot } = await import('react-dom/client');
       const { default: InvoiceTemplate } = await import('@/components/invoice/InvoiceTemplate');
 
-      // Must stay in the viewport (not -9999px) or html2canvas often captures a blank page
+      // Keep invoice measurable (opacity:0 can skew layout in some browsers)
       container = document.createElement('div');
       container.style.position = 'fixed';
-      container.style.left = '0';
+      container.style.opacity = '1';
+      container.style.left = '-10000px';
       container.style.top = '0';
       container.style.zIndex = '-1';
-      container.style.opacity = '0';
       container.style.pointerEvents = 'none';
-      container.style.overflow = 'hidden';
+      container.style.overflow = 'visible';
+      container.style.height = 'auto';
       document.body.appendChild(container);
 
       root = createRoot(container);
@@ -494,7 +529,7 @@ const Orders = () => {
           resolve();
         };
 
-        root.render(<InvoiceTemplate order={order} onReady={handleReady} />);
+        root.render(<InvoiceTemplate order={invoiceOrder} onReady={handleReady} />);
       });
 
       // Wait for browser paint after React commit
@@ -514,18 +549,160 @@ const Orders = () => {
         windowHeight: element.scrollHeight,
       });
 
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
 
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      // Map DOM Y → canvas Y using height (avoids early page breaks / black seams)
+      const scaleY = canvas.height / element.scrollHeight;
+      const pxPerMm = canvas.width / imgWidth;
+      const pageHeightPx = Math.floor(pageHeight * pxPerMm);
+      // Keep items away from page edges so rows don't look "touched"/cut
+      const topMarginMm = 8;
+      const bottomMarginMm = 10;
+      const topMarginPx = Math.floor(topMarginMm * pxPerMm);
+      const bottomMarginPx = Math.floor(bottomMarginMm * pxPerMm);
+      const rowGapPadPx = Math.floor(4 * pxPerMm); // breathing room under last row on a page
+      const rootRect = element.getBoundingClientRect();
 
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`Invoice-${order.id}.pdf`);
+      const rows = Array.from(element.querySelectorAll('[data-invoice-item-row]')).map((row) => {
+        const rect = (row as HTMLElement).getBoundingClientRect();
+        return {
+          top: (rect.top - rootRect.top) * scaleY,
+          bottom: (rect.bottom - rootRect.top) * scaleY,
+        };
+      });
+
+      const keepBlocks = Array.from(element.querySelectorAll('[data-invoice-keep-together]')).map((block) => {
+        const rect = (block as HTMLElement).getBoundingClientRect();
+        return {
+          top: (rect.top - rootRect.top) * scaleY,
+          bottom: (rect.bottom - rootRect.top) * scaleY,
+        };
+      });
+
+      const snapEndY = (startY: number, maxEnd: number) => {
+        let endY = Math.min(maxEnd, canvas.height);
+        const tolerance = 4;
+
+        // Include whole rows only — if a row doesn't fully fit, move entire row to next page
+        let lastFittedBottom: number | null = null;
+        for (const row of rows) {
+          if (row.bottom <= startY + 1) continue;
+          if (row.top < startY - 1) continue;
+          if (row.bottom <= maxEnd + tolerance) {
+            lastFittedBottom = row.bottom;
+          } else {
+            break;
+          }
+        }
+
+        if (lastFittedBottom != null) {
+          endY = Math.ceil(lastFittedBottom);
+
+          // Add a little space under the last row so it doesn't touch the page edge
+          const nextRow = rows.find((row) => row.top >= endY - 1);
+          if (nextRow) {
+            endY = Math.min(
+              Math.ceil(endY + Math.min(rowGapPadPx, Math.max(0, nextRow.top - endY))),
+              Math.floor(nextRow.top) // never pull in the next row
+            );
+          } else {
+            endY = Math.min(Math.ceil(endY + rowGapPadPx), canvas.height);
+          }
+
+          const hasMoreRows = rows.some((row) => row.bottom > endY + 1);
+          if (!hasMoreRows) {
+            for (const block of keepBlocks) {
+              if (block.top >= endY - tolerance && block.bottom <= maxEnd + tolerance) {
+                endY = Math.ceil(block.bottom);
+              }
+            }
+            if (canvas.height - startY <= pageHeightPx - bottomMarginPx + tolerance) {
+              endY = canvas.height;
+            }
+          }
+        } else {
+          const nextRow = rows.find((row) => row.bottom > startY + 1);
+          if (!nextRow) {
+            endY = Math.min(maxEnd, canvas.height);
+          } else if (nextRow.bottom - startY <= pageHeightPx - bottomMarginPx + tolerance) {
+            endY = Math.ceil(nextRow.bottom + rowGapPadPx);
+          } else {
+            endY = maxEnd;
+          }
+        }
+
+        for (const block of keepBlocks) {
+          if (endY > block.top + tolerance && endY < block.bottom - tolerance && block.top > startY + tolerance) {
+            endY = Math.floor(block.top);
+          }
+        }
+
+        if (endY <= startY) {
+          endY = Math.min(startY + pageHeightPx - bottomMarginPx, canvas.height);
+        }
+
+        return Math.min(endY, canvas.height);
+      };
+
+      let sourceY = 0;
+      let pageIndex = 0;
+
+      while (sourceY < canvas.height - 1) {
+        const isContinuation = pageIndex > 0;
+        const usableHeightPx = pageHeightPx - bottomMarginPx - (isContinuation ? topMarginPx : 0);
+        const maxEnd = Math.min(sourceY + usableHeightPx, canvas.height);
+        const endY = snapEndY(sourceY, maxEnd);
+        const sliceHeightPx = Math.max(1, Math.round(endY - sourceY));
+
+        if (sliceHeightPx < 4) {
+          sourceY = Math.min(sourceY + usableHeightPx, canvas.height);
+          continue;
+        }
+
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeightPx;
+
+        const ctx = pageCanvas.getContext('2d');
+        if (!ctx) throw new Error('Could not create PDF page canvas');
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        ctx.drawImage(
+          canvas,
+          0,
+          Math.round(sourceY),
+          canvas.width,
+          sliceHeightPx,
+          0,
+          0,
+          canvas.width,
+          sliceHeightPx
+        );
+
+        const pageImg = pageCanvas.toDataURL('image/png');
+        const sliceHeightMm = (sliceHeightPx * imgWidth) / canvas.width;
+        const topOffsetMm = isContinuation ? topMarginMm : 0;
+
+        if (isContinuation) {
+          pdf.addPage();
+        }
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+        pdf.addImage(pageImg, 'PNG', 0, topOffsetMm, imgWidth, sliceHeightMm);
+
+        sourceY = endY;
+        pageIndex += 1;
+      }
+
+      pdf.save(`Invoice-${invoiceOrder.id}.pdf`);
 
       toast.success("Invoice downloaded!");
 
@@ -1293,91 +1470,93 @@ const Orders = () => {
 
       {/* View Details Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pr-12 pt-6 pb-4 shrink-0 border-b">
             <DialogTitle>Order Details - {selectedOrder?.id}</DialogTitle>
             <DialogDescription>
               View complete order information and timeline.
             </DialogDescription>
           </DialogHeader>
           {selectedOrder && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground uppercase">Client</span>
-                  <p className="font-medium">{selectedOrder.customer}</p>
+            <>
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground uppercase">Client</span>
+                    <p className="font-medium">{selectedOrder.customer}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground uppercase">Date</span>
+                    <p className="font-medium">{selectedOrder.date}</p>
+                  </div>
+                  <div className="space-y-1 flex flex-col items-start">
+                    <span className="text-xs text-muted-foreground uppercase">Status</span>
+                    <Badge variant="outline" className={getStatusColor(selectedOrder.status)}>
+                      {formatStatus(selectedOrder.status)}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground uppercase">Delivery Driver</span>
+                    <p className="font-medium capitalize">{selectedOrder.assignedTo ? (drivers.find(d => d.id.toString() === selectedOrder.assignedTo.toString())?.name || selectedOrder.assignedTo) : "Unassigned"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground uppercase">Payment Mode</span>
+                    <p className="font-bold uppercase">{selectedOrder.paymentMethod || 'COD'}</p>
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <span className="text-xs text-muted-foreground uppercase">Remarks</span>
+                    <p className="font-medium whitespace-pre-wrap">{selectedOrder.remarks || '-'}</p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground uppercase">Date</span>
-                  <p className="font-medium">{selectedOrder.date}</p>
-                </div>
-                <div className="space-y-1 flex flex-col items-start">
-                  <span className="text-xs text-muted-foreground uppercase">Status</span>
-                  <Badge variant="outline" className={getStatusColor(selectedOrder.status)}>
-                    {formatStatus(selectedOrder.status)}
-                  </Badge>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground uppercase">Delivery Driver</span>
-                  <p className="font-medium capitalize">{selectedOrder.assignedTo ? (drivers.find(d => d.id.toString() === selectedOrder.assignedTo.toString())?.name || selectedOrder.assignedTo) : "Unassigned"}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground uppercase">Payment Mode</span>
-                  <p className="font-bold uppercase">{selectedOrder.paymentMethod || 'COD'}</p>
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <span className="text-xs text-muted-foreground uppercase">Remarks</span>
-                  <p className="font-medium whitespace-pre-wrap">{selectedOrder.remarks || '-'}</p>
-                </div>
-              </div>
 
-              <div className="border rounded-lg p-4 bg-muted/30">
-                <h4 className="font-semibold mb-3">Order Items</h4>
-                <div className="space-y-2 text-sm">
-                  {selectedOrder.items && selectedOrder.items.map((item: any, index: number) => (
-                    <div key={index} className="flex justify-between">
-                      <span>{item.name || item.productName} <span className="text-muted-foreground text-xs">({item.quantity})</span></span>
-                      <span>₹{(item.amount || item.totalPrice || 0).toLocaleString()}</span>
-                    </div>
-                  ))}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <h4 className="font-semibold mb-3">Order Items</h4>
+                  <div className="space-y-2 text-sm">
+                    {selectedOrder.items && selectedOrder.items.map((item: any, index: number) => (
+                      <div key={index} className="flex justify-between gap-4">
+                        <span className="min-w-0 break-words">{item.name || item.productName} <span className="text-muted-foreground text-xs">({item.quantity})</span></span>
+                        <span className="shrink-0">₹{(item.amount || item.totalPrice || 0).toLocaleString()}</span>
+                      </div>
+                    ))}
 
-                  <div className="border-t pt-2 mt-2 space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span>Subtotal</span>
-                      <span>₹{(selectedOrder.subtotal || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-primary font-medium">
-                      <span>Delivery Charge</span>
-                      <span>₹{(selectedOrder.deliveryCharge || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-base pt-1">
-                      <span>Total</span>
-                      <span>₹{(selectedOrder.total || selectedOrder.totalAmount || 0).toLocaleString()}</span>
+                    <div className="border-t pt-2 mt-2 space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal</span>
+                        <span>₹{(selectedOrder.subtotal || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-primary font-medium">
+                        <span>Delivery Charge</span>
+                        <span>₹{(selectedOrder.deliveryCharge || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-base pt-1">
+                        <span>Total</span>
+                        <span>₹{(selectedOrder.total || selectedOrder.totalAmount || 0).toLocaleString()}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                {/* WhatsApp Quick Action */}
+                {selectedOrder.hotel?.mobileNumber && (
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const number = selectedOrder.hotel!.mobileNumber.replace(/\D/g, '');
+                        const formattedNumber = number.length === 10 ? `91${number}` : number;
+                        window.open(`https://wa.me/${formattedNumber}?text=Hello ${selectedOrder.customer}, This is PRK Smiles Admin. Regarding your Order #${selectedOrder.id}...`, '_blank');
+                      }}
+                      className="h-9 px-4 border-[#25D366] text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all duration-200 gap-2 border-2"
+                    >
+                      <WhatsAppIcon className="w-4 h-4" />
+                      <span className="font-bold text-xs">Contact on WhatsApp</span>
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              {/* WhatsApp Quick Action */}
-              {selectedOrder.hotel?.mobileNumber && (
-                <div className="flex justify-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const number = selectedOrder.hotel!.mobileNumber.replace(/\D/g, '');
-                      const formattedNumber = number.length === 10 ? `91${number}` : number;
-                      window.open(`https://wa.me/${formattedNumber}?text=Hello ${selectedOrder.customer}, This is PRK Smiles Admin. Regarding your Order #${selectedOrder.id}...`, '_blank');
-                    }}
-                    className="h-9 px-4 border-[#25D366] text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all duration-200 gap-2 border-2"
-                  >
-                    <WhatsAppIcon className="w-4 h-4" />
-                    <span className="font-bold text-xs">Contact on WhatsApp</span>
-                  </Button>
-                </div>
-              )}
-
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter className="gap-2 sm:gap-0 shrink-0 border-t px-6 py-4 bg-background">
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto gap-2"
@@ -1388,23 +1567,24 @@ const Orders = () => {
                 </Button>
                 <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsViewOpen(false)}>Close</Button>
               </DialogFooter>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Edit Order Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <form ref={editOrderFormRef}>
-            <DialogHeader>
+        <DialogContent className="sm:max-w-[780px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+          <form ref={editOrderFormRef} className="flex flex-col max-h-[90vh] min-h-0">
+            <DialogHeader className="px-6 pr-12 pt-6 pb-4 shrink-0 border-b">
               <DialogTitle>Edit Order - #{editFormData?.id}</DialogTitle>
               <DialogDescription>
                 Modify order details, items, and delivery information.
               </DialogDescription>
             </DialogHeader>
           {editFormData && (
-            <div className="space-y-6">
+            <>
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-6">
               {/* Order Status and Payment */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1488,20 +1668,21 @@ const Orders = () => {
               {/* Order Items */}
               <div className="space-y-3">
                 <h4 className="font-semibold text-sm">Order Items</h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="border rounded-lg overflow-x-auto">
+                  <table className="w-full text-sm min-w-[580px]">
                     <thead className="bg-muted">
                       <tr>
                         <th className="text-left py-2 px-3 font-medium">Product</th>
-                        <th className="text-center py-2 px-3 font-medium w-24">Quantity</th>
+                        <th className="text-center py-2 px-3 font-medium w-28">Quantity</th>
                         <th className="text-right py-2 px-3 font-medium w-28">Unit Price</th>
                         <th className="text-right py-2 px-3 font-medium w-28">Total</th>
+                        <th className="text-center py-2 px-3 font-medium w-14">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {editFormData.items.map((item: any, index: number) => (
                         <tr key={index} className="border-t">
-                          <td className="py-2 px-3">{item.productName}</td>
+                          <td className="py-2 px-3 break-words">{item.productName}</td>
                           <td className="py-2 px-3">
                             <Input
                               type="number"
@@ -1523,7 +1704,22 @@ const Orders = () => {
                             />
                           </td>
                           <td className="py-2 px-3 text-right font-medium">
-                            ₹{item.totalPrice?.toFixed(2) || '0.00'}
+                            ₹{Number(item.totalPrice || 0).toFixed(2)}
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            <button
+                              type="button"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleRemoveEditItem(index);
+                              }}
+                              title="Remove item"
+                              aria-label="Remove item"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1534,25 +1730,29 @@ const Orders = () => {
                         <td className="py-2 px-3 text-right font-semibold">
                           ₹{editFormData.items.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0).toFixed(2)}
                         </td>
+                        <td />
                       </tr>
                       <tr>
                         <td colSpan={3} className="py-2 px-3 text-right font-semibold">Delivery Charge:</td>
                         <td className="py-2 px-3 text-right font-semibold">
                           ₹{parseFloat(editFormData.deliveryCharge || 0).toFixed(2)}
                         </td>
+                        <td />
                       </tr>
                       <tr className="border-t">
                         <td colSpan={3} className="py-2 px-3 text-right font-bold text-base">Grand Total:</td>
                         <td className="py-2 px-3 text-right font-bold text-base">
                           ₹{(editFormData.items.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0) + parseFloat(editFormData.deliveryCharge || 0)).toFixed(2)}
                         </td>
+                        <td />
                       </tr>
                     </tfoot>
                   </table>
                 </div>
               </div>
+              </div>
 
-              <DialogFooter>
+              <DialogFooter className="shrink-0 border-t px-6 py-4 bg-background">
                 <Button variant="outline" onClick={() => setIsEditOpen(false)}>
                   Cancel
                 </Button>
@@ -1561,7 +1761,7 @@ const Orders = () => {
                   Save Changes
                 </Button>
               </DialogFooter>
-            </div>
+            </>
           )}
           </form>
         </DialogContent>
@@ -1646,26 +1846,28 @@ const Orders = () => {
 
                 {/* Preview Table */}
                 <div>
-                  <h4 className="font-semibold mb-3">Preview (First 5 items)</h4>
+                  <h4 className="font-semibold mb-3">
+                    Preview ({todaysOrdersData.summary.length} items)
+                  </h4>
                   <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="text-left py-2 px-3 font-medium">Client</th>
-                          <th className="text-left py-2 px-3 font-medium">Item</th>
-                          <th className="text-right py-2 px-3 font-medium">Quantity</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {todaysOrdersData.totalOrders === 0 ? (
+                    <div className="max-h-[280px] overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted sticky top-0 z-[1]">
                           <tr>
-                            <td colSpan={3} className="py-8 px-3 text-center text-muted-foreground">
-                              No orders found for the selected date and time range.
-                            </td>
+                            <th className="text-left py-2 px-3 font-medium">Client</th>
+                            <th className="text-left py-2 px-3 font-medium">Item</th>
+                            <th className="text-right py-2 px-3 font-medium">Quantity</th>
                           </tr>
-                        ) : (
-                          <>
-                            {todaysOrdersData.summary.slice(0, 5).flatMap((item: any) =>
+                        </thead>
+                        <tbody>
+                          {todaysOrdersData.totalOrders === 0 ? (
+                            <tr>
+                              <td colSpan={3} className="py-8 px-3 text-center text-muted-foreground">
+                                No orders found for the selected date and time range.
+                              </td>
+                            </tr>
+                          ) : (
+                            todaysOrdersData.summary.flatMap((item: any) =>
                               item.clients.map((client: any, idx: number) => (
                                 <tr key={`${item.itemName}-${client.clientName}-${idx}`} className="border-t">
                                   <td className="py-2 px-3">{client.clientName}</td>
@@ -1673,18 +1875,11 @@ const Orders = () => {
                                   <td className="py-2 px-3 text-right">{client.quantity} kg</td>
                                 </tr>
                               ))
-                            )}
-                            {todaysOrdersData.summary.length > 5 && (
-                              <tr className="border-t bg-muted/50">
-                                <td colSpan={3} className="py-2 px-3 text-center text-muted-foreground italic">
-                                  ... and {todaysOrdersData.summary.length - 5} more items
-                                </td>
-                              </tr>
-                            )}
-                          </>
-                        )}
-                      </tbody>
-                    </table>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 

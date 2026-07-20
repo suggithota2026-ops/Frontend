@@ -98,7 +98,7 @@ export function DashboardSidebar({ collapsed, onCollapse, onNavigate }: Dashboar
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto min-h-0">
+      <nav className="flex-1 px-3 py-4 overflow-y-auto min-h-0 hide-scrollbar">
         <ul className="space-y-1">
           {visibleMenuItems.map((item) => {
             const { pathname } = location;

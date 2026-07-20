@@ -803,21 +803,22 @@ const Products = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
           <form
             ref={productFormRef}
             onSubmit={(e) => {
               e.preventDefault();
               handleSave();
             }}
+            className="flex flex-col max-h-[90vh] min-h-0"
           >
-            <DialogHeader>
+            <DialogHeader className="px-6 pr-12 pt-6 pb-4 shrink-0 border-b">
               <DialogTitle>{currentProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
               <DialogDescription>
                 {currentProduct ? 'Make changes to the product here.' : 'Add a new grocery item to your inventory.'}
               </DialogDescription>
             </DialogHeader>
-          <div className="grid gap-6 py-4">
+          <div className="grid gap-6 px-6 py-4 flex-1 min-h-0 overflow-y-auto">
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="image-upload">Upload Image</Label>
@@ -953,7 +954,7 @@ const Products = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t px-6 py-4 bg-background">
             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
               Cancel
             </Button>
@@ -967,60 +968,62 @@ const Products = () => {
 
       {/* View Details Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pr-12 pt-6 pb-4 shrink-0 border-b">
             <DialogTitle>Product Details</DialogTitle>
           </DialogHeader>
           {currentProduct && (
-            <div className="space-y-6">
-              <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted relative">
-                {currentProduct.images && currentProduct.images.length > 0 ? (
-                  <img src={getImageUrl(currentProduct.images[0])} alt={currentProduct.name} className="w-full h-full object-cover" />
-                ) : currentProduct.image ? (
-                  <img src={getImageUrl(currentProduct.image)} alt={currentProduct.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
-                  </div>
-                )}
-              </div>
+            <>
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-6">
+                <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted relative">
+                  {currentProduct.images && currentProduct.images.length > 0 ? (
+                    <img src={getImageUrl(currentProduct.images[0])} alt={currentProduct.name} className="w-full h-full object-cover" />
+                  ) : currentProduct.image ? (
+                    <img src={getImageUrl(currentProduct.image)} alt={currentProduct.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
+                    </div>
+                  )}
+                </div>
 
-              <div>
-                <h3 className="text-xl font-bold">{currentProduct.name}</h3>
-                <p className="text-muted-foreground">
-                  {typeof currentProduct.category === 'string' ? currentProduct.category : currentProduct.category?.name}
-                </p>
-                {currentProduct.subcategory && (
-                  <p className="text-muted-foreground text-sm mt-1">
-                    {(() => {
-                      const cat = categories.find(c => c.id === currentProduct.categoryId);
-                      const sub = cat?.subcategories?.find(s => s.id === currentProduct.subcategory);
-                      return sub ? sub.name : currentProduct.subcategory;
-                    })()}
+                <div>
+                  <h3 className="text-xl font-bold break-words">{currentProduct.name}</h3>
+                  <p className="text-muted-foreground">
+                    {typeof currentProduct.category === 'string' ? currentProduct.category : currentProduct.category?.name}
                   </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 border-t border-b border-border py-4">
-                <div>
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Price</span>
-                  <p className="text-2xl font-bold text-primary">₹{currentProduct.price} <span className="text-sm font-normal text-muted-foreground">/ {currentProduct.unit || 'kg'}</span></p>
+                  {currentProduct.subcategory && (
+                    <p className="text-muted-foreground text-sm mt-1">
+                      {(() => {
+                        const cat = categories.find(c => c.id === currentProduct.categoryId);
+                        const sub = cat?.subcategories?.find(s => s.id === currentProduct.subcategory);
+                        return sub ? sub.name : currentProduct.subcategory;
+                      })()}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Minimum Order Quantity</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="font-medium">{currentProduct.stock} {currentProduct.unit || 'units'}</span>
+
+                <div className="grid grid-cols-2 gap-4 border-t border-b border-border py-4">
+                  <div>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Price</span>
+                    <p className="text-2xl font-bold text-primary">₹{currentProduct.price} <span className="text-sm font-normal text-muted-foreground">/ {currentProduct.unit || 'kg'}</span></p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Minimum Order Quantity</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="font-medium">{currentProduct.stock} {currentProduct.unit || 'units'}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end shrink-0 border-t px-6 py-4 bg-background">
                 <Button onClick={() => { setIsViewOpen(false); handleOpenEdit(currentProduct); }}>
                   <Edit className="w-4 h-4 mr-2" /> Edit Product
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
