@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Search, Package, ChevronRight, LayoutGrid } from "lucide-react";
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Search, Package, ChevronRight, LayoutGrid, Upload, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/api/axios";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { useEnterNavigation } from "@/hooks/useEnterNavigation";
+import { compressImageFile } from "@/utils/compressImage";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,10 +33,20 @@ interface Category {
   id: number;
   name: string;
   description: string;
+  image?: string | null;
   products: number;
   isActive: boolean;
   subcategories: Subcategory[];
 }
+
+const getImageUrl = (path?: string | null) => {
+  if (!path) return "";
+  if (path.startsWith("data:") || path.startsWith("blob:") || path.startsWith("http")) {
+    return path;
+  }
+  const cleanPath = path.replace(/^uploads\//, "").replace(/^\/uploads\//, "");
+  return `/uploads/${cleanPath}`;
+};
 
 const Categories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,9 +54,10 @@ const Categories = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
   const navigate = useNavigate();
 
-  // Form State
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -68,9 +80,15 @@ const Categories = () => {
     fetchCategories();
   }, []);
 
+  const resetDialogState = () => {
+    setFormData({ name: "", description: "", subcategories: "" });
+    setImageFile(null);
+    setImagePreview("");
+  };
+
   const handleOpenAdd = () => {
     setCurrentCategory(null);
-    setFormData({ name: "", description: "", subcategories: "" });
+    resetDialogState();
     setIsDialogOpen(true);
   };
 
@@ -79,9 +97,27 @@ const Categories = () => {
     setFormData({
       name: category.name,
       description: category.description,
-      subcategories: category.subcategories?.map(s => s.name).join(", ") || ""
+      subcategories: category.subcategories?.map(s => s.name).join(", ") || "",
     });
+    setImageFile(null);
+    setImagePreview(getImageUrl(category.image));
     setIsDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressed = await compressImageFile(file);
+      setImageFile(compressed);
+      setImagePreview(URL.createObjectURL(compressed));
+    } catch (error) {
+      console.error("Error processing image:", error);
+      toast.error("Could not process image. Try a smaller JPG or PNG.");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -108,26 +144,28 @@ const Categories = () => {
 
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('subcategories', formData.subcategories);
-      formDataToSend.append('isActive', 'true');
+      formDataToSend.append("name", formData.name);
+      formDataToSend.append("description", formData.description);
+      formDataToSend.append("subcategories", formData.subcategories);
+      formDataToSend.append("isActive", "true");
 
-      let response;
-      if (currentCategory) {
-        response = await api.put(`/admin/categories/${currentCategory.id}`, formDataToSend, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } else {
-        response = await api.post("/admin/categories", formDataToSend, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+      if (imageFile) {
+        formDataToSend.append("image", imageFile, imageFile.name || "category.jpg");
       }
+
+      const uploadConfig = {
+        headers: { "Content-Type": "multipart/form-data" },
+      };
+
+      const response = currentCategory
+        ? await api.put(`/admin/categories/${currentCategory.id}`, formDataToSend, uploadConfig)
+        : await api.post("/admin/categories", formDataToSend, uploadConfig);
 
       if (response.data.success) {
         toast.success(currentCategory ? "Category updated" : "Category added");
         fetchCategories();
         setIsDialogOpen(false);
+        resetDialogState();
       }
     } catch (error: any) {
       console.error("Error saving category:", error);
@@ -137,10 +175,9 @@ const Categories = () => {
     }
   };
 
-  // Enter key navigation hook
   const { formRef: categoryFormRef } = useEnterNavigation({
     onSubmit: handleSave,
-    disabled: isLoading
+    disabled: isLoading,
   });
 
   const filteredCategories = categories.filter(category =>
@@ -149,7 +186,6 @@ const Categories = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Categories</h1>
@@ -161,7 +197,6 @@ const Categories = () => {
         </Button>
       </div>
 
-      {/* Search & Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
           <div className="relative group">
@@ -185,7 +220,6 @@ const Categories = () => {
         </div>
       </div>
 
-      {/* Categories Grid */}
       {filteredCategories.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredCategories.map((category, index) => (
@@ -195,17 +229,29 @@ const Categories = () => {
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <FolderOpen className="w-6 h-6 text-primary" />
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform duration-300">
+                  {category.image ? (
+                    <img
+                      src={getImageUrl(category.image)}
+                      alt={category.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <FolderOpen className="w-6 h-6 text-primary" />
+                  )}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreHorizontal className="w-5 h-5" />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-full border-border/60 bg-background text-foreground hover:bg-muted hover:text-foreground shadow-sm"
+                    >
+                      <MoreHorizontal className="w-5 h-5 text-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={() => handleOpenEdit(category)} className="cursor-pointer">
+                    <DropdownMenuItem onClick={() => handleOpenEdit(category)} className="cursor-pointer text-foreground">
                       <Edit className="w-4 h-4 mr-2" /> Edit Details
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -221,7 +267,7 @@ const Categories = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-lg text-foreground truncate group-hover:text-primary transition-colors">{category.name}</h3>
-                  <span className={`h-2 w-2 rounded-full ${category.isActive ? 'bg-green-500 animate-pulse' : 'bg-muted'}`} />
+                  <span className={`h-2 w-2 rounded-full ${category.isActive ? "bg-green-500 animate-pulse" : "bg-muted"}`} />
                 </div>
                 <p className="text-sm text-muted-foreground line-clamp-2 h-10 leading-relaxed">
                   {category.description || "No description provided."}
@@ -252,8 +298,8 @@ const Categories = () => {
                   <span className="text-xs font-bold">{category.products || 0} Products</span>
                   <ChevronRight className="w-3 h-3 ml-0.5 opacity-0 -translate-x-2 group-hover/stat:opacity-100 group-hover/stat:translate-x-0 transition-all" />
                 </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${category.isActive ? 'text-green-500' : 'text-muted-foreground'}`}>
-                  {category.isActive ? 'Active' : 'Inactive'}
+                <span className={`text-[10px] font-black uppercase tracking-widest ${category.isActive ? "text-green-500" : "text-muted-foreground"}`}>
+                  {category.isActive ? "Active" : "Inactive"}
                 </span>
               </div>
             </div>
@@ -277,57 +323,87 @@ const Categories = () => {
         </div>
       )}
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) resetDialogState();
+      }}>
         <DialogContent className="sm:max-w-[450px] rounded-2xl border-none shadow-2xl">
           <form ref={categoryFormRef}>
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">{currentCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
+              <DialogTitle className="text-2xl font-bold">{currentCategory ? "Edit Category" : "Create Category"}</DialogTitle>
               <DialogDescription>
                 Organization helps customers find products faster.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-6">
-            <div className="grid gap-2">
-              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. Organic Vegetables"
-                className="h-11 bg-muted/30 border-none focus-visible:ring-primary/30"
-              />
+              <div className="grid gap-2">
+                <Label htmlFor="category-image-upload" className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex justify-between">
+                  Category Picture
+                  <span className="text-[10px] font-normal normal-case opacity-60 italic">Optional</span>
+                </Label>
+                <div className="border-2 border-dashed border-input rounded-lg w-full h-[140px] flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
+                  <Input
+                    id="category-image-upload"
+                    type="file"
+                    accept="image/*"
+                    className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
+                    onChange={handleImageUpload}
+                  />
+                  {imagePreview ? (
+                    <>
+                      <img src={imagePreview} alt="Category preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="w-6 h-6 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-8 h-8 text-muted-foreground mb-2" />
+                      <span className="text-xs text-muted-foreground">Click to upload picture (optional)</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Organic Vegetables"
+                  className="h-11 bg-muted/30 border-none focus-visible:ring-primary/30"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="subcategories" className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex justify-between">
+                  Subcategories
+                  <span className="text-[10px] font-normal normal-case opacity-60 italic">Comma separated</span>
+                </Label>
+                <Input
+                  id="subcategories"
+                  value={formData.subcategories}
+                  onChange={(e) => setFormData({ ...formData, subcategories: e.target.value })}
+                  placeholder="e.g. Leafy, Roots, Exotics"
+                  className="h-11 bg-muted/30 border-none focus-visible:ring-primary/30"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="What kinds of products belong here?"
+                  className="min-h-[100px] bg-muted/30 border-none focus-visible:ring-primary/30 resize-none"
+                />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="subcategories" className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex justify-between">
-                Subcategories
-                <span className="text-[10px] font-normal normal-case opacity-60 italic">Comma separated</span>
-              </Label>
-              <Input
-                id="subcategories"
-                value={formData.subcategories}
-                onChange={(e) => setFormData({ ...formData, subcategories: e.target.value })}
-                placeholder="e.g. Leafy, Roots, Exotics"
-                className="h-11 bg-muted/30 border-none focus-visible:ring-primary/30"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="What kinds of products belong here?"
-                className="min-h-[100px] bg-muted/30 border-none focus-visible:ring-primary/30 resize-none"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} disabled={isLoading} className="font-semibold px-8 hover:bg-muted/50">Cancel</Button>
-            <Button type="submit" onClick={handleSave} disabled={isLoading} className="font-bold px-8 shadow-lg shadow-primary/20">
-              {isLoading ? "Processing..." : (currentCategory ? "Update" : "Save")}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isLoading} className="font-semibold px-8 text-foreground">Cancel</Button>
+              <Button type="submit" onClick={handleSave} disabled={isLoading} className="font-bold px-8 shadow-lg shadow-primary/20">
+                {isLoading ? "Processing..." : (currentCategory ? "Update" : "Save")}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
