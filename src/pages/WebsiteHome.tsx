@@ -36,7 +36,7 @@ const WebsiteHome = () => {
         {/* Hero Section (same layout as Website/app/page.js) */}
         <section
           id="home"
-          className="relative flex min-h-[92vh] items-center overflow-hidden pt-24 bg-[url('/close-up-dairy-products-optimized.jpg')] bg-cover bg-center bg-no-repeat"
+          className="relative flex min-h-[92vh] items-center overflow-hidden pt-36 bg-[url('/close-up-dairy-products-optimized.jpg')] bg-cover bg-center bg-no-repeat md:pt-40"
         >
           {/* Overlay for readability (lighter, no pulse) */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-black/15 to-transparent" />
@@ -45,19 +45,30 @@ const WebsiteHome = () => {
             <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
               {/* Left Content */}
               <div className="text-white">
-                <img
-                  src="/suggi-thota-logo.png"
-                  alt="Suggi Thota"
-                  className="mb-8 h-20 w-auto object-contain drop-shadow-lg md:h-24"
-                />
+                <div className="mb-5 flex items-center gap-3">
+                  <img
+                    src="/suggi-thota-logo.png"
+                    alt="Suggi Thota"
+                    className="h-14 w-auto object-contain drop-shadow-lg md:h-16"
+                  />
+                  <div>
+                    <p className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-400" />
+                      Suggi Thota
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-green-200 md:text-base">
+                      Farm Fresh • 100% Natural
+                    </p>
+                  </div>
+                </div>
 
-                <h1 className="mb-6 text-5xl font-black leading-[0.98] tracking-tight text-white md:text-6xl lg:text-7xl">
+                <h1 className="mb-4 text-5xl font-black leading-[0.98] tracking-tight text-white md:text-6xl lg:text-7xl">
                   Fresh <span className="text-green-400">Product</span>
                   <br />
                   Delivered Daily
                 </h1>
 
-                <p className="mb-6 max-w-xl text-base font-semibold text-green-200 md:text-lg">
+                <p className="mb-5 text-base font-semibold text-green-200 md:text-lg">
                   Fresh From Farm to Table
                 </p>
 
@@ -68,11 +79,14 @@ const WebsiteHome = () => {
                   makes in every bite.
                 </p>
 
-                <div className="flex flex-col gap-4 sm:flex-row">
-                  <button className="rounded-lg border-2 border-white bg-black/35 px-8 py-4 text-lg font-semibold text-white shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-white hover:text-gray-900 active:scale-[0.99]">
-                    📱 Download App
-                  </button>
-                </div>
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.prksmile"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex rounded-lg border-2 border-white bg-black/35 px-8 py-4 text-lg font-semibold text-white shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-white hover:text-gray-900 active:scale-[0.99]"
+                >
+                  📱 Download App
+                </a>
 
                 {/* Trust Indicators */}
                 <div className="mt-12 grid grid-cols-3 gap-6">
