@@ -261,7 +261,7 @@ const WebsiteContact = () => {
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Email <span className="text-red-500">*</span>
+                        Email <span className="text-slate-400">(optional)</span>
                       </label>
                       <input
                         type="email"
@@ -487,17 +487,6 @@ const WebsiteContact = () => {
                       9606670144
                     </a>
                   </div>
-                  <div className="mt-4 border-t border-gray-100 pt-4">
-                    <p className="mb-1 text-xs font-bold uppercase text-red-500">
-                      Customer Care
-                    </p>
-                    <a
-                      href="tel:9606670144"
-                      className="block font-bold text-yellow-600"
-                    >
-                      9606670144
-                    </a>
-                  </div>
                 </div>
               </div>
 
@@ -538,7 +527,7 @@ const WebsiteContact = () => {
                 </div>
               </div>
 
-              {/* Online Presence */}
+              {/* Download App */}
               <div className="group rounded-3xl border-b-4 border-blue-500 bg-white p-8 shadow-md transition-all duration-500 hover:shadow-2xl">
                 <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white">
                   <svg
@@ -551,24 +540,26 @@ const WebsiteContact = () => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9h18"
+                      d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
                     />
                   </svg>
                 </div>
                 <h3 className="mb-4 text-lg font-bold uppercase tracking-wider text-gray-900">
-                  Online Presence
+                  Download App
                 </h3>
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
-                  Our Website
+                  Get It On Google Play
                 </p>
                 <a
-                  href="/"
+                  href="https://play.google.com/store/apps/details?id=com.prksmile"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="mt-2 inline-block border-b-2 border-blue-100 pb-1 text-lg font-black text-blue-600 transition-colors hover:text-blue-800"
                 >
-                  www.suggithota.com
+                  Download Now
                 </a>
                 <p className="mt-4 text-xs text-gray-400">
-                  Browse our fresh catalog and order online today!
+                  Order fresh fruits and vegetables anytime from our mobile app.
                 </p>
               </div>
             </div>

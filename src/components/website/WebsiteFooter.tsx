@@ -8,17 +8,12 @@ export const WebsiteFooter = () => {
         <div className="grid grid-cols-1 gap-12 md:grid-cols-4">
           {/* Brand/About */}
           <div className="space-y-6">
-            <Link to="/" className="inline-block group">
-              <div className="flex items-center gap-3">
-                <img
-                  src="/Invoice.png"
-                  alt="Suggi Thota Logo"
-                  className="h-10 w-auto object-contain brightness-0 invert"
-                />
-                <span className="text-xl font-bold text-white tracking-tight">
-                  Suggi <span className="text-green-500">Thota</span>
-                </span>
-              </div>
+            <Link to="/" className="inline-block">
+              <img
+                src="/suggi-thota-logo.png"
+                alt="Suggi Thota logo"
+                className="h-20 w-auto rounded-xl bg-white object-contain p-2"
+              />
             </Link>
             <p className="text-sm leading-relaxed text-slate-400">
               Bengaluru's premium vegetable sourcing partner.
@@ -93,11 +88,21 @@ export const WebsiteFooter = () => {
                 <MapPin size={18} className="text-green-500 shrink-0 mt-0.5" />
                 <span className="text-slate-400">Bilekahalli, Vijayabank Layout, Bengaluru - 560076</span>
               </li>
-              <li className="flex items-center space-x-3">
-                <Phone size={18} className="text-green-500 shrink-0" />
-                <div className="flex flex-col">
-                  <a href="tel:8884672766" className="hover:text-white transition-colors">8884672766</a>
-                  <a href="tel:9606670144" className="hover:text-white transition-colors text-xs opacity-70">9606670144</a>
+              <li className="flex items-start space-x-3">
+                <Phone size={18} className="mt-0.5 shrink-0 text-green-500" />
+                <div className="space-y-2">
+                  <a
+                    href="tel:8884672766"
+                    className="block text-base font-semibold text-slate-200 transition-colors hover:text-white"
+                  >
+                    8884672766
+                  </a>
+                  <a
+                    href="tel:9606670144"
+                    className="block text-base font-semibold text-slate-200 transition-colors hover:text-white"
+                  >
+                    9606670144
+                  </a>
                 </div>
               </li>
               <li className="flex items-center space-x-3">
@@ -107,22 +112,21 @@ export const WebsiteFooter = () => {
             </ul>
           </div>
 
-          {/* Newsletter */}
+          {/* Location */}
           <div className="space-y-6">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Stay Fresh</h3>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Location</h3>
             <p className="text-sm text-slate-400">
-              Join 5,000+ subscribers for weekly farm updates.
+              Find us quickly on Google Maps.
             </p>
-            <div className="relative group">
-              <input
-                type="email"
-                placeholder="Email address"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all"
-              />
-              <button className="absolute right-2 top-2 bottom-2 bg-green-600 hover:bg-green-500 text-white rounded-lg px-4 text-xs font-bold transition-all active:scale-95">
-                Join
-              </button>
-            </div>
+            <a
+              href="https://maps.app.goo.gl/u8w8JXf2Gg1HBce6A?g_st=aw"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition-all duration-300 hover:border-green-500/40 hover:bg-green-600 hover:text-white"
+            >
+              Open in Google Maps
+              <ExternalLink size={14} />
+            </a>
           </div>
         </div>
 

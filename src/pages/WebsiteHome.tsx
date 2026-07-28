@@ -1,7 +1,33 @@
+import { useState } from "react";
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 import { WebsiteFooter } from "@/components/website/WebsiteFooter";
 
 const WebsiteHome = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleSendMessage = () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedMessage = message.trim();
+
+    if (!trimmedName || !trimmedMessage) {
+      window.alert("Please fill name and message before sending.");
+      return;
+    }
+
+    const whatsappText = trimmedEmail
+      ? `Name: ${trimmedName}\nEmail: ${trimmedEmail}\nMessage: ${trimmedMessage}`
+      : `Name: ${trimmedName}\nMessage: ${trimmedMessage}`;
+    const whatsappUrl = `https://wa.me/918884672766?text=${encodeURIComponent(whatsappText)}`;
+
+    setName("");
+    setEmail("");
+    setMessage("");
+    window.location.href = whatsappUrl;
+  };
+
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <WebsiteHeader />
@@ -10,7 +36,7 @@ const WebsiteHome = () => {
         {/* Hero Section (same layout as Website/app/page.js) */}
         <section
           id="home"
-          className="relative flex min-h-[92vh] items-center overflow-hidden pt-24 bg-[url('/healthy-vegetables-old-dark-background.jpg')] bg-cover bg-center bg-no-repeat"
+          className="relative flex min-h-[92vh] items-center overflow-hidden pt-24 bg-[url('/close-up-dairy-products-optimized.jpg')] bg-cover bg-center bg-no-repeat"
         >
           {/* Overlay for readability (lighter, no pulse) */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-black/15 to-transparent" />
@@ -19,18 +45,21 @@ const WebsiteHome = () => {
             <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
               {/* Left Content */}
               <div className="text-white">
-                <div className="mb-6 inline-flex items-center rounded-full border border-green-400/30 bg-green-500/20 px-4 py-2 backdrop-blur-sm">
-                  <span className="mr-2 h-2 w-2 animate-pulse rounded-full bg-green-400" />
-                  <p className="text-sm font-semibold text-green-200">
-                    🥬 Fresh From Farm to Table
-                  </p>
-                </div>
+                <img
+                  src="/suggi-thota-logo.png"
+                  alt="Suggi Thota"
+                  className="mb-8 h-20 w-auto object-contain drop-shadow-lg md:h-24"
+                />
 
-                <h1 className="mb-6 text-6xl font-black leading-[0.98] tracking-tight text-white md:text-7xl lg:text-7xl">
+                <h1 className="mb-6 text-5xl font-black leading-[0.98] tracking-tight text-white md:text-6xl lg:text-7xl">
                   Fresh <span className="text-green-400">Product</span>
                   <br />
                   Delivered Daily
                 </h1>
+
+                <p className="mb-6 max-w-xl text-base font-semibold text-green-200 md:text-lg">
+                  Fresh From Farm to Table
+                </p>
 
                 <p className="mb-8 max-w-2xl text-lg leading-relaxed text-gray-200 md:text-xl">
                   Experience the finest selection of organic fruits and vegetables,
@@ -40,11 +69,7 @@ const WebsiteHome = () => {
                 </p>
 
                 <div className="flex flex-col gap-4 sm:flex-row">
-                  <button className="relative overflow-hidden rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-8 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-2xl active:scale-[0.99]">
-                    🛒 Shop Now
-                    <span className="pointer-events-none absolute inset-y-0 left-[-120%] w-2/3 rotate-12 bg-white/20 blur-xl transition-all duration-700 group-hover:left-[120%]" />
-                  </button>
-                  <button className="rounded-lg border-2 border-white px-8 py-4 text-lg font-semibold text-white transition-all duration-300 hover:bg-white hover:text-gray-900 active:scale-[0.99]">
+                  <button className="rounded-lg border-2 border-white bg-black/35 px-8 py-4 text-lg font-semibold text-white shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-white hover:text-gray-900 active:scale-[0.99]">
                     📱 Download App
                   </button>
                 </div>
@@ -66,50 +91,6 @@ const WebsiteHome = () => {
                 </div>
               </div>
 
-              {/* Right Content - Product Showcase */}
-              <div className="relative">
-                <div className="relative">
-                  <div className="absolute right-0 top-0 rounded-2xl bg-white/95 p-3 shadow-2xl backdrop-blur-sm transition-all duration-500 hover:rotate-3 hover:scale-110">
-                    <img
-                      src="/close-up-dairy-products.jpg"
-                      alt="Fresh products"
-                      className="h-28 w-32 rounded-lg object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-
-                  <div className="absolute left-0 top-32 rounded-2xl bg-white/95 p-3 shadow-2xl backdrop-blur-sm transition-all duration-500 hover:-rotate-3 hover:scale-110">
-                    <img
-                      src="/healthy-vegetables-wooden-table.jpg"
-                      alt="Fresh vegetables"
-                      className="h-28 w-32 rounded-lg object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-
-                  <div className="absolute right-8 top-64 rounded-2xl bg-white/95 p-3 shadow-2xl backdrop-blur-sm transition-all duration-500 hover:rotate-2 hover:scale-110">
-                    <img
-                      src="/top-view-tasty-fruits-arrangement.jpg"
-                      alt="Fresh fruits"
-                      className="h-28 w-32 rounded-lg object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-
-                  <div className="mt-40 rounded-3xl bg-gradient-to-br from-green-500 to-green-600 p-8 text-center text-white shadow-2xl transition-all duration-300 hover:scale-105">
-                    <div className="mb-4 text-6xl">🥕</div>
-                    <h3 className="mb-2 font-heading text-2xl font-bold">
-                      Special Offer!
-                    </h3>
-                    <p className="mb-4 text-green-100">
-                      Get 20% off on your first order
-                    </p>
-                    <div className="rounded-lg bg-white px-4 py-2 font-bold text-green-600">
-                      Use Code: FRESH20
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -197,6 +178,11 @@ const WebsiteHome = () => {
               id="about"
               className="rounded-3xl bg-white p-12 text-center shadow-2xl"
             >
+              <img
+                src="/suggi-thota-logo.png"
+                alt="Suggi Thota logo"
+                className="mx-auto mb-6 h-28 w-auto object-contain"
+              />
               <h3 className="mb-4 font-heading text-4xl font-bold text-gray-900">
                 📱 Download the Suggi Thota App
               </h3>
@@ -255,16 +241,20 @@ const WebsiteHome = () => {
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-4 py-3 transition-colors duration-200 focus:border-green-500 focus:ring-2 focus:ring-green-500"
                     placeholder="Enter your name"
                   />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Email <span className="text-red-500">*</span>
+                    Email <span className="text-slate-400">(optional)</span>
                   </label>
                   <input
                     type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-4 py-3 transition-colors duration-200 focus:border-green-500 focus:ring-2 focus:ring-green-500"
                     placeholder="Enter your email address"
                   />
@@ -275,12 +265,15 @@ const WebsiteHome = () => {
                   </label>
                   <textarea
                     rows={6}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
                     className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 transition-colors duration-200 focus:border-green-500 focus:ring-2 focus:ring-green-500"
                     placeholder="Tell us how we can help you..."
                   />
                 </div>
                 <button
                   type="button"
+                  onClick={handleSendMessage}
                   className="w-full rounded-lg bg-gradient-to-r from-green-600 to-green-700 px-6 py-3 font-semibold text-white transition-all duration-300 hover:from-green-700 hover:to-green-800"
                 >
                   Send Message

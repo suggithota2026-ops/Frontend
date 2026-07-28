@@ -46,25 +46,25 @@ const MISSION_POINTS = [
 const TEAM = [
   {
     name: "Ishwar Gowda",
-    initials: "IG",
+    gender: "male",
     role: "Founder & CEO, Finance Head",
     accent: "bg-green-500",
   },
   {
     name: "Dik Bahadur Pradhan",
-    initials: "DBP",
+    gender: "male",
     role: "Co-Founder & Operations Head",
     accent: "bg-yellow-500",
   },
   {
     name: "Shrinivas Gowda",
-    initials: "SG",
+    gender: "male",
     role: "Managing Partner, Purchase Head",
     accent: "bg-red-500",
   },
   {
     name: "Shalini Gowda",
-    initials: "SG",
+    gender: "female",
     role: "Managing Partner, Sales Head",
     accent: "bg-blue-500",
   },
@@ -104,6 +104,11 @@ const WebsiteAbout = () => {
                 <div className="mb-6 inline-block rounded-full border border-green-100 bg-green-50 px-4 py-1 text-sm font-semibold uppercase tracking-wider text-green-600">
                   A Unit Of PRK Smile
                 </div>
+                <img
+                  src="/suggi-thota-logo.png"
+                  alt="Suggi Thota logo"
+                  className="mb-6 h-24 w-auto object-contain"
+                />
                 <h2 className="mb-8 font-heading text-4xl font-bold leading-tight text-gray-900 md:text-5xl">
                   PRK Smile (Suggi Thota)
                 </h2>
@@ -427,10 +432,13 @@ const WebsiteAbout = () => {
                     className={`h-2 scale-x-0 transform transition-transform duration-500 group-hover:scale-x-100 ${member.accent}`}
                   />
                   <div className="p-8 text-center">
-                    <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-gray-100 grayscale transition-all duration-500 group-hover:grayscale-0">
-                      <span className="text-3xl font-bold text-gray-400">
-                        {member.initials}
-                      </span>
+                    <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gray-100 p-2 transition-all duration-500 group-hover:scale-105">
+                      <img
+                        src={member.gender === "female" ? "/avatar-female.png" : "/avatar-male.png"}
+                        alt={member.name}
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                      />
                     </div>
                     <h4 className="mb-2 text-xl font-bold text-gray-900">
                       {member.name}
