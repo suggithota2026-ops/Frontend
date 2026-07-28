@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, MoreHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import {
   Dialog,
   DialogContent,
@@ -62,12 +63,25 @@ const EditCustomer = () => {
     creditLimit: "",
     rateType: "",
     contractDuration: "",
+    contractStartDate: "",
+    contractEndDate: "",
     customerProductPricing: [],
   });
+
+  const toInputDate = (value?: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   // Reset form function
   const resetForm = () => {
     if (hotel) {
+      const pricing = hotel.customerProductPricing || [];
       setFormData({
         hotelName: hotel.hotelName,
         mobileNumber: hotel.mobileNumber,
@@ -75,8 +89,10 @@ const EditCustomer = () => {
         gstNumber: hotel.gstNumber || "",
         creditLimit: hotel.creditLimit.toString(),
         rateType: hotel.rateType || "",
-        contractDuration: hotel.contractDuration || "",
-        customerProductPricing: hotel.customerProductPricing || [],
+        contractDuration: "Custom",
+        contractStartDate: toInputDate(pricing[0]?.contractStartDate),
+        contractEndDate: toInputDate(pricing[0]?.contractEndDate),
+        customerProductPricing: pricing,
       });
     }
     // Reset bulk pricing state
@@ -237,6 +253,7 @@ const EditCustomer = () => {
       const response = await api.get(`/admin/hotels/${id}`);
       if (response.data.success) {
         const hotelData = response.data.data.hotel;
+        const pricing = hotelData.customerProductPricing || [];
         setHotel(hotelData);
         setFormData({
           hotelName: hotelData.hotelName,
@@ -245,8 +262,10 @@ const EditCustomer = () => {
           gstNumber: hotelData.gstNumber || "",
           creditLimit: hotelData.creditLimit.toString(),
           rateType: hotelData.rateType || "",
-          contractDuration: hotelData.contractDuration || "",
-          customerProductPricing: hotelData.customerProductPricing || [],
+          contractDuration: "Custom",
+          contractStartDate: toInputDate(pricing[0]?.contractStartDate),
+          contractEndDate: toInputDate(pricing[0]?.contractEndDate),
+          customerProductPricing: pricing,
         });
       }
     } catch (error: any) {
@@ -269,9 +288,15 @@ const EditCustomer = () => {
       return;
     }
 
-    if (formData.rateType === 'Fixed Price' && !formData.contractDuration) {
-      toast.error("Please select a contract duration for fixed price customers");
-      return;
+    if (formData.rateType === 'Fixed Price') {
+      if (!formData.contractStartDate || !formData.contractEndDate) {
+        toast.error("Please select contract start and end dates for fixed price customers");
+        return;
+      }
+      if (new Date(formData.contractStartDate) > new Date(formData.contractEndDate)) {
+        toast.error("Contract start date must be before end date");
+        return;
+      }
     }
 
     if (formData.rateType === 'Fixed Price' && (!formData.customerProductPricing || formData.customerProductPricing.length === 0)) {
@@ -287,7 +312,9 @@ const EditCustomer = () => {
         gstNumber: formData.gstNumber || undefined,
         creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
         rateType: formData.rateType || undefined,
-        contractDuration: formData.contractDuration || undefined,
+        contractDuration: formData.rateType === 'Fixed Price' ? 'Custom' : undefined,
+        contractStartDate: formData.rateType === 'Fixed Price' ? formData.contractStartDate : undefined,
+        contractEndDate: formData.rateType === 'Fixed Price' ? formData.contractEndDate : undefined,
         customerProductPricing: formData.customerProductPricing || undefined,
       });
       toast.success("Customer updated successfully");
@@ -386,38 +413,72 @@ const EditCustomer = () => {
       <div className="bg-white rounded-lg border p-6">
         <h2 className="text-xl font-semibold mb-4">Pricing & Contract Configuration</h2>
         <div className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="rateType">Rate Type *</Label>
-            <select
-              id="rateType"
-              value={formData.rateType}
-              onChange={(e) => setFormData({ ...formData, rateType: e.target.value })}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="">Select Rate Type</option>
-              <option value="Daily Price">Daily Price</option>
-              <option value="Weekly Price">Weekly Price</option>
-              <option value="Fixed Price">Fixed Price</option>
-            </select>
-            {formData.rateType === 'Fixed Price' && (
-              <p className="text-sm text-muted-foreground">Fixed Price allows custom product pricing only for this customer.</p>
-            )}
-          </div>
-
-          {formData.rateType === 'Fixed Price' && (
+          <div
+            className={
+              formData.rateType === "Fixed Price"
+                ? "grid gap-4 sm:grid-cols-3"
+                : "grid gap-2"
+            }
+          >
             <div className="grid gap-2">
-              <Label htmlFor="contractDuration">Contract Duration *</Label>
+              <Label htmlFor="rateType">Rate Type *</Label>
               <select
-                id="contractDuration"
-                value={formData.contractDuration}
-                onChange={(e) => setFormData({ ...formData, contractDuration: e.target.value })}
+                id="rateType"
+                value={formData.rateType}
+                onChange={(e) => setFormData({ ...formData, rateType: e.target.value })}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="">Select Duration</option>
-                <option value="6 Months">6 Months</option>
-                <option value="1 Year">1 Year</option>
+                <option value="">Select Rate Type</option>
+                <option value="Daily Price">Daily Price</option>
+                <option value="Weekly Price">Weekly Price</option>
+                <option value="Fixed Price">Fixed Price</option>
               </select>
             </div>
+
+            {formData.rateType === "Fixed Price" && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="contractStartDate">Contract Start Date *</Label>
+                  <DatePickerField
+                    id="contractStartDate"
+                    value={formData.contractStartDate}
+                    placeholder="Select start date"
+                    onChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        contractStartDate: value,
+                        contractDuration: "Custom",
+                        contractEndDate:
+                          formData.contractEndDate && formData.contractEndDate < value
+                            ? ""
+                            : formData.contractEndDate,
+                      })
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="contractEndDate">Contract End Date *</Label>
+                  <DatePickerField
+                    id="contractEndDate"
+                    value={formData.contractEndDate}
+                    placeholder="Select end date"
+                    min={formData.contractStartDate || undefined}
+                    onChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        contractEndDate: value,
+                        contractDuration: "Custom",
+                      })
+                    }
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          {formData.rateType === "Fixed Price" && (
+            <p className="text-sm text-muted-foreground">
+              Fixed Price allows custom product pricing only for this customer.
+            </p>
           )}
         </div>
       </div>
@@ -515,7 +576,7 @@ const EditCustomer = () => {
         </Button>
         <Button
           onClick={handleUpdateHotel}
-          disabled={isLoading || (formData.rateType === 'Fixed Price' && (!formData.contractDuration || formData.customerProductPricing.length === 0))}
+          disabled={isLoading || (formData.rateType === 'Fixed Price' && (!formData.contractStartDate || !formData.contractEndDate || formData.customerProductPricing.length === 0))}
         >
           {isLoading ? "Updating..." : "Update Customer Account"}
         </Button>

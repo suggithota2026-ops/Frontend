@@ -49,6 +49,7 @@ const Billing = () => {
     gst: 0,
     pendingPayments: 0,
     invoicesCount: 0,
+    pendingInvoicesCount: 0,
     reportData: [],
     gstData: [],
     invoices: []
@@ -57,41 +58,75 @@ const Billing = () => {
   const fetchBillingData = async () => {
     setIsLoading(true);
     try {
-      // Fetch report based on period
       const endpoint = `/admin/reports/${period}`;
       const response = await api.get(endpoint);
       if (response.data.success) {
         const data = response.data.data;
+        const billingRows =
+          (data.billingRows && data.billingRows.length > 0
+            ? data.billingRows
+            : data.invoices && data.invoices.length > 0
+              ? data.invoices
+              : (data.orders || []).filter((o: any) =>
+                  ["pending", "confirmed", "dispatched", "delivered"].includes(o.status)
+                )) || [];
 
-        // Transform backend data for frontend
-        const transformedData = {
-          revenue: data.totalSales,
-          gst: (data.totalSales || 0) * 0.18,
-          pendingPayments: 0,
-          invoicesCount: (data.invoices || []).length,
+        const revenue = Number(data.totalSales || 0);
+        const gst =
+          data.totalGst != null
+            ? Number(data.totalGst)
+            : billingRows.reduce(
+                (sum: number, row: any) => sum + Number(row.gstAmount || 0),
+                0
+              );
+        const pendingPayments = Number(data.pendingPayments || 0);
+
+        const invoices = billingRows.map((row: any) => ({
+          id: row.invoiceNumber || row.orderNumber || `ORD-${row.id || row.orderId}`,
+          date: row.createdAt
+            ? new Date(row.createdAt).toLocaleDateString()
+            : "-",
+          client:
+            row.hotel?.hotelName ||
+            (row.hotelId != null ? `Hotel #${row.hotelId}` : "Unknown"),
+          amount: parseFloat(row.totalAmount || 0),
+          gst: parseFloat(row.gstAmount || 0),
+          status: row.status || "pending",
+          source: row.source || (row.invoiceNumber ? "invoice" : "order"),
+        }));
+
+        const periodLabel =
+          period === "daily"
+            ? "Today"
+            : period === "weekly"
+              ? "This Week"
+              : period === "yearly"
+                ? "This Year"
+                : "This Month";
+
+        setBillingData({
+          revenue,
+          gst,
+          pendingPayments,
+          invoicesCount: invoices.length,
+          pendingInvoicesCount: Number(data.pendingInvoicesCount || 0),
           reportData: [
             {
-              month: period === 'daily' ? 'Today' : period === 'weekly' ? 'This Week' : 'This Month',
-              sales: data.totalSales,
-              gst: (data.totalSales || 0) * 0.18,
-              invoices: (data.invoices || []).length
-            }
+              month: periodLabel,
+              sales: revenue,
+              gst,
+              invoices: invoices.length,
+            },
           ],
           gstData: [],
-          invoices: (data.invoices || []).map((inv: any) => ({
-            id: inv.invoiceNumber,
-            date: new Date(inv.createdAt).toLocaleDateString(),
-            client: inv.hotel?.hotelName || `Hotel #${inv.hotelId}`,
-            amount: parseFloat(inv.totalAmount || 0),
-            gst: parseFloat(inv.gstAmount || 0),
-            status: inv.status
-          }))
-        };
-        setBillingData(transformedData);
+          invoices,
+        });
+      } else {
+        toast.error(response.data?.message || "Failed to fetch billing data");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching billing data:", error);
-      toast.error("Failed to fetch billing data");
+      toast.error(error.response?.data?.message || "Failed to fetch billing data");
     } finally {
       setIsLoading(false);
     }
@@ -306,7 +341,7 @@ const Billing = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{billingData.revenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₹{Number(billingData.revenue || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">+0% from last month</p>
           </CardContent>
         </Card>
@@ -316,7 +351,7 @@ const Billing = () => {
             <PieChartIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{billingData.gst.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₹{Number(billingData.gst || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">+0% from last month</p>
           </CardContent>
         </Card>
@@ -326,8 +361,10 @@ const Billing = () => {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{billingData.pendingPayments.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">0 invoices pending</p>
+            <div className="text-2xl font-bold">₹{Number(billingData.pendingPayments || 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              {billingData.pendingInvoicesCount || 0} pending orders
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -412,28 +449,58 @@ const Billing = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {billingData.invoices.map((invoice: any) => (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-medium">{invoice.id}</TableCell>
-                      <TableCell>{invoice.date}</TableCell>
-                      <TableCell>{invoice.client}</TableCell>
-                      <TableCell>₹{invoice.amount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge variant={invoice.status === 'Paid' ? 'secondary' : invoice.status === 'Overdue' ? 'destructive' : 'outline'}
-                          className={invoice.status === 'Paid' ? 'bg-green-100 text-green-700 hover:bg-green-100' : ''}>
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDownloadInvoice(invoice.id)}>
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <Printer className="h-4 w-4" />
-                        </Button>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        Loading billing data...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : billingData.invoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No billing records found for this period
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    billingData.invoices.map((invoice: any) => (
+                      <TableRow key={`${invoice.id}-${invoice.date}`}>
+                        <TableCell className="font-medium">{invoice.id}</TableCell>
+                        <TableCell>{invoice.date}</TableCell>
+                        <TableCell>{invoice.client}</TableCell>
+                        <TableCell>₹{Number(invoice.amount || 0).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              invoice.status === "Paid" || invoice.status === "delivered"
+                                ? "secondary"
+                                : invoice.status === "Overdue" || invoice.status === "cancelled"
+                                  ? "destructive"
+                                  : "outline"
+                            }
+                            className={
+                              invoice.status === "Paid" || invoice.status === "delivered"
+                                ? "bg-green-100 text-green-700 hover:bg-green-100"
+                                : ""
+                            }
+                          >
+                            {invoice.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDownloadInvoice(invoice.id)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon">
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -458,24 +525,25 @@ const Billing = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {billingData.gstData.map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-mono">{item.hsn}</TableCell>
-                        <TableCell>₹{item.taxable.toLocaleString()}</TableCell>
-                        <TableCell>{item.rate}%</TableCell>
-                        <TableCell className="text-right">₹{item.tax.toLocaleString()}</TableCell>
-                      </TableRow>
-                    ))}
-                    {(billingData.gstData && billingData.gstData.length === 0) && (
+                    {(billingData.gstData || []).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
                           No GST data available for this period.
                         </TableCell>
                       </TableRow>
+                    ) : (
+                      (billingData.gstData || []).map((item: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-mono">{item.hsn || "-"}</TableCell>
+                          <TableCell>₹{Number(item.taxable || 0).toLocaleString()}</TableCell>
+                          <TableCell>{item.rate ?? 0}%</TableCell>
+                          <TableCell className="text-right">₹{Number(item.tax || 0).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))
                     )}
                     <TableRow className="font-bold bg-muted/50">
                       <TableCell colSpan={3}>Total Liability</TableCell>
-                      <TableCell className="text-right">₹{billingData.gst.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">₹{Number(billingData.gst || 0).toLocaleString()}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -515,7 +583,7 @@ const Billing = () => {
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-purple-100 text-purple-700 rounded-lg">
-                      <Table className="h-5 w-5" />
+                      <TrendingUp className="h-5 w-5" />
                     </div>
                     <div>
                       <p className="font-medium">Item-wise Sales</p>

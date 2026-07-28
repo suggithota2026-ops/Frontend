@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
   Table,
@@ -31,6 +32,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -207,6 +218,10 @@ const Products = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isExcelUploading, setIsExcelUploading] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
   const emptyFormData = (): Omit<Product, 'id'> => ({
@@ -354,18 +369,78 @@ const Products = () => {
     setIsViewOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this product?")) {
-      try {
-        const response = await api.delete(`/admin/products/${id}`);
-        if (response.data.success) {
-          toast.success("Product deleted");
-          fetchProducts(filterSubcategory);
-        }
-      } catch (error) {
-        console.error("Error deleting product:", error);
-        toast.error("Failed to delete product");
+  const handleDelete = (product: Product) => {
+    setProductToDelete(product);
+    setSelectedProductIds([product.id]);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleBulkDeleteClick = () => {
+    if (selectedProductIds.length === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+    setProductToDelete(null);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const toggleProductSelection = (productId: number, checked: boolean) => {
+    setSelectedProductIds((prev) =>
+      checked ? [...new Set([...prev, productId])] : prev.filter((id) => id !== productId)
+    );
+  };
+
+  const toggleSelectAllFiltered = (checked: boolean, productIds: number[]) => {
+    if (!checked) {
+      setSelectedProductIds((prev) => prev.filter((id) => !productIds.includes(id)));
+      return;
+    }
+    setSelectedProductIds((prev) => [...new Set([...prev, ...productIds])]);
+  };
+
+  const confirmDeleteProduct = async () => {
+    const idsToDelete = selectedProductIds.length
+      ? selectedProductIds
+      : productToDelete
+        ? [productToDelete.id]
+        : [];
+
+    if (!idsToDelete.length || isDeletingProduct) return;
+
+    setIsDeletingProduct(true);
+    try {
+      const results = await Promise.allSettled(
+        idsToDelete.map((id) => api.delete(`/admin/products/${id}`))
+      );
+
+      const successCount = results.filter(
+        (result) =>
+          result.status === "fulfilled" &&
+          (result.value as { data?: { success?: boolean } }).data?.success
+      ).length;
+      const failCount = idsToDelete.length - successCount;
+
+      if (successCount > 0 && failCount === 0) {
+        toast.success(
+          successCount === 1
+            ? "Product deleted"
+            : `${successCount} products deleted`
+        );
+      } else if (successCount > 0) {
+        toast.warning(`${successCount} deleted, ${failCount} failed`);
+      } else {
+        toast.error("Failed to delete selected products");
       }
+
+      setIsDeleteDialogOpen(false);
+      setProductToDelete(null);
+      setSelectedProductIds([]);
+      fetchProducts(filterSubcategory);
+    } catch (error) {
+      console.error("Error deleting products:", error);
+      toast.error("Failed to delete products");
+    } finally {
+      setIsDeletingProduct(false);
     }
   };
 
@@ -557,7 +632,7 @@ const Products = () => {
         subcategory: sampleSubcategory,
         price: 40,
         unit: "kg",
-        stock: 100,
+        minimumQuantity: 100,
       },
       {
         name: "Onion",
@@ -565,7 +640,7 @@ const Products = () => {
         subcategory: sampleSubcategory,
         price: 30,
         unit: "kg",
-        stock: 80,
+        minimumQuantity: 80,
       },
     ]);
     const workbook = XLSX.utils.book_new();
@@ -614,6 +689,23 @@ const Products = () => {
         return;
       }
 
+      const headerKeys = Object.keys(rows[0] || {}).map((header) => normalizeHeader(header));
+      const hasMinimumQuantityColumn = headerKeys.some((header) =>
+        [
+          "minimumquantity",
+          "minquantity",
+          "minqty",
+          "minimumqty",
+        ].includes(header)
+      );
+
+      if (!hasMinimumQuantityColumn) {
+        toast.error(
+          "Minimum Quantity column is required in Excel. Please add a 'minimumQuantity' column and try again."
+        );
+        return;
+      }
+
       let successCount = 0;
       let failCount = 0;
       const errors: string[] = [];
@@ -630,12 +722,11 @@ const Products = () => {
         ]);
         const priceValue = getRowValue(row, ["price", "mrp", "rate"]);
         const unitValue = getRowValue(row, ["unit"]);
-        const stockValue = getRowValue(row, [
-          "stock",
-          "quantity",
-          "qty",
+        const minQuantityValue = getRowValue(row, [
           "minimumquantity",
           "minquantity",
+          "minqty",
+          "minimumqty",
         ]);
 
         const missingFields: string[] = [];
@@ -644,7 +735,7 @@ const Products = () => {
         if (!subcategoryValue) missingFields.push("subcategory");
         if (!priceValue) missingFields.push("price");
         if (!unitValue) missingFields.push("unit");
-        if (!stockValue) missingFields.push("stock");
+        if (!minQuantityValue) missingFields.push("minimumQuantity");
 
         if (missingFields.length > 0) {
           failCount += 1;
@@ -673,10 +764,10 @@ const Products = () => {
           continue;
         }
 
-        const stock = Number(stockValue);
-        if (Number.isNaN(stock) || stock < 0) {
+        const minimumQuantity = Number(minQuantityValue);
+        if (Number.isNaN(minimumQuantity) || minimumQuantity < 0) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: invalid stock`);
+          errors.push(`Row ${rowNumber}: Minimum Quantity is mandatory and must be a valid number`);
           continue;
         }
 
@@ -687,7 +778,7 @@ const Products = () => {
           formDataToSend.append("subcategory", subcategory);
           formDataToSend.append("price", price.toString());
           formDataToSend.append("unit", unitValue);
-          formDataToSend.append("stock", stock.toString());
+          formDataToSend.append("stock", minimumQuantity.toString());
           formDataToSend.append("isActive", "true");
 
           const response = await api.post("/admin/products", formDataToSend, {
@@ -739,6 +830,19 @@ const Products = () => {
     const matchesCategory = filterCategory ? product.categoryId === filterCategory : true;
     return matchesSearch && matchesCategory;
   });
+
+  const filteredProductIds = useMemo(
+    () => filteredProducts.map((product) => product.id),
+    [filteredProducts]
+  );
+
+  const allFilteredSelected =
+    filteredProductIds.length > 0 &&
+    filteredProductIds.every((id) => selectedProductIds.includes(id));
+
+  const someFilteredSelected =
+    filteredProductIds.some((id) => selectedProductIds.includes(id)) &&
+    !allFilteredSelected;
 
   const categoryStats = useMemo(() => {
     const stats: { [key: number]: number } = {};
@@ -905,6 +1009,17 @@ const Products = () => {
               className="pl-10"
             />
           </div>
+          {selectedProductIds.length > 0 ? (
+            <Button
+              variant="destructive"
+              className="gap-2"
+              onClick={handleBulkDeleteClick}
+              disabled={isDeletingProduct}
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Selected ({selectedProductIds.length})
+            </Button>
+          ) : null}
           <Button variant="outline" className="gap-2">
             <Filter className="w-4 h-4" />
             Filters
@@ -918,6 +1033,15 @@ const Products = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[44px]">
+                  <Checkbox
+                    checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+                    onCheckedChange={(checked) =>
+                      toggleSelectAllFiltered(checked === true, filteredProductIds)
+                    }
+                    aria-label="Select all products"
+                  />
+                </TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead className="hidden sm:table-cell">Category</TableHead>
                 <TableHead>Price</TableHead>
@@ -929,7 +1053,7 @@ const Products = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center">
+                  <TableCell colSpan={8} className="h-32 text-center">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                       <p className="text-sm font-medium text-muted-foreground italic">Fetching items...</p>
@@ -940,7 +1064,7 @@ const Products = () => {
                 Object.entries(groupedProducts).map(([categoryName, items]) => (
                   <Fragment key={categoryName}>
                     <TableRow className="bg-muted/30 hover:bg-muted/30 border-t-2 border-border/50 animate-in fade-in slide-in-from-left-4 duration-500">
-                      <TableCell colSpan={7} className="py-2.5 px-4">
+                      <TableCell colSpan={8} className="py-2.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-foreground uppercase tracking-wider">{categoryName}</span>
                           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
@@ -959,9 +1083,19 @@ const Products = () => {
                           style={{ animationDelay: `${Math.min(idx * 50, 1000)}ms` }}
                           className={cn(
                             "group transition-colors animate-roll-in",
+                            selectedProductIds.includes(product.id) ? "bg-primary/5" : "",
                             !product.isActive ? 'opacity-60 bg-muted/20' : 'hover:bg-muted/10'
                           )}
                         >
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedProductIds.includes(product.id)}
+                              onCheckedChange={(checked) =>
+                                toggleProductSelection(product.id, checked === true)
+                              }
+                              aria-label={`Select ${product.name}`}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-3">
                               {product.images && product.images.length > 0 ? (
@@ -1025,7 +1159,7 @@ const Products = () => {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                  onClick={() => handleDelete(product.id)}
+                                  onClick={() => handleDelete(product)}
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" /> Delete Product
                                 </DropdownMenuItem>
@@ -1039,7 +1173,7 @@ const Products = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search className="w-8 h-8 opacity-20" />
                       <p className="font-medium">{searchTerm || filterCategory ? 'No products match your current filters.' : 'Your inventory is currently empty.'}</p>
@@ -1283,6 +1417,58 @@ const Products = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setProductToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {selectedProductIds.length > 1 ? "Delete selected products?" : "Delete product?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedProductIds.length > 1 ? (
+                <>
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-foreground">
+                    {selectedProductIds.length} products
+                  </span>
+                  ? This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-foreground">
+                    {productToDelete?.name || "this product"}
+                  </span>
+                  ? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingProduct}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteProduct();
+              }}
+              disabled={isDeletingProduct}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingProduct
+                ? "Deleting..."
+                : selectedProductIds.length > 1
+                  ? `Delete ${selectedProductIds.length}`
+                  : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

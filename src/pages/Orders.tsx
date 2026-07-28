@@ -872,10 +872,25 @@ const Orders = () => {
   };
 
   const fetchOrdersSummary = async () => {
-    const startDateTime = `${exportSummaryStartDate}T${exportSummaryStartTime}:00`;
-    const endDateTime = `${exportSummaryEndDate}T${exportSummaryEndTime}:00`;
+    if (!exportSummaryStartDate || !exportSummaryEndDate) {
+      toast.error('Please select start and end dates');
+      setTodaysOrdersData(null);
+      return;
+    }
 
-    if (new Date(startDateTime) >= new Date(endDateTime)) {
+    const startDateTime = `${exportSummaryStartDate}T${exportSummaryStartTime || '00:00'}:00`;
+    const endDateTime = `${exportSummaryEndDate}T${exportSummaryEndTime || '23:59'}:00`;
+
+    const startMs = new Date(startDateTime).getTime();
+    const endMs = new Date(endDateTime).getTime();
+
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+      toast.error('Invalid date-time range');
+      setTodaysOrdersData(null);
+      return;
+    }
+
+    if (startMs >= endMs) {
       toast.error('Start date-time must be before end date-time');
       setTodaysOrdersData(null);
       return;
@@ -887,11 +902,21 @@ const Orders = () => {
         params: { startDateTime, endDateTime },
       });
       if (response.data.success) {
-        setTodaysOrdersData(response.data.data);
+        const data = response.data.data || {};
+        setTodaysOrdersData({
+          ...data,
+          startDate: data.startDate || exportSummaryStartDate,
+          endDate: data.endDate || exportSummaryEndDate,
+          startTime: data.startTime || exportSummaryStartTime,
+          endTime: data.endTime || exportSummaryEndTime,
+          summary: Array.isArray(data.summary) ? data.summary : [],
+          totalOrders: Number(data.totalOrders || 0),
+        });
       }
     } catch (error: any) {
       console.error("Error fetching orders summary:", error);
       toast.error(error.response?.data?.message || "Failed to fetch orders summary");
+      setTodaysOrdersData(null);
     } finally {
       setIsExportLoading(false);
     }
@@ -1824,9 +1849,19 @@ const Orders = () => {
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">Date</p>
                       <p className="font-semibold">
-                        {todaysOrdersData.startDate === todaysOrdersData.endDate
-                          ? new Date(`${todaysOrdersData.startDate}T00:00:00`).toLocaleDateString('en-GB')
-                          : `${new Date(`${todaysOrdersData.startDate}T00:00:00`).toLocaleDateString('en-GB')} - ${new Date(`${todaysOrdersData.endDate}T00:00:00`).toLocaleDateString('en-GB')}`}
+                        {(() => {
+                          const start = todaysOrdersData.startDate || exportSummaryStartDate;
+                          const end = todaysOrdersData.endDate || exportSummaryEndDate;
+                          const formatDisplayDate = (value: string) => {
+                            if (!value) return '-';
+                            const parsed = new Date(`${value}T00:00:00`);
+                            if (Number.isNaN(parsed.getTime())) return value;
+                            return parsed.toLocaleDateString('en-GB');
+                          };
+                          return start === end
+                            ? formatDisplayDate(start)
+                            : `${formatDisplayDate(start)} - ${formatDisplayDate(end)}`;
+                        })()}
                       </p>
                     </div>
                     <div className="space-y-1">
