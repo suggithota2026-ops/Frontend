@@ -143,7 +143,13 @@ const PrivacyPolicy = () => {
                 <li><strong>Opt-out:</strong> Unsubscribe from marketing communications</li>
               </ul>
               <p className="text-lg text-slate-600">
-                To exercise these rights, contact us at <span className="font-bold text-slate-900 underline decoration-slate-200">privacy@prksmile.com</span>
+                To exercise these rights, contact us at{" "}
+                <a
+                  href="mailto:prksmilegroups2020@gmail.com"
+                  className="font-bold text-slate-900 underline decoration-slate-200 hover:text-green-700"
+                >
+                  prksmilegroups2020@gmail.com
+                </a>
               </p>
             </section>
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, Fragment } from "react";
-import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Eye, Upload, X, Image as ImageIcon, Folder, Check } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Eye, Upload, X, Image as ImageIcon, Folder, Check, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -205,6 +206,8 @@ const Products = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isExcelUploading, setIsExcelUploading] = useState(false);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   const emptyFormData = (): Omit<Product, 'id'> => ({
     name: "",
@@ -499,6 +502,230 @@ const Products = () => {
     }
   };
 
+  const normalizeHeader = (value: unknown) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+
+  const getRowValue = (row: Record<string, unknown>, keys: string[]) => {
+    const entries = Object.entries(row);
+    for (const key of keys) {
+      const match = entries.find(([header]) => normalizeHeader(header) === key);
+      if (match && match[1] !== undefined && match[1] !== null && String(match[1]).trim() !== "") {
+        return String(match[1]).trim();
+      }
+    }
+    return "";
+  };
+
+  const resolveCategoryId = (categoryValue: string) => {
+    if (!categoryValue) return null;
+    const asNumber = Number(categoryValue);
+    if (!Number.isNaN(asNumber) && asNumber > 0) {
+      const byId = categories.find((c) => c.id === asNumber);
+      if (byId) return byId.id;
+    }
+    const byName = categories.find(
+      (c) => c.name.trim().toLowerCase() === categoryValue.trim().toLowerCase()
+    );
+    return byName?.id || null;
+  };
+
+  const resolveSubcategory = (categoryId: number, subcategoryValue: string) => {
+    if (!subcategoryValue) return null;
+    const category = categories.find((c) => c.id === categoryId);
+    const subs = category?.subcategories || [];
+    if (subs.length === 0) return subcategoryValue;
+
+    const byId = subs.find((s) => s.id === subcategoryValue);
+    if (byId) return byId.id;
+
+    const byName = subs.find(
+      (s) => s.name.trim().toLowerCase() === subcategoryValue.trim().toLowerCase()
+    );
+    return byName?.id || null;
+  };
+
+  const handleDownloadExcelTemplate = () => {
+    const sampleCategory = categories[0]?.name || "Vegetables";
+    const sampleSubcategory = categories[0]?.subcategories?.[0]?.name || "Fresh";
+    const worksheet = XLSX.utils.json_to_sheet([
+      {
+        name: "Tomato",
+        category: sampleCategory,
+        subcategory: sampleSubcategory,
+        price: 40,
+        unit: "kg",
+        stock: 100,
+      },
+      {
+        name: "Onion",
+        category: sampleCategory,
+        subcategory: sampleSubcategory,
+        price: 30,
+        unit: "kg",
+        stock: 80,
+      },
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+    XLSX.writeFile(workbook, "products-upload-template.xlsx");
+  };
+
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const validTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+    ];
+    const isValidExt = /\.(xlsx|xls|csv)$/i.test(file.name);
+    if (!validTypes.includes(file.type) && !isValidExt) {
+      toast.error("Please upload a valid Excel file (.xlsx, .xls, or .csv)");
+      return;
+    }
+
+    if (categories.length === 0) {
+      toast.error("Categories not loaded yet. Please wait and try again.");
+      return;
+    }
+
+    setIsExcelUploading(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        toast.error("Excel file has no sheets");
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        workbook.Sheets[firstSheetName],
+        { defval: "" }
+      );
+
+      if (!rows.length) {
+        toast.error("Excel file is empty");
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2; // header is row 1
+        const name = getRowValue(row, ["name", "productname", "product"]);
+        const categoryValue = getRowValue(row, ["category", "categoryid", "categoryname"]);
+        const subcategoryValue = getRowValue(row, [
+          "subcategory",
+          "subcategoryid",
+          "subcategoryname",
+        ]);
+        const priceValue = getRowValue(row, ["price", "mrp", "rate"]);
+        const unitValue = getRowValue(row, ["unit"]);
+        const stockValue = getRowValue(row, [
+          "stock",
+          "quantity",
+          "qty",
+          "minimumquantity",
+          "minquantity",
+        ]);
+
+        const missingFields: string[] = [];
+        if (!name) missingFields.push("name");
+        if (!categoryValue) missingFields.push("category");
+        if (!subcategoryValue) missingFields.push("subcategory");
+        if (!priceValue) missingFields.push("price");
+        if (!unitValue) missingFields.push("unit");
+        if (!stockValue) missingFields.push("stock");
+
+        if (missingFields.length > 0) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: required fields missing (${missingFields.join(", ")})`);
+          continue;
+        }
+
+        const categoryId = resolveCategoryId(categoryValue);
+        if (!categoryId) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: category "${categoryValue}" not found`);
+          continue;
+        }
+
+        const subcategory = resolveSubcategory(categoryId, subcategoryValue);
+        if (!subcategory) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: subcategory "${subcategoryValue}" not found`);
+          continue;
+        }
+
+        const price = Number(priceValue);
+        if (Number.isNaN(price) || price < 0) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: invalid price`);
+          continue;
+        }
+
+        const stock = Number(stockValue);
+        if (Number.isNaN(stock) || stock < 0) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: invalid stock`);
+          continue;
+        }
+
+        try {
+          const formDataToSend = new FormData();
+          formDataToSend.append("name", name);
+          formDataToSend.append("category", categoryId.toString());
+          formDataToSend.append("subcategory", subcategory);
+          formDataToSend.append("price", price.toString());
+          formDataToSend.append("unit", unitValue);
+          formDataToSend.append("stock", stock.toString());
+          formDataToSend.append("isActive", "true");
+
+          const response = await api.post("/admin/products", formDataToSend, {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 60000,
+          });
+
+          if (response.data.success) {
+            successCount += 1;
+          } else {
+            failCount += 1;
+            errors.push(`Row ${rowNumber}: ${response.data.message || "failed"}`);
+          }
+        } catch (error) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: ${getApiErrorMessage(error, "failed to create")}`);
+        }
+      }
+
+      await fetchProducts(filterSubcategory);
+
+      if (successCount > 0 && failCount === 0) {
+        toast.success(`${successCount} product(s) uploaded successfully`);
+      } else if (successCount > 0) {
+        toast.warning(`${successCount} uploaded, ${failCount} failed`);
+        if (errors.length) console.warn("Excel upload errors:", errors);
+      } else {
+        toast.error(errors[0] || "No products were uploaded");
+        if (errors.length) console.warn("Excel upload errors:", errors);
+      }
+    } catch (error) {
+      console.error("Excel upload error:", error);
+      toast.error("Failed to read Excel file");
+    } finally {
+      setIsExcelUploading(false);
+    }
+  };
+
   // Enter key navigation hook
   const { formRef: productFormRef } = useEnterNavigation({
     onSubmit: handleSave,
@@ -550,10 +777,39 @@ const Products = () => {
           <h1 className="text-2xl font-bold text-foreground">Products</h1>
           <p className="text-muted-foreground">Manage your grocery inventory, pricing, and availability</p>
         </div>
-        <Button onClick={handleOpenAdd} className="gap-2 w-full sm:w-auto">
-          <Plus className="w-4 h-4" />
-          Add Product
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <input
+            ref={excelInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            className="hidden"
+            onChange={handleExcelUpload}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDownloadExcelTemplate}
+            className="gap-2 w-full sm:w-auto"
+            disabled={isExcelUploading}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Template
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => excelInputRef.current?.click()}
+            className="gap-2 w-full sm:w-auto"
+            disabled={isExcelUploading}
+          >
+            <Upload className="w-4 h-4" />
+            {isExcelUploading ? "Uploading..." : "Upload Excel"}
+          </Button>
+          <Button onClick={handleOpenAdd} className="gap-2 w-full sm:w-auto">
+            <Plus className="w-4 h-4" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
