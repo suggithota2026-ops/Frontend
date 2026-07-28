@@ -24,7 +24,7 @@ export const WebsiteFooter = () => {
                 <a
                   key={i}
                   href="#"
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-green-600 hover:text-white transition-all duration-300"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 transition-all duration-300 hover:bg-green-600 hover:text-white"
                 >
                   <Icon size={16} />
                 </a>
@@ -132,7 +132,7 @@ export const WebsiteFooter = () => {
 
         <div className="mt-16 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] uppercase tracking-widest font-bold text-slate-500">
           <p>© {new Date().getFullYear()} SUGGI THOTA. A UNIT OF PRK SMILE. ALL RIGHTS RESERVED.</p>
-          <div className="flex gap-8">
+          <div className="flex flex-wrap justify-center gap-4 md:gap-8">
             <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link to="/terms-and-conditions" className="hover:text-white transition-colors">Terms & Conditions</Link>
             <Link to="#" className="hover:text-white transition-colors">Sitemap</Link>

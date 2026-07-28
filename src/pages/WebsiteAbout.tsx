@@ -247,7 +247,7 @@ const WebsiteAbout = () => {
           <div className="absolute inset-0 origin-right skew-y-3 transform bg-green-900" />
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 gap-16 md:grid-cols-2">
-              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-12 text-white backdrop-blur-lg">
+              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 text-white backdrop-blur-lg sm:p-8 md:p-12">
                 <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400">
                   <svg
                     className="h-8 w-8 text-green-900"
@@ -278,7 +278,7 @@ const WebsiteAbout = () => {
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-12 text-white backdrop-blur-lg">
+              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 text-white backdrop-blur-lg sm:p-8 md:p-12">
                 <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-400">
                   <svg
                     className="h-8 w-8 text-green-900"
@@ -327,11 +327,11 @@ const WebsiteAbout = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:gap-10 md:grid-cols-2">
               {WHY_CHOOSE.map((item) => (
                 <div
                   key={item.title}
-                  className="group rounded-3xl border border-gray-100 bg-white p-8 transition-all duration-500 hover:-translate-y-2 hover:border-green-200 hover:shadow-2xl"
+                  className="group rounded-3xl border border-gray-100 bg-white p-6 transition-all duration-500 hover:-translate-y-2 hover:border-green-200 hover:shadow-2xl sm:p-8"
                 >
                   <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 transition-colors duration-300 group-hover:bg-green-600 group-hover:text-white">
                     <svg
@@ -422,33 +422,35 @@ const WebsiteAbout = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
-              {TEAM.map((member) => (
-                <div
-                  key={member.name}
-                  className="group relative overflow-hidden rounded-3xl bg-white shadow-lg transition-all duration-500 hover:shadow-2xl"
-                >
+            <div className="-mx-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+              <div className="flex w-max gap-6">
+                {TEAM.map((member) => (
                   <div
-                    className={`h-2 scale-x-0 transform transition-transform duration-500 group-hover:scale-x-100 ${member.accent}`}
-                  />
-                  <div className="p-8 text-center">
-                    <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gray-100 p-2 transition-all duration-500 group-hover:scale-105">
-                      <img
-                        src={member.gender === "female" ? "/avatar-female.png" : "/avatar-male.png"}
-                        alt={member.name}
-                        className="h-full w-full object-contain"
-                        loading="lazy"
-                      />
+                    key={member.name}
+                    className="group relative w-[260px] shrink-0 overflow-hidden rounded-3xl bg-white shadow-lg transition-all duration-500 hover:shadow-2xl sm:w-[280px]"
+                  >
+                    <div
+                      className={`h-2 scale-x-0 transform transition-transform duration-500 group-hover:scale-x-100 ${member.accent}`}
+                    />
+                    <div className="p-8 text-center">
+                      <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gray-100 p-2 transition-all duration-500 group-hover:scale-105">
+                        <img
+                          src={member.gender === "female" ? "/avatar-female.png" : "/avatar-male.png"}
+                          alt={member.name}
+                          className="h-full w-full object-contain"
+                          loading="lazy"
+                        />
+                      </div>
+                      <h4 className="mb-2 text-xl font-bold text-gray-900">
+                        {member.name}
+                      </h4>
+                      <p className="mt-4 border-t border-gray-100 pt-4 text-sm font-medium text-green-600">
+                        {member.role}
+                      </p>
                     </div>
-                    <h4 className="mb-2 text-xl font-bold text-gray-900">
-                      {member.name}
-                    </h4>
-                    <p className="mt-4 border-t border-gray-100 pt-4 text-sm font-medium text-green-600">
-                      {member.role}
-                    </p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </section>

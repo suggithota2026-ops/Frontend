@@ -181,7 +181,7 @@ const TermsAndConditions = () => {
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Communication Channels</p>
                       <p className="text-lg text-slate-900 font-black">8884672766 / 9606670144</p>
-                      <p className="text-lg text-slate-900 font-black">prksmilegroups2020@gmail.com</p>
+                      <p className="break-all text-lg font-black text-slate-900">prksmilegroups2020@gmail.com</p>
                     </div>
                     <div className="bg-slate-900 text-white p-10 rounded-3xl">
                       <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Customer Care Line</p>

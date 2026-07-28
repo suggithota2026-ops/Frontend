@@ -14,9 +14,9 @@ const PrivacyPolicy = () => {
             <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-6">
               Privacy Policy
             </h1>
-            <div className="flex items-center gap-4 text-sm font-bold text-slate-400 uppercase tracking-widest">
+            <div className="flex flex-wrap items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-400 sm:gap-4">
               <span>Suggi Thota By PRK Smile</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-200" />
+              <span className="hidden h-1.5 w-1.5 rounded-full bg-slate-200 sm:inline-block" />
               <span>Last updated: December 2024</span>
             </div>
           </header>
@@ -202,7 +202,7 @@ const PrivacyPolicy = () => {
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Communication Channels</p>
                       <p className="text-lg text-slate-900 font-black">8884672766 / 9606670144</p>
-                      <p className="text-lg text-slate-900 font-black">prksmilegroups2020@gmail.com</p>
+                      <p className="break-all text-lg font-black text-slate-900">prksmilegroups2020@gmail.com</p>
                     </div>
                     <div className="bg-slate-900 text-white p-10 rounded-3xl">
                       <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2 text-center md:text-left">Customer Care Line</p>
