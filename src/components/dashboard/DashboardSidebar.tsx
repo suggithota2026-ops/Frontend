@@ -52,7 +52,9 @@ export function DashboardSidebar({ collapsed, onCollapse, onNavigate }: Dashboar
   const role = String(user?.role || "").toUpperCase();
   const userPermissions = user?.permissions || [];
   const visibleMenuItems = menuItems.filter((item) =>
-    role === "ADMIN" ? true : userPermissions.includes(item.permission)
+    role === "ADMIN" || role === "SUPER_ADMIN"
+      ? true
+      : userPermissions.includes(item.permission)
   );
 
   const handleNavigation = (path: string) => {

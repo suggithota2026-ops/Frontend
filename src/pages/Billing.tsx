@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Download, FileText, Printer, Filter, CreditCard, DollarSign, PieChart as PieChartIcon, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/api/axios";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { loadExportLibs } from "@/utils/loadExportLibs";
 import { saveAs } from 'file-saver';
 import {
   Card,
@@ -34,9 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+
+const BillingRevenueChart = lazy(() =>
+  import("@/components/billing/BillingRevenueChart").then((m) => ({
+    default: m.BillingRevenueChart,
+  }))
+);
 
 // Mock Data for Charts
 // Mock data constants removed
@@ -152,6 +155,8 @@ const Billing = () => {
         link.click();
         document.body.removeChild(link);
       };
+
+      const { jsPDF, autoTable } = await loadExportLibs();
 
       if (type === 'gstr1') {
         const invoices = billingData.invoices || [];
@@ -395,30 +400,9 @@ const Billing = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <div className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={billingData.reportData}>
-                    <defs>
-                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="colorGst" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                    />
-                    <Area type="monotone" dataKey="sales" stroke="#2563eb" fillOpacity={1} fill="url(#colorSales)" name="Total Sales (₹)" />
-                    <Area type="monotone" dataKey="gst" stroke="#16a34a" fillOpacity={1} fill="url(#colorGst)" name="GST (₹)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              <Suspense fallback={<div className="h-[350px] animate-pulse rounded-lg bg-muted/40" />}>
+                <BillingRevenueChart data={billingData.reportData} />
+              </Suspense>
             </CardContent>
           </Card>
         </TabsContent>

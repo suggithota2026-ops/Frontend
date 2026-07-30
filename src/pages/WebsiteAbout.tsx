@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 import { WebsiteFooter } from "@/components/website/WebsiteFooter";
+import { OptimizedHero, OptimizedImage } from "@/components/website/OptimizedHero";
+
+const ABOUT_HERO_BASE = "healthy-vegetables-wooden-table-optimized";
 
 const WHY_CHOOSE = [
   {
@@ -76,13 +79,21 @@ const WebsiteAbout = () => {
       <WebsiteHeader />
 
       <main>
-        {/* Hero — bg image on section (avoids -z-10 painting behind the page shell) */}
-        <section className="relative flex min-h-[70vh] items-center overflow-hidden bg-[url('/healthy-vegetables-wooden-table.jpg')] bg-cover bg-center bg-no-repeat pt-24">
+        {/* Hero — real <img> for LCP (CSS backgrounds are discovered too late) */}
+        <section className="relative flex min-h-[70vh] items-center overflow-hidden pt-24">
+          <OptimizedHero
+            base={ABOUT_HERO_BASE}
+            width={1400}
+            height={933}
+            sizes="100vw"
+            priority
+            className="h-full w-full object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
 
           <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="text-left text-white">
-              <p className="mb-4 animate-pulse font-bold uppercase tracking-widest text-green-400">
+              <p className="mb-4 font-bold uppercase tracking-widest text-green-400">
                 Established 2020
               </p>
               <h1 className="mb-6 font-heading text-5xl font-extrabold leading-tight md:text-7xl">
@@ -107,6 +118,10 @@ const WebsiteAbout = () => {
                 <img
                   src="/suggi-thota-logo.png"
                   alt="Suggi Thota logo"
+                  width={192}
+                  height={96}
+                  loading="lazy"
+                  decoding="async"
                   className="mb-6 h-24 w-auto object-contain"
                 />
                 <h2 className="mb-8 font-heading text-4xl font-bold leading-tight text-gray-900 md:text-5xl">
@@ -185,11 +200,13 @@ const WebsiteAbout = () => {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
               <div className="order-2 lg:order-1">
-                <img
-                  src="/healthy-vegetables-old-dark-background.jpg"
+                <OptimizedImage
+                  base="healthy-vegetables-old-dark-background"
                   alt="Suggi Thota Fresh Produce"
+                  width={1000}
+                  height={1500}
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   className="h-[500px] w-full rounded-3xl object-cover shadow-2xl"
-                  loading="lazy"
                 />
               </div>
 
@@ -437,8 +454,11 @@ const WebsiteAbout = () => {
                         <img
                           src={member.gender === "female" ? "/avatar-female.png" : "/avatar-male.png"}
                           alt={member.name}
+                          width={96}
+                          height={96}
                           className="h-full w-full object-contain"
                           loading="lazy"
+                          decoding="async"
                         />
                       </div>
                       <h4 className="mb-2 text-xl font-bold text-gray-900">

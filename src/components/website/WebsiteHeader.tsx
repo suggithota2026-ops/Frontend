@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 
-export function WebsiteHeader() {
+export const WebsiteHeader = memo(function WebsiteHeader() {
   const { pathname } = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -30,6 +30,10 @@ export function WebsiteHeader() {
               <img
                 src="/Invoice.png"
                 alt="Suggi Thota Logo"
+                width={160}
+                height={64}
+                decoding="async"
+                fetchPriority="low"
                 className="h-12 w-auto max-w-[130px] object-contain md:h-16 md:max-w-[160px]"
               />
             </div>
@@ -87,4 +91,4 @@ export function WebsiteHeader() {
       </div>
     </header>
   );
-}
+});

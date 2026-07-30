@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
+import "./fonts.css";
 import "./index.css";
-// Initialize Firebase
-import "./config/firebase";
+// Firebase is initialized only when admin code imports it — not on the public site.
 
 createRoot(document.getElementById("root")!).render(<App />);

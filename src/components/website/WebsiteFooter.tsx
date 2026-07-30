@@ -1,7 +1,8 @@
+import { memo } from "react";
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, ExternalLink } from "lucide-react";
 
-export const WebsiteFooter = () => {
+export const WebsiteFooter = memo(function WebsiteFooter() {
   return (
     <footer className="bg-slate-950 pt-16 pb-8 text-slate-300 border-t border-white/5">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -12,6 +13,10 @@ export const WebsiteFooter = () => {
               <img
                 src="/suggi-thota-logo.png"
                 alt="Suggi Thota logo"
+                width={160}
+                height={80}
+                loading="lazy"
+                decoding="async"
                 className="h-20 w-auto rounded-xl bg-white object-contain p-2"
               />
             </Link>
@@ -141,4 +146,4 @@ export const WebsiteFooter = () => {
       </div>
     </footer>
   );
-};
+});

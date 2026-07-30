@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 import { WebsiteFooter } from "@/components/website/WebsiteFooter";
+import { OptimizedHero } from "@/components/website/OptimizedHero";
+
+const HOME_HERO_BASE = "close-up-dairy-products-optimized";
 
 const WebsiteHome = () => {
   const [name, setName] = useState("");
@@ -33,11 +36,18 @@ const WebsiteHome = () => {
       <WebsiteHeader />
 
       <main>
-        {/* Hero Section (same layout as Website/app/page.js) */}
+        {/* Hero — real <img> for LCP (not CSS background) */}
         <section
           id="home"
-          className="relative flex min-h-[92vh] items-center overflow-hidden pt-36 bg-[url('/close-up-dairy-products-optimized.jpg')] bg-cover bg-center bg-no-repeat md:pt-40"
+          className="relative flex min-h-[92vh] items-center overflow-hidden pt-36 md:pt-40"
         >
+          <OptimizedHero
+            base={HOME_HERO_BASE}
+            width={1280}
+            height={853}
+            sizes="100vw"
+            priority
+          />
           {/* Overlay for readability (lighter, no pulse) */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-black/15 to-transparent" />
 
@@ -49,6 +59,10 @@ const WebsiteHome = () => {
                   <img
                     src="/suggi-thota-logo.png"
                     alt="Suggi Thota"
+                    width={128}
+                    height={64}
+                    decoding="async"
+                    fetchPriority="low"
                     className="h-12 w-auto shrink-0 object-contain drop-shadow-lg sm:h-14 md:h-16"
                   />
                   <div className="min-w-0">
@@ -195,6 +209,10 @@ const WebsiteHome = () => {
               <img
                 src="/suggi-thota-logo.png"
                 alt="Suggi Thota logo"
+                width={224}
+                height={112}
+                loading="lazy"
+                decoding="async"
                 className="mx-auto mb-6 h-20 w-auto object-contain sm:h-28"
               />
               <h3 className="mb-4 font-heading text-3xl font-bold text-gray-900 sm:text-4xl">
@@ -216,8 +234,11 @@ const WebsiteHome = () => {
                   <img
                     src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
                     alt="Get it on Google Play"
+                    width={646}
+                    height={250}
                     className="h-16 w-auto"
                     loading="lazy"
+                    decoding="async"
                   />
                 </a>
               </div>

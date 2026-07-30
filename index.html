@@ -18,12 +18,34 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@SuggiThota" />
 
-  <!-- Fonts: Poppins (headings) + Inter (body) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap"
-    rel="stylesheet">
+  <!-- Preload critical fonts (self-hosted) -->
+  <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin />
+
+  <!-- Preload only the current page's LCP hero -->
+  <script>
+    (function () {
+      var path = location.pathname || "/";
+      var href =
+        path === "/" || path === ""
+          ? "/close-up-dairy-products-optimized-1024w.webp"
+          : path.indexOf("/about") === 0
+            ? "/healthy-vegetables-wooden-table-optimized-1024w.webp"
+            : path.indexOf("/contact") === 0
+              ? "/top-view-tasty-fruits-arrangement-optimized-1024w.webp"
+              : null;
+      if (!href) return;
+      var link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      link.href = href;
+      link.fetchPriority = "high";
+      link.type = "image/webp";
+      document.head.appendChild(link);
+    })();
+  </script>
+
+  <link rel="dns-prefetch" href="https://play.google.com" />
 </head>
 
 <body>

@@ -61,6 +61,7 @@ const Hotels = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [currentHotel, setCurrentHotel] = useState<Hotel | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [listRefreshKey, setListRefreshKey] = useState(0);
   const hotelsFetchIdRef = useRef(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -199,10 +200,18 @@ const Hotels = () => {
     fetchAllProducts();
   }, []);
 
+  // Debounce search so typing doesn't flood the API
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Fetch hotels from API
   const fetchHotels = async (overrides?: { page?: number; search?: string }) => {
     const page = overrides?.page ?? pagination.page;
-    const search = overrides?.search ?? searchTerm;
+    const search = overrides?.search ?? debouncedSearchTerm;
     const fetchId = ++hotelsFetchIdRef.current;
 
     setIsLoading(true);
@@ -221,11 +230,25 @@ const Hotels = () => {
 
       if (response.data.success) {
         setHotels(response.data.data.hotels || []);
-        setPagination({
-          page: response.data.data.pagination.page,
-          limit: response.data.data.pagination.limit,
-          total: response.data.data.pagination.total,
-          pages: response.data.data.pagination.pages,
+        const nextPage = Number(response.data.data.pagination.page) || 1;
+        const nextLimit = Number(response.data.data.pagination.limit) || pagination.limit;
+        const nextTotal = Number(response.data.data.pagination.total) || 0;
+        const nextPages = Number(response.data.data.pagination.pages) || 0;
+        setPagination((prev) => {
+          if (
+            prev.page === nextPage &&
+            prev.limit === nextLimit &&
+            prev.total === nextTotal &&
+            prev.pages === nextPages
+          ) {
+            return prev;
+          }
+          return {
+            page: nextPage,
+            limit: nextLimit,
+            total: nextTotal,
+            pages: nextPages,
+          };
         });
       }
     } catch (error: any) {
@@ -242,7 +265,7 @@ const Hotels = () => {
   useEffect(() => {
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, searchTerm, listRefreshKey]);
+  }, [pagination.page, debouncedSearchTerm, listRefreshKey]);
 
   const handleBlockToggle = async (hotel: Hotel) => {
     try {
@@ -359,6 +382,7 @@ const Hotels = () => {
       setShowAddForm(false);
       resetForm();
       setSearchTerm("");
+      setDebouncedSearchTerm("");
       setPagination((prev) => ({ ...prev, page: 1 }));
 
       if (createdUser?.id) {
@@ -382,9 +406,8 @@ const Hotels = () => {
         });
       }
 
-      // Force list reload on page 1 with empty search
+      // Single refresh trigger (avoid duplicate fetchHotels + listRefreshKey)
       setListRefreshKey((k) => k + 1);
-      await fetchHotels({ page: 1, search: "" });
     } catch (error: any) {
       console.error("Error creating customer:", error);
       const apiMsg = error.response?.data?.message;
@@ -523,8 +546,11 @@ const Hotels = () => {
                 placeholder="Search by customer name or mobile number..."
                 value={searchTerm}
                 onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setPagination({ ...pagination, page: 1 });
+                  const value = e.target.value;
+                  setSearchTerm(value);
+                  setPagination((prev) =>
+                    prev.page === 1 ? prev : { ...prev, page: 1 }
+                  );
                 }}
                 className="pl-10"
               />

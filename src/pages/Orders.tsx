@@ -47,9 +47,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import api from "@/api/axios";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { loadExportLibs } from "@/utils/loadExportLibs";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg
@@ -246,9 +244,13 @@ const Orders = () => {
   };
 
   useEffect(() => {
-    fetchOrders();
     fetchDrivers();
     fetchHotels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, statusFilter]);
 
@@ -787,6 +789,7 @@ const Orders = () => {
       const headers = ['ID', 'Client', 'Date', 'Status', 'Delivery Team', 'Delivery (Rs)', 'Total (Rs)'];
 
       if (format === 'excel') {
+        const { XLSX } = await loadExportLibs();
         const worksheetData = [
           ['ORDERS REPORT'],
           [`Date Range: ${getExportDateRangeLabel()}`],
@@ -812,6 +815,7 @@ const Orders = () => {
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
         XLSX.writeFile(workbook, getExportFilename('excel'));
       } else {
+        const { jsPDF, autoTable } = await loadExportLibs();
         const doc = new jsPDF('landscape', 'mm', 'a4');
 
         doc.setFontSize(20);
@@ -928,7 +932,10 @@ const Orders = () => {
 
   useEffect(() => {
     if (!isExportModalOpen) return;
-    fetchOrdersSummary();
+    const timer = setTimeout(() => {
+      fetchOrdersSummary();
+    }, 300);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExportModalOpen, exportSummaryStartDate, exportSummaryEndDate, exportSummaryStartTime, exportSummaryEndTime]);
 
@@ -942,7 +949,7 @@ const Orders = () => {
           exportToCSV(todaysOrdersData);
           break;
         case 'pdf':
-          exportToPDF(todaysOrdersData);
+          await exportToPDF(todaysOrdersData);
           break;
       }
       toast.success(`Orders summary exported as ${format.toUpperCase()} successfully!`);
@@ -1003,7 +1010,8 @@ const Orders = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const exportToPDF = (data: any) => {
+  const exportToPDF = async (data: any) => {
+    const { jsPDF, autoTable } = await loadExportLibs();
     const doc = new jsPDF();
 
     // Professional header section

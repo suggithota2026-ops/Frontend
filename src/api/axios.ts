@@ -5,6 +5,43 @@ const BACKEND_URL =
   (import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'https://backend-ho7i.onrender.com') + '/api';
 const isDev = import.meta.env.DEV;
 
+const PUBLIC_SITE_PATHS = new Set([
+  '/',
+  '/about',
+  '/contact',
+  '/privacy-policy',
+  '/terms-and-conditions',
+]);
+
+function isPublicWebsitePath(pathname: string): boolean {
+  if (PUBLIC_SITE_PATHS.has(pathname)) return true;
+  if (pathname.startsWith('/admin') || pathname === '/login') return false;
+  const first = pathname.split('/').filter(Boolean)[0];
+  const legacyAdmin = new Set([
+    'products',
+    'categories',
+    'orders',
+    'hotels',
+    'staff',
+    'drivers',
+    'billing',
+    'enquiry',
+    'offers',
+    'brands',
+    'notifications',
+    'settings',
+    'profile',
+    'invoice',
+  ]);
+  if (first && legacyAdmin.has(first)) return false;
+  return true;
+}
+
+function isAdminApiUrl(url?: string): boolean {
+  if (!url) return false;
+  return /\/admin(\/|$)/.test(url);
+}
+
 const api = axios.create({
     baseURL: isDev ? '/api' : BACKEND_URL,
     headers: {
@@ -12,15 +49,26 @@ const api = axios.create({
     },
 });
 
-console.log('--- API DEBUG ---');
-console.log('Hostname:', window.location.hostname);
-console.log('Is Dev:', isDev);
-console.log('Active BaseURL:', api.defaults.baseURL);
-console.log('-----------------');
-
-// Request interceptor to add auth token (do not override an explicit Authorization header)
+// Request interceptor — admin auth tokens only off the public site
 api.interceptors.request.use(
     (config) => {
+        const onPublicSite =
+          typeof window !== 'undefined' && isPublicWebsitePath(window.location.pathname);
+
+        if (onPublicSite && isAdminApiUrl(config.url)) {
+            return Promise.reject(
+              new Error('Admin API calls are blocked on the public website')
+            );
+        }
+
+        if (onPublicSite) {
+            if (config.headers) {
+                delete config.headers.Authorization;
+                delete (config.headers as { authorization?: string }).authorization;
+            }
+            return config;
+        }
+
         const h = config.headers;
         const existing = h?.Authorization ?? (h as { authorization?: string })?.authorization;
         if (existing) {
@@ -32,41 +80,27 @@ api.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// Response interceptor
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        if (error?.message === 'Admin API calls are blocked on the public website') {
+            return Promise.reject(error);
+        }
+
         console.error('API Error:', error.response?.data || error.message);
-        
-        // Handle 401 Unauthorized - token expired or invalid
+
         if (error.response?.status === 401) {
-            console.log('Unauthorized access - clearing token');
-            console.log('Error details:', error.response?.data?.message || 'No error message');
-            console.log('Request URL:', error.request?.responseURL);
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            
-            // Don't redirect here, let components handle it
-            // window.location.href = '/login';
+            const onPublicSite =
+              typeof window !== 'undefined' && isPublicWebsitePath(window.location.pathname);
+            if (!onPublicSite) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
         }
-        
-        // Handle 403 Forbidden - insufficient permissions
-        if (error.response?.status === 403) {
-            console.log('Insufficient permissions - NOT clearing token');
-            console.log('Error details:', error.response?.data?.message || 'No error message');
-            console.log('Request URL:', error.request?.responseURL);
-            // Do NOT clear tokens for permission errors, user is still authenticated
-            // Only lack required permissions for specific action
-            
-            // Don't redirect here, let components handle it
-            // window.location.href = '/login';
-        }
-        
+
         return Promise.reject(error);
     }
 );
