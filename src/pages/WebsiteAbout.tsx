@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
-import { WebsiteFooter } from "@/components/website/WebsiteFooter";
+import { LazyWebsiteFooter } from "@/components/website/LazyWebsiteFooter";
 import { OptimizedHero, OptimizedImage } from "@/components/website/OptimizedHero";
+import { HERO_SIZES } from "@/lib/heroAssets";
 
 const ABOUT_HERO_BASE = "healthy-vegetables-wooden-table-optimized";
 
@@ -75,7 +76,7 @@ const TEAM = [
 
 const WebsiteAbout = () => {
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen text-slate-900">
       <WebsiteHeader />
 
       <main>
@@ -85,7 +86,7 @@ const WebsiteAbout = () => {
             base={ABOUT_HERO_BASE}
             width={1400}
             height={933}
-            sizes="100vw"
+            sizes={HERO_SIZES}
             priority
             className="h-full w-full object-cover"
           />
@@ -491,7 +492,7 @@ const WebsiteAbout = () => {
         </section>
       </main>
 
-      <WebsiteFooter />
+      <LazyWebsiteFooter />
     </div>
   );
 };

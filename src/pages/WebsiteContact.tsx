@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import publicApi from "@/api/publicApi";
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
-import { WebsiteFooter } from "@/components/website/WebsiteFooter";
+import { LazyWebsiteFooter } from "@/components/website/LazyWebsiteFooter";
 import { OptimizedHero } from "@/components/website/OptimizedHero";
+import { CONTACT_HERO_SIZES } from "@/lib/heroAssets";
 
 const CONTACT_HERO_BASE = "top-view-tasty-fruits-arrangement-optimized";
 
@@ -108,6 +108,7 @@ const WebsiteContact = () => {
 
     setIsSubmitting(true);
     try {
+      const { default: publicApi } = await import("@/api/publicApi");
       await publicApi.post("/contact/send-message", {
         hotelName: formData.hotelName.trim(),
         contactNumber: normalizeDigits(formData.contactNumber).trim(),
@@ -143,7 +144,7 @@ const WebsiteContact = () => {
   const labelClass = "mb-1.5 block text-sm font-semibold text-slate-700";
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen text-slate-900">
       <WebsiteHeader />
 
       <main>
@@ -153,7 +154,7 @@ const WebsiteContact = () => {
             base={CONTACT_HERO_BASE}
             width={1280}
             height={720}
-            sizes="100vw"
+            sizes={CONTACT_HERO_SIZES}
             priority
             className="absolute inset-0 h-full w-full object-cover object-center"
             pictureClassName="absolute inset-0"
@@ -187,7 +188,7 @@ const WebsiteContact = () => {
         </section>
 
         {/* Form */}
-        <section className="relative overflow-hidden bg-[#f3f7f1] py-10 sm:py-14">
+        <section className="relative overflow-hidden bg-[#f3f7f1] py-10 sm:py-14 [content-visibility:auto]">
           <div className="pointer-events-none absolute -left-24 top-10 h-48 w-48 rounded-full bg-green-200/40 blur-3xl" />
           <div className="pointer-events-none absolute -right-16 bottom-0 h-56 w-56 rounded-full bg-lime-200/30 blur-3xl" />
 
@@ -390,7 +391,7 @@ const WebsiteContact = () => {
         </section>
 
         {/* Official Contact Details */}
-        <section className="relative overflow-hidden bg-gray-50 py-24">
+        <section className="relative overflow-hidden bg-gray-50 py-24 [content-visibility:auto]">
           <div className="pointer-events-none absolute left-0 top-0 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-green-100 opacity-30 blur-3xl" />
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mb-16 text-center">
@@ -570,7 +571,7 @@ const WebsiteContact = () => {
         </section>
       </main>
 
-      <WebsiteFooter />
+      <LazyWebsiteFooter />
 
       {/* Floating WhatsApp */}
       <a

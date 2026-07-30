@@ -1,4 +1,10 @@
 import { memo } from "react";
+import {
+  buildHeroSrcSet,
+  getHeroFallbackSrc,
+  getHeroSizes,
+  getHeroWidths,
+} from "@/lib/heroAssets";
 
 type OptimizedHeroProps = {
   base: string;
@@ -11,10 +17,11 @@ type OptimizedHeroProps = {
   pictureClassName?: string;
 };
 
-const WIDTHS = [640, 1024, 1920] as const;
-
-function buildSrcSet(base: string, ext: "webp" | "jpg") {
-  return WIDTHS.map((w) => `/${base}-${w}w.${ext} ${w}w`).join(", ");
+function bootMatchesBase(base: string) {
+  const boot = document.getElementById("lcp-boot");
+  if (!boot) return false;
+  const src = boot.getAttribute("src") || "";
+  return src.includes(base);
 }
 
 export const OptimizedHero = memo(function OptimizedHero({
@@ -22,30 +29,41 @@ export const OptimizedHero = memo(function OptimizedHero({
   alt = "",
   width,
   height,
-  sizes = "100vw",
+  sizes,
   priority = true,
   className = "h-full w-full object-cover object-center",
   pictureClassName = "absolute inset-0",
 }: OptimizedHeroProps) {
-  const webpSrcSet = buildSrcSet(base, "webp");
-  const jpgSrcSet = buildSrcSet(base, "jpg");
+  const resolvedSizes = sizes ?? getHeroSizes(base);
+  const widths = getHeroWidths(base);
+  const webpSrcSet = buildHeroSrcSet(base, "webp", widths);
+  const fallbackSrc = getHeroFallbackSrc(base, "webp");
+
+  // HTML boot image is already painted — a second <img> would replace it as LCP (~2–4s).
+  const useBoot =
+    priority &&
+    typeof document !== "undefined" &&
+    bootMatchesBase(base);
+
+  if (useBoot) {
+    return <div className={pictureClassName} aria-hidden />;
+  }
 
   return (
-    <picture className={pictureClassName}>
-      <source srcSet={webpSrcSet} sizes={sizes} type="image/webp" />
-      <source srcSet={jpgSrcSet} sizes={sizes} type="image/jpeg" />
+    <div className={pictureClassName}>
       <img
-        src={`/${base}-1024w.webp`}
+        src={fallbackSrc}
+        srcSet={webpSrcSet}
         alt={alt}
         width={width}
         height={height}
-        sizes={sizes}
-        decoding="async"
+        sizes={resolvedSizes}
+        decoding={priority ? "sync" : "async"}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : "low"}
         className={className}
       />
-    </picture>
+    </div>
   );
 });
 
@@ -68,15 +86,16 @@ export const OptimizedImage = memo(function OptimizedImage({
   className,
   priority = false,
 }: OptimizedImageProps) {
-  const webpSrcSet = buildSrcSet(base, "webp");
-  const jpgSrcSet = buildSrcSet(base, "jpg");
+  const widths = getHeroWidths(base);
+  const webpSrcSet = buildHeroSrcSet(base, "webp", widths);
+  const jpgSrcSet = buildHeroSrcSet(base, "jpg", widths);
 
   return (
     <picture>
       <source srcSet={webpSrcSet} sizes={sizes} type="image/webp" />
       <source srcSet={jpgSrcSet} sizes={sizes} type="image/jpeg" />
       <img
-        src={`/${base}-1024w.webp`}
+        src={getHeroFallbackSrc(base, "webp")}
         alt={alt}
         width={width}
         height={height}

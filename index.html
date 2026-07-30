@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="route-home">
 
 <head>
   <meta charset="UTF-8" />
@@ -18,37 +18,120 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@SuggiThota" />
 
-  <!-- Preload critical fonts (self-hosted) -->
-  <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin />
+  <!-- Home LCP: static preload (no JS) — earliest possible image discovery -->
+  <link
+    rel="preload"
+    as="image"
+    type="image/webp"
+    href="/close-up-dairy-products-optimized-480w.webp"
+    imagesrcset="/close-up-dairy-products-optimized-480w.webp 480w, /close-up-dairy-products-optimized-640w.webp 640w, /close-up-dairy-products-optimized-1024w.webp 1024w"
+    imagesizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1024px"
+    fetchpriority="high"
+  />
 
-  <!-- Preload only the current page's LCP hero -->
+  <style>
+    html, body { margin: 0; background: #0a1f12; }
+    #lcp-boot {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      pointer-events: none;
+    }
+    html.route-contact #lcp-boot { height: 520px; }
+    html.route-about #lcp-boot { height: 70vh; }
+    #root {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      background: transparent;
+    }
+  </style>
+
   <script>
     (function () {
       var path = location.pathname || "/";
-      var href =
-        path === "/" || path === ""
-          ? "/close-up-dairy-products-optimized-1024w.webp"
-          : path.indexOf("/about") === 0
-            ? "/healthy-vegetables-wooden-table-optimized-1024w.webp"
-            : path.indexOf("/contact") === 0
-              ? "/top-view-tasty-fruits-arrangement-optimized-1024w.webp"
-              : null;
-      if (!href) return;
-      var link = document.createElement("link");
-      link.rel = "preload";
-      link.as = "image";
-      link.href = href;
-      link.fetchPriority = "high";
-      link.type = "image/webp";
-      document.head.appendChild(link);
+      var html = document.documentElement;
+      html.classList.remove("route-home", "route-about", "route-contact");
+
+      // Home is already preloaded statically — only adjust for other routes
+      if (path.indexOf("/contact") === 0) {
+        html.classList.add("route-contact");
+        var cBase = "top-view-tasty-fruits-arrangement-optimized";
+        var cSizes = "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1024px";
+        var cSrcset =
+          "/" + cBase + "-480w.webp 480w, /" + cBase + "-640w.webp 640w, /" + cBase + "-1024w.webp 1024w";
+        var cHref = "/" + cBase + "-480w.webp";
+        var pl = document.querySelector('link[rel="preload"][as="image"]');
+        if (pl) {
+          pl.href = cHref;
+          pl.setAttribute("imagesrcset", cSrcset);
+          pl.setAttribute("imagesizes", cSizes);
+        }
+        window.__LCP_HERO__ = { base: cBase, href: cHref, srcset: cSrcset, sizes: cSizes };
+        return;
+      }
+
+      if (path.indexOf("/about") === 0) {
+        html.classList.add("route-about");
+        var aBase = "healthy-vegetables-wooden-table-optimized";
+        var aSizes = "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1024px";
+        var aSrcset =
+          "/" + aBase + "-640w.webp 640w, /" + aBase + "-1024w.webp 1024w";
+        var aHref = "/" + aBase + "-640w.webp";
+        var apl = document.querySelector('link[rel="preload"][as="image"]');
+        if (apl) {
+          apl.href = aHref;
+          apl.setAttribute("imagesrcset", aSrcset);
+          apl.setAttribute("imagesizes", aSizes);
+        }
+        window.__LCP_HERO__ = { base: aBase, href: aHref, srcset: aSrcset, sizes: aSizes };
+        return;
+      }
+
+      html.classList.add("route-home");
+      var hBase = "close-up-dairy-products-optimized";
+      window.__LCP_HERO__ = {
+        base: hBase,
+        href: "/" + hBase + "-480w.webp",
+        srcset:
+          "/" + hBase + "-480w.webp 480w, /" + hBase + "-640w.webp 640w, /" + hBase + "-1024w.webp 1024w",
+        sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1024px",
+      };
     })();
   </script>
-
-  <link rel="dns-prefetch" href="https://play.google.com" />
 </head>
 
 <body>
+  <!-- Static home src — browser starts download before any JS runs -->
+  <img
+    id="lcp-boot"
+    alt=""
+    width="1024"
+    height="768"
+    decoding="async"
+    fetchpriority="high"
+    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1024px"
+    src="/close-up-dairy-products-optimized-480w.webp"
+    srcset="/close-up-dairy-products-optimized-480w.webp 480w, /close-up-dairy-products-optimized-640w.webp 640w, /close-up-dairy-products-optimized-1024w.webp 1024w"
+  />
+  <script>
+    (function () {
+      var cfg = window.__LCP_HERO__;
+      var img = document.getElementById("lcp-boot");
+      if (!cfg || !img) return;
+      if (cfg.base === "close-up-dairy-products-optimized") return;
+      img.sizes = cfg.sizes;
+      img.srcset = cfg.srcset;
+      img.src = cfg.href;
+    })();
+  </script>
+
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

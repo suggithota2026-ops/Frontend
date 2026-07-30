@@ -1,6 +1,21 @@
 import { memo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+
+function IconMenu() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export const WebsiteHeader = memo(function WebsiteHeader() {
   const { pathname } = useLocation();
@@ -13,13 +28,7 @@ export const WebsiteHeader = memo(function WebsiteHeader() {
   ] as const;
 
   const isActive = (to: string) =>
-    to === "/"
-      ? pathname === "/"
-      : to === "/about"
-        ? pathname.startsWith("/about")
-        : to === "/contact"
-          ? pathname.startsWith("/contact")
-          : false;
+    to === "/" ? pathname === "/" : pathname.startsWith(to);
 
   return (
     <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-green-950">
@@ -33,6 +42,7 @@ export const WebsiteHeader = memo(function WebsiteHeader() {
                 width={160}
                 height={64}
                 decoding="async"
+                loading="lazy"
                 fetchPriority="low"
                 className="h-12 w-auto max-w-[130px] object-contain md:h-16 md:max-w-[160px]"
               />
@@ -63,7 +73,7 @@ export const WebsiteHeader = memo(function WebsiteHeader() {
             aria-expanded={isMenuOpen}
             onClick={() => setIsMenuOpen((open) => !open)}
           >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            {isMenuOpen ? <IconClose /> : <IconMenu />}
           </button>
         </div>
 
