@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, MoreHorizontal, Trash2, Ban, CheckCircle, Search, Edit, ArrowLeft } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, Ban, CheckCircle, Search, Edit, ArrowLeft, Upload, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { useEnterNavigation } from "@/hooks/useEnterNavigation";
 import {
@@ -28,6 +29,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import api from "@/api/axios";
@@ -90,6 +101,23 @@ const Hotels = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [tempPrice, setTempPrice] = useState('');
   const [allProducts, setAllProducts] = useState([]);
+  const [isExcelUploading, setIsExcelUploading] = useState(false);
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const [alreadyExistsOpen, setAlreadyExistsOpen] = useState(false);
+  const [alreadyExistsMessage, setAlreadyExistsMessage] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [hotelToDelete, setHotelToDelete] = useState<Hotel | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [sameNameDialogOpen, setSameNameDialogOpen] = useState(false);
+  const [sameNameMatches, setSameNameMatches] = useState<Hotel[]>([]);
+  const [pendingExcelPricing, setPendingExcelPricing] = useState<{
+    pricing: { productId: number; fixedPrice: number }[];
+    successCount: number;
+    updateCount: number;
+    failCount: number;
+    errors: string[];
+    duplicateNames: string[];
+  } | null>(null);
 
   const toInputDate = (value?: string) => {
     if (!value) return "";
@@ -195,6 +223,266 @@ const Hotels = () => {
     return product ? product.name : `Product ID: ${productId}`;
   };
 
+  const normalizeHeader = (value: unknown) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+
+  const getRowValue = (row: Record<string, unknown>, keys: string[]) => {
+    const entries = Object.entries(row);
+    for (const key of keys) {
+      const match = entries.find(([header]) => normalizeHeader(header) === key);
+      if (match && match[1] !== undefined && match[1] !== null && String(match[1]).trim() !== "") {
+        return String(match[1]).trim();
+      }
+    }
+    return "";
+  };
+
+  const resolveProductId = (productValue: string) => {
+    if (!productValue) return null;
+    const asNumber = Number(productValue);
+    if (!Number.isNaN(asNumber) && asNumber > 0) {
+      const byId = allProducts.find((p) => p.id === asNumber);
+      if (byId) return byId.id;
+    }
+    const byName = allProducts.find(
+      (p) => p.name.trim().toLowerCase() === productValue.trim().toLowerCase()
+    );
+    return byName?.id || null;
+  };
+
+  const handleDownloadPricingExcelTemplate = () => {
+    const sampleProduct = allProducts[0]?.name || "Tomato";
+    const sampleProduct2 = allProducts[1]?.name || "Onion";
+    const worksheet = XLSX.utils.json_to_sheet([
+      {
+        product: sampleProduct,
+        fixedPrice: 40,
+      },
+      {
+        product: sampleProduct2,
+        fixedPrice: 30,
+      },
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Product Pricing");
+    XLSX.writeFile(workbook, "customer-fixed-price-template.xlsx");
+  };
+
+  const applyExcelPricing = (
+    pricing: { productId: number; fixedPrice: number }[],
+    successCount: number,
+    updateCount: number,
+    failCount: number,
+    errors: string[]
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      customerProductPricing: pricing,
+    }));
+
+    if (successCount + updateCount === 0) {
+      toast.error(
+        errors.length
+          ? `No rows imported. ${errors.slice(0, 3).join("; ")}`
+          : "No valid rows found in Excel"
+      );
+    } else if (failCount > 0) {
+      toast.warning(
+        `Imported ${successCount} new, updated ${updateCount}. ${failCount} failed. ${errors.slice(0, 2).join("; ")}`
+      );
+    } else {
+      toast.success(
+        `Excel imported: ${successCount} new product(s)${updateCount ? `, ${updateCount} updated` : ""}`
+      );
+    }
+  };
+
+  const handlePricingExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const validTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+    ];
+    const isValidExt = /\.(xlsx|xls|csv)$/i.test(file.name);
+    if (!validTypes.includes(file.type) && !isValidExt) {
+      toast.error("Please upload a valid Excel file (.xlsx, .xls, or .csv)");
+      return;
+    }
+
+    if (allProducts.length === 0) {
+      toast.error("Products not loaded yet. Please wait and try again.");
+      return;
+    }
+
+    setIsExcelUploading(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        toast.error("Excel file has no sheets");
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        workbook.Sheets[firstSheetName],
+        { defval: "" }
+      );
+
+      if (!rows.length) {
+        toast.error("Excel file is empty");
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+      let updateCount = 0;
+      const errors: string[] = [];
+      const duplicateNames: string[] = [];
+      const pricingMap = new Map<number, number>();
+      const existingIds = new Set(
+        (formData.customerProductPricing || []).map((p) => Number(p.productId))
+      );
+
+      (formData.customerProductPricing || []).forEach((p) => {
+        pricingMap.set(Number(p.productId), Number(p.fixedPrice));
+      });
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2;
+        const productValue = getRowValue(row, [
+          "product",
+          "productname",
+          "productid",
+          "name",
+        ]);
+        const priceValue = getRowValue(row, [
+          "fixedprice",
+          "price",
+          "rate",
+          "mrp",
+        ]);
+
+        if (!productValue && !priceValue) continue;
+
+        if (!productValue || !priceValue) {
+          failCount += 1;
+          errors.push(
+            `Row ${rowNumber}: required fields missing (${[
+              !productValue ? "product" : "",
+              !priceValue ? "fixedPrice" : "",
+            ]
+              .filter(Boolean)
+              .join(", ")})`
+          );
+          continue;
+        }
+
+        const productId = resolveProductId(productValue);
+        if (!productId) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: product "${productValue}" not found`);
+          continue;
+        }
+
+        const fixedPrice = Number(priceValue);
+        if (Number.isNaN(fixedPrice) || fixedPrice < 0) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: invalid fixedPrice`);
+          continue;
+        }
+
+        if (existingIds.has(productId)) {
+          const name = getProductName(productId);
+          if (!duplicateNames.includes(name)) duplicateNames.push(name);
+          updateCount += 1;
+        } else if (pricingMap.has(productId)) {
+          updateCount += 1;
+        } else {
+          successCount += 1;
+        }
+        pricingMap.set(productId, fixedPrice);
+      }
+
+      const newPricing = Array.from(pricingMap.entries()).map(([productId, fixedPrice]) => ({
+        productId,
+        fixedPrice,
+      }));
+
+      if (duplicateNames.length > 0 && updateCount > 0) {
+        setPendingExcelPricing({
+          pricing: newPricing,
+          successCount,
+          updateCount,
+          failCount,
+          errors,
+          duplicateNames,
+        });
+        setAlreadyExistsMessage(
+          `${duplicateNames.length} product(s) already exist in pricing${
+            duplicateNames.length <= 5 ? `: ${duplicateNames.join(", ")}` : ""
+          }. Do you want to update their fixed prices?`
+        );
+        setAlreadyExistsOpen(true);
+        return;
+      }
+
+      applyExcelPricing(newPricing, successCount, updateCount, failCount, errors);
+    } catch (error) {
+      console.error("Excel upload error:", error);
+      toast.error("Failed to process Excel file");
+    } finally {
+      setIsExcelUploading(false);
+    }
+  };
+
+  const handleConfirmAlreadyExists = () => {
+    if (pendingExcelPricing) {
+      applyExcelPricing(
+        pendingExcelPricing.pricing,
+        pendingExcelPricing.successCount,
+        pendingExcelPricing.updateCount,
+        pendingExcelPricing.failCount,
+        pendingExcelPricing.errors
+      );
+    }
+    setPendingExcelPricing(null);
+    setAlreadyExistsOpen(false);
+  };
+
+  const handleCancelAlreadyExists = () => {
+    if (pendingExcelPricing) {
+      const existingIds = new Set(
+        (formData.customerProductPricing || []).map((p) => Number(p.productId))
+      );
+      const onlyNew = pendingExcelPricing.pricing.filter(
+        (p) => !existingIds.has(Number(p.productId))
+      );
+      if (onlyNew.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          customerProductPricing: [
+            ...(prev.customerProductPricing || []),
+            ...onlyNew,
+          ],
+        }));
+        toast.success(`Added ${onlyNew.length} new product(s). Existing prices were not changed.`);
+      } else {
+        toast.info("Existing product prices were not changed.");
+      }
+    }
+    setPendingExcelPricing(null);
+    setAlreadyExistsOpen(false);
+  };
+
   // Fetch all products when component mounts
   useEffect(() => {
     fetchAllProducts();
@@ -281,32 +569,27 @@ const Hotels = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const hotel = hotels.find(h => h.id === id);
+  const handleDelete = (id: number) => {
+    const hotel = hotels.find((h) => h.id === id);
     if (!hotel) return;
+    setHotelToDelete(hotel);
+    setDeleteDialogOpen(true);
+  };
 
-    // Enhanced confirmation with warning
-    const confirmMessage =
-      "⚠️ WARNING: Delete Customer Account?\n\n" +
-      `Customer: ${hotel.hotelName}\n\n` +
-      "NOTE: Customers with pending, confirmed, or dispatched orders cannot be deleted.\n" +
-      "Hotels with only delivered or cancelled orders can be deleted.\n\n" +
-      "If this customer has active orders, consider BLOCKING instead of deleting.\n\n" +
-      "Do you want to proceed with deletion?";
+  const confirmDelete = async () => {
+    if (!hotelToDelete) return;
 
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
+    setIsDeleting(true);
     try {
-      await api.delete(`/admin/hotels/${id}`);
+      await api.delete(`/admin/hotels/${hotelToDelete.id}`);
       toast.success("Customer deleted successfully");
+      setDeleteDialogOpen(false);
+      setHotelToDelete(null);
       fetchHotels();
     } catch (error: any) {
       console.error("Error deleting customer:", error);
       const errorMessage = error.response?.data?.message || "Failed to delete customer";
 
-      // Provide helpful guidance for the common case
       if (errorMessage.includes("pending or active orders")) {
         toast.error(
           "Cannot delete customer with pending or active orders. Deliver or cancel all orders first, or use Block instead.",
@@ -315,10 +598,12 @@ const Hotels = () => {
       } else {
         toast.error(errorMessage);
       }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleAddHotel = async () => {
+  const handleAddHotel = async (options?: { skipSameNameCheck?: boolean }) => {
     if (!formData.hotelName || !formData.mobileNumber || !formData.address) {
       toast.error("Please fill in all required customer information fields");
       return;
@@ -345,16 +630,41 @@ const Hotels = () => {
       return;
     }
 
+    const normalizedMobile = (formData.mobileNumber || "").replace(/\D/g, "");
+    if (normalizedMobile.length !== 10) {
+      toast.error("Please enter correct mobile number");
+      return;
+    }
+
+    const trimmedName = formData.hotelName.trim();
+
     setIsLoading(true);
     try {
-      const normalizedMobile = (formData.mobileNumber || "").replace(/\D/g, "");
-      if (normalizedMobile.length !== 10) {
-        toast.error("Please enter correct mobile number");
-        return;
+      // Same name + different mobile is allowed as a separate customer.
+      // Confirm once so the admin knows both will appear in the table.
+      if (!options?.skipSameNameCheck) {
+        try {
+          const searchRes = await api.get("/admin/hotels", {
+            params: { search: trimmedName, page: 1, limit: 50 },
+          });
+          const matches = (searchRes.data?.data?.hotels || []).filter(
+            (h: Hotel) =>
+              (h.hotelName || "").trim().toLowerCase() === trimmedName.toLowerCase() &&
+              String(h.mobileNumber || "").replace(/\D/g, "") !== normalizedMobile
+          );
+          if (matches.length > 0) {
+            setSameNameMatches(matches);
+            setSameNameDialogOpen(true);
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // If name check fails, still allow create — uniqueness is by mobile only
+        }
       }
 
       const response = await api.post("/admin/hotels", {
-        hotelName: formData.hotelName?.trim(),
+        hotelName: trimmedName,
         mobileNumber: normalizedMobile,
         address: formData.address?.trim(),
         gstNumber: formData.gstNumber ? formData.gstNumber.trim().toUpperCase() : undefined,
@@ -378,7 +688,13 @@ const Hotels = () => {
       }
 
       const createdUser = response.data?.data?.user;
-      toast.success("Customer created successfully");
+      toast.success(
+        sameNameMatches.length > 0 || options?.skipSameNameCheck
+          ? "Separate customer created successfully (same name, different mobile)"
+          : "Customer created successfully"
+      );
+      setSameNameDialogOpen(false);
+      setSameNameMatches([]);
       setShowAddForm(false);
       resetForm();
       setSearchTerm("");
@@ -406,7 +722,6 @@ const Hotels = () => {
         });
       }
 
-      // Single refresh trigger (avoid duplicate fetchHotels + listRefreshKey)
       setListRefreshKey((k) => k + 1);
     } catch (error: any) {
       console.error("Error creating customer:", error);
@@ -418,7 +733,15 @@ const Hotels = () => {
           : null;
 
       const detailText = typeof firstDetail === "string" ? firstDetail.toLowerCase() : "";
-      if (detailText.includes("mobilenumber")) {
+      const messageText = String(apiMsg || firstDetail || "").toLowerCase();
+
+      if (messageText.includes("already exists")) {
+        setPendingExcelPricing(null);
+        setAlreadyExistsMessage(
+          apiMsg || "A customer with this mobile number already exists."
+        );
+        setAlreadyExistsOpen(true);
+      } else if (detailText.includes("mobilenumber")) {
         toast.error("Please enter correct mobile number");
       } else if (detailText.includes("gstnumber")) {
         toast.error("Please enter correct GST number");
@@ -520,6 +843,13 @@ const Hotels = () => {
 
   return (
     <div className="space-y-6">
+      <input
+        ref={excelInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+        className="hidden"
+        onChange={handlePricingExcelUpload}
+      />
       {/* Main Content - Either Customer List or Add Form */}
       {!showAddForm ? (
         <>
@@ -803,25 +1133,49 @@ const Hotels = () => {
           {/* Product Pricing Section */}
           {formData.rateType === 'Fixed Price' && (
             <div className="bg-white rounded-lg border p-6">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <span>🧾</span>
                   Product Pricing (Customer-Specific)
                 </h2>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchProductsForPricing}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Product
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadPricingExcelTemplate}
+                    disabled={isExcelUploading}
+                    className="gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Template
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => excelInputRef.current?.click()}
+                    disabled={isExcelUploading}
+                    className="gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {isExcelUploading ? "Uploading..." : "Upload Excel"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchProductsForPricing}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Product
+                  </Button>
+                </div>
               </div>
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here will apply only to this customer for the selected contract duration, regardless of future price changes.
+                  Prices set here will apply only to this customer for the selected contract duration, regardless of future price changes. You can also upload an Excel file with columns: product, fixedPrice.
                 </p>
               </div>
 
@@ -868,7 +1222,7 @@ const Hotels = () => {
               ) : (
                 <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
                   <p className="text-lg font-medium">No products added yet</p>
-                  <p className="text-sm mt-2">Click "Add Product" to set customer-specific pricing</p>
+                  <p className="text-sm mt-2">Click "Add Product" or "Upload Excel" to set customer-specific pricing</p>
                 </div>
               )}
             </div>
@@ -1028,25 +1382,49 @@ const Hotels = () => {
             {/* Product Pricing Section */}
             {formData.rateType === 'Fixed Price' && (
               <div className="border rounded-lg p-4">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                   <h3 className="text-lg font-medium flex items-center gap-2">
                     <span>🧾</span>
                     Product Pricing (Customer-Specific)
                   </h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchProductsForPricing}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Product
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadPricingExcelTemplate}
+                      disabled={isExcelUploading}
+                      className="gap-2"
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Template
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => excelInputRef.current?.click()}
+                      disabled={isExcelUploading}
+                      className="gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {isExcelUploading ? "Uploading..." : "Upload Excel"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchProductsForPricing}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Product
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here will apply only to this customer for the selected contract duration, regardless of future price changes.
+                    Prices set here will apply only to this customer for the selected contract duration, regardless of future price changes. You can also upload an Excel file with columns: product, fixedPrice.
                   </p>
                 </div>
 
@@ -1093,7 +1471,7 @@ const Hotels = () => {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
                     <p className="text-lg font-medium">No products added yet</p>
-                    <p className="text-sm mt-2">Click "Add Product" to set customer-specific pricing</p>
+                    <p className="text-sm mt-2">Click "Add Product" or "Upload Excel" to set customer-specific pricing</p>
                   </div>
                 )}
               </div>
@@ -1162,6 +1540,149 @@ const Hotels = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={sameNameDialogOpen}
+        onOpenChange={(open) => {
+          setSameNameDialogOpen(open);
+          if (!open) setSameNameMatches([]);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Same customer name found</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  A customer named{" "}
+                  <span className="font-semibold text-foreground">
+                    {formData.hotelName.trim()}
+                  </span>{" "}
+                  already exists with a different mobile number.
+                </p>
+                <div className="rounded-md border bg-muted/40 p-3 space-y-1">
+                  {sameNameMatches.slice(0, 5).map((h) => (
+                    <p key={h.id}>
+                      <span className="font-medium text-foreground">{h.hotelName}</span>
+                      {" — "}
+                      {h.mobileNumber}
+                    </p>
+                  ))}
+                  {sameNameMatches.length > 5 && (
+                    <p>and {sameNameMatches.length - 5} more…</p>
+                  )}
+                </div>
+                <p>
+                  Because the mobile number is different, this will be created as a{" "}
+                  <span className="font-medium text-foreground">separate customer</span>{" "}
+                  and both will appear in the customer table.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isLoading}
+              onClick={(e) => {
+                e.preventDefault();
+                handleAddHotel({ skipSameNameCheck: true });
+              }}
+            >
+              {isLoading ? "Creating..." : "Create separate customer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (isDeleting) return;
+          setDeleteDialogOpen(open);
+          if (!open) setHotelToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              Delete Customer Account?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Customer:{" "}
+                  <span className="font-semibold text-foreground">
+                    {hotelToDelete?.hotelName}
+                  </span>
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">NOTE:</span> Customers with
+                  pending, confirmed, or dispatched orders cannot be deleted. Hotels with
+                  only delivered or cancelled orders can be deleted.
+                </p>
+                <p>
+                  If this customer has active orders, consider{" "}
+                  <span className="font-medium text-foreground">blocking</span> instead of
+                  deleting.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={alreadyExistsOpen} onOpenChange={setAlreadyExistsOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingExcelPricing ? "Product already exists" : "Customer already exists"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {alreadyExistsMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {pendingExcelPricing ? (
+              <>
+                <AlertDialogCancel
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleCancelAlreadyExists();
+                  }}
+                >
+                  Keep existing
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleConfirmAlreadyExists();
+                  }}
+                >
+                  Update prices
+                </AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogAction onClick={() => setAlreadyExistsOpen(false)}>
+                OK
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
