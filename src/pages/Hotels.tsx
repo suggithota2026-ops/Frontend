@@ -197,8 +197,25 @@ const Hotels = () => {
   };
 
   const getApiErrorMessage = (error: unknown, fallback: string) => {
-    const err = error as { response?: { data?: { message?: string } }; message?: string };
-    return err?.response?.data?.message || err?.message || fallback;
+    const err = error as {
+      response?: {
+        data?: {
+          message?: string;
+          errors?: Array<{ message?: string } | string>;
+        };
+      };
+      message?: string;
+    };
+    const data = err?.response?.data;
+    if (data?.message && data.message !== "Validation failed") {
+      return data.message;
+    }
+    const firstErr = Array.isArray(data?.errors) ? data.errors[0] : null;
+    if (firstErr) {
+      if (typeof firstErr === "string") return firstErr;
+      if (firstErr.message) return firstErr.message;
+    }
+    return data?.message || err?.message || fallback;
   };
 
   // Function to fetch products for pricing
