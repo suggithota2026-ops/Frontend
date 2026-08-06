@@ -81,6 +81,16 @@ const Enquiry = () => {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
   const [updateNotes, setUpdateNotes] = useState("");
+  const [updateForm, setUpdateForm] = useState({
+    hotelName: "",
+    contactNumber: "",
+    address: "",
+    city: "",
+    pinCode: "",
+    landmark: "",
+    email: "",
+    message: "",
+  });
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -162,7 +172,7 @@ This will:
         toast.success(
           <div>
             <p className="font-semibold">✅ Enquiry Accepted!</p>
-            <p className="text-sm">Hotel account created and welcome message sent</p>
+            <p className="text-sm">Customer account created. Check Customers page to view or edit.</p>
           </div>
         );
         fetchMessages();
@@ -208,17 +218,40 @@ This will:
     setSelectedMessage(message);
     setUpdateStatus(message.status);
     setUpdateNotes(message.notes || "");
+    setUpdateForm({
+      hotelName: message.hotelName || "",
+      contactNumber: message.contactNumber || "",
+      address: message.address || "",
+      city: message.city || "",
+      pinCode: message.pinCode || "",
+      landmark: message.landmark || "",
+      email: message.email || "",
+      message: message.message || "",
+    });
     setShowUpdateDialog(true);
   };
 
   const handleUpdateConfirm = async () => {
     if (!selectedMessage) return;
 
+    if (!updateForm.hotelName.trim()) {
+      toast.error("Customer name is required");
+      return;
+    }
+
     setIsUpdating(true);
     try {
       const response = await api.put(`/admin/contact-messages/${selectedMessage.id}`, {
         status: updateStatus,
         notes: updateNotes,
+        hotelName: updateForm.hotelName.trim(),
+        contactNumber: updateForm.contactNumber.trim(),
+        address: updateForm.address.trim(),
+        city: updateForm.city.trim(),
+        pinCode: updateForm.pinCode.trim(),
+        landmark: updateForm.landmark.trim(),
+        email: updateForm.email.trim(),
+        message: updateForm.message.trim(),
       });
       if (response.data.success) {
         toast.success("Enquiry updated successfully");
@@ -237,7 +270,7 @@ This will:
   const filteredMessages = messages.filter((message) =>
     message.hotelName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     message.contactNumber.includes(searchTerm) ||
-    message.city.toLowerCase().includes(searchTerm.toLowerCase())
+    message.city?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -615,18 +648,87 @@ This will:
 
       {/* Update Enquiry Dialog */}
       <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5" />
               Update Enquiry
             </DialogTitle>
             <DialogDescription>
-              Update status and add internal notes for this enquiry from
+              Edit registration details, status, and internal notes for{" "}
               <span className="font-semibold">{selectedMessage?.hotelName}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="update-hotelName">Customer Name *</Label>
+                <Input
+                  id="update-hotelName"
+                  value={updateForm.hotelName}
+                  onChange={(e) => setUpdateForm({ ...updateForm, hotelName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="update-contactNumber">Mobile Number</Label>
+                <Input
+                  id="update-contactNumber"
+                  value={updateForm.contactNumber}
+                  onChange={(e) => setUpdateForm({ ...updateForm, contactNumber: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="update-email">Email</Label>
+                <Input
+                  id="update-email"
+                  type="email"
+                  value={updateForm.email}
+                  onChange={(e) => setUpdateForm({ ...updateForm, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="update-address">Address</Label>
+                <Input
+                  id="update-address"
+                  value={updateForm.address}
+                  onChange={(e) => setUpdateForm({ ...updateForm, address: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="update-city">City</Label>
+                <Input
+                  id="update-city"
+                  value={updateForm.city}
+                  onChange={(e) => setUpdateForm({ ...updateForm, city: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="update-pinCode">PIN Code</Label>
+                <Input
+                  id="update-pinCode"
+                  value={updateForm.pinCode}
+                  onChange={(e) => setUpdateForm({ ...updateForm, pinCode: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="update-landmark">Landmark</Label>
+                <Input
+                  id="update-landmark"
+                  value={updateForm.landmark}
+                  onChange={(e) => setUpdateForm({ ...updateForm, landmark: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="update-message">Registration Message</Label>
+                <Textarea
+                  id="update-message"
+                  value={updateForm.message}
+                  onChange={(e) => setUpdateForm({ ...updateForm, message: e.target.value })}
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="update-status">Status</Label>
               <Select value={updateStatus} onValueChange={setUpdateStatus}>

@@ -96,8 +96,14 @@ api.interceptors.response.use(
             const onPublicSite =
               typeof window !== 'undefined' && isPublicWebsitePath(window.location.pathname);
             if (!onPublicSite) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                const ok = window.confirm(
+                  'Your session has expired. Do you want to login again?'
+                );
+                if (ok) {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  window.location.href = '/login';
+                }
             }
         }
 

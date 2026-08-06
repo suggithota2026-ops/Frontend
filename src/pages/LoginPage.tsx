@@ -231,53 +231,52 @@ const LoginPage: React.FC = () => {
                                         <InputOTPSlot index={5} className="w-10 h-12 sm:w-12 sm:h-14 text-lg font-bold border-border shadow-sm rounded-lg" />
                                     </InputOTPGroup>
                                 </InputOTP>
-                                <div className="flex flex-col gap-2 w-full">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-xs text-muted-foreground"
-                                        onClick={goBackToMobile}
-                                        disabled={isLoading || isResending}
-                                    >
-                                        Change mobile number
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs transition-colors"
-                                        onClick={handleResendOtp}
-                                        disabled={isLoading || isResending}
-                                    >
-                                        {isResending ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                                Resending...
-                                            </>
-                                        ) : (
-                                            "Resend OTP"
-                                        )}
-                                    </Button>
-                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs text-muted-foreground"
+                                    onClick={goBackToMobile}
+                                    disabled={isLoading || isResending}
+                                >
+                                    Change mobile number
+                                </Button>
                             </div>
-                            <Button
-                                type="submit"
-                                className="w-full h-12 text-sm font-semibold transition-all hover:translate-y-[-2px] active:translate-y-[0px] shadow-lg shadow-primary/20"
-                                disabled={isLoading || otp.length < 6}
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Verifying...
-                                    </>
-                                ) : (
-                                    <>
-                                        Verify & Login
-                                        <KeyRound className="ml-2 h-4 w-4" />
-                                    </>
-                                )}
-                            </Button>
+                            <div className="flex gap-3 w-full">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="flex-1 h-12 text-sm transition-colors"
+                                    onClick={handleResendOtp}
+                                    disabled={isLoading || isResending}
+                                >
+                                    {isResending ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Resending...
+                                        </>
+                                    ) : (
+                                        "Resend OTP"
+                                    )}
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    className="flex-1 h-12 text-sm font-semibold transition-all hover:translate-y-[-2px] active:translate-y-[0px] shadow-lg shadow-primary/20"
+                                    disabled={isLoading || otp.length < 6}
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Verify & Login
+                                            <KeyRound className="ml-2 h-4 w-4" />
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </form>
                     )}
                 </CardContent>

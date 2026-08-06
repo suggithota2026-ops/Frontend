@@ -49,6 +49,12 @@ export function DashboardSidebar({ collapsed, onCollapse, onNavigate }: Dashboar
   const location = useLocation();
 
   const { logout, user } = useAuth();
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      logout();
+    }
+  };
   const role = String(user?.role || "").toUpperCase();
   const userPermissions = user?.permissions || [];
   const visibleMenuItems = menuItems.filter((item) =>
@@ -131,7 +137,7 @@ export function DashboardSidebar({ collapsed, onCollapse, onNavigate }: Dashboar
       {/* Logout Button */}
       <div className="px-3 py-4 border-t border-sidebar-border shrink-0">
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className={cn(
             "sidebar-item w-full transition-colors hover:text-red-400 group",
             collapsed && "justify-center"

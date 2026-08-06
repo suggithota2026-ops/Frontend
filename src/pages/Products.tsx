@@ -519,6 +519,7 @@ const Products = () => {
       formDataToSend.append('unit', formData.unit);
       formDataToSend.append('stock', formData.stock.toString());
       formDataToSend.append('isActive', formData.isActive.toString());
+      formDataToSend.append('isContractOnly', 'false');
 
       if (imageFile) {
         formDataToSend.append('images', imageFile, imageFile.name || 'product.jpg');
@@ -780,6 +781,7 @@ const Products = () => {
           formDataToSend.append("unit", unitValue);
           formDataToSend.append("stock", minimumQuantity.toString());
           formDataToSend.append("isActive", "true");
+          formDataToSend.append("isContractOnly", "false");
 
           const response = await api.post("/admin/products", formDataToSend, {
             headers: { "Content-Type": "multipart/form-data" },

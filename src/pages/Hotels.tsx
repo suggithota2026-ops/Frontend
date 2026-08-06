@@ -48,6 +48,10 @@ interface Hotel {
   hotelName: string;
   mobileNumber: string;
   address: string;
+  city?: string;
+  pinCode?: string;
+  latitude?: number;
+  longitude?: number;
   gstNumber?: string;
   creditLimit: number;
   isBlocked: boolean;
@@ -57,6 +61,7 @@ interface Hotel {
   customerProductPricing?: {
     id?: number;
     productId: number;
+    productName?: string;
     fixedPrice: number;
     contractStartDate?: string;
     contractEndDate?: string;
@@ -66,6 +71,18 @@ interface Hotel {
   updatedAt: string;
 }
 
+interface CategoryOption {
+  id: number;
+  name: string;
+  subcategories?: { id: string; name: string }[];
+}
+
+interface CatalogProduct {
+  id: number;
+  name: string;
+  categoryId?: number;
+}
+
 const Hotels = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -73,8 +90,8 @@ const Hotels = () => {
   const [currentHotel, setCurrentHotel] = useState<Hotel | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [listRefreshKey, setListRefreshKey] = useState(0);
   const hotelsFetchIdRef = useRef(0);
+  const skipSearchDebounceRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -100,9 +117,17 @@ const Hotels = () => {
   const [availableProducts, setAvailableProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [tempPrice, setTempPrice] = useState('');
-  const [allProducts, setAllProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState<CatalogProduct[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [isExcelUploading, setIsExcelUploading] = useState(false);
   const excelInputRef = useRef<HTMLInputElement>(null);
+  const [excelImportResultOpen, setExcelImportResultOpen] = useState(false);
+  const [excelImportResult, setExcelImportResult] = useState<{
+    title: string;
+    summary: string;
+    errors: string[];
+    variant: "success" | "warning" | "error";
+  } | null>(null);
   const [alreadyExistsOpen, setAlreadyExistsOpen] = useState(false);
   const [alreadyExistsMessage, setAlreadyExistsMessage] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -111,9 +136,10 @@ const Hotels = () => {
   const [sameNameDialogOpen, setSameNameDialogOpen] = useState(false);
   const [sameNameMatches, setSameNameMatches] = useState<Hotel[]>([]);
   const [pendingExcelPricing, setPendingExcelPricing] = useState<{
-    pricing: { productId: number; fixedPrice: number }[];
+    pricing: { productId: number; fixedPrice: number; productName?: string }[];
     successCount: number;
     updateCount: number;
+    createdCount: number;
     failCount: number;
     errors: string[];
     duplicateNames: string[];
@@ -148,14 +174,31 @@ const Hotels = () => {
   // Function to fetch all products
   const fetchAllProducts = async () => {
     try {
-      const response = await api.get('/admin/products');
+      const response = await api.get("/admin/products?limit=5000");
       if (response.data.success) {
-        setAllProducts(response.data.data.products);
+        setAllProducts(response.data.data.products || []);
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to fetch products');
+      console.error("Error fetching products:", error);
+      toast.error("Failed to fetch products");
     }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get("/admin/categories");
+      if (response.data.success) {
+        setCategories(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      toast.error("Failed to fetch categories");
+    }
+  };
+
+  const getApiErrorMessage = (error: unknown, fallback: string) => {
+    const err = error as { response?: { data?: { message?: string } }; message?: string };
+    return err?.response?.data?.message || err?.message || fallback;
   };
 
   // Function to fetch products for pricing
@@ -182,6 +225,7 @@ const Hotels = () => {
     if (selectedProduct && tempPrice && parseFloat(tempPrice) > 0) {
       const newPricing = {
         productId: selectedProduct.id,
+        productName: selectedProduct.name,
         fixedPrice: parseFloat(tempPrice),
       };
 
@@ -219,7 +263,11 @@ const Hotels = () => {
 
   // Helper function to get product name by ID
   const getProductName = (productId) => {
-    const product = allProducts.find(p => p.id === productId);
+    const fromPricing = (formData.customerProductPricing || []).find(
+      (p) => Number(p.productId) === Number(productId)
+    );
+    if (fromPricing?.productName) return fromPricing.productName;
+    const product = allProducts.find((p) => p.id === productId);
     return product ? product.name : `Product ID: ${productId}`;
   };
 
@@ -228,6 +276,13 @@ const Hotels = () => {
       .trim()
       .toLowerCase()
       .replace(/[\s_-]+/g, "");
+
+  const normalizeProductName = (value: string) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[()[\],./\\-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
   const getRowValue = (row: Record<string, unknown>, keys: string[]) => {
     const entries = Object.entries(row);
@@ -240,17 +295,193 @@ const Hotels = () => {
     return "";
   };
 
-  const resolveProductId = (productValue: string) => {
+  const resolveProductId = (
+    productValue: string,
+    products: CatalogProduct[] = allProducts,
+    existingPricing: { productId: number; productName?: string }[] = []
+  ) => {
     if (!productValue) return null;
     const asNumber = Number(productValue);
     if (!Number.isNaN(asNumber) && asNumber > 0) {
-      const byId = allProducts.find((p) => p.id === asNumber);
+      const byId = products.find((p) => p.id === asNumber);
       if (byId) return byId.id;
+      const byPricingId = existingPricing.find((p) => Number(p.productId) === asNumber);
+      if (byPricingId) return byPricingId.productId;
     }
-    const byName = allProducts.find(
+
+    const normalizedValue = normalizeProductName(productValue);
+
+    // Prefer this customer's already-assigned contract rows (re-upload / same session)
+    const fromExisting = existingPricing.find(
+      (p) => p.productName && normalizeProductName(p.productName) === normalizedValue
+    );
+    if (fromExisting) return Number(fromExisting.productId);
+
+    const exact = products.find(
       (p) => p.name.trim().toLowerCase() === productValue.trim().toLowerCase()
     );
+    if (exact) return exact.id;
+
+    const byNormalized = products.find(
+      (p) => normalizeProductName(p.name) === normalizedValue
+    );
+    if (byNormalized) return byNormalized.id;
+
+    const partialMatches = products.filter((p) => {
+      const normalizedName = normalizeProductName(p.name);
+      return (
+        normalizedName.includes(normalizedValue) ||
+        normalizedValue.includes(normalizedName)
+      );
+    });
+    if (partialMatches.length === 1) return partialMatches[0].id;
+
+    return null;
+  };
+
+  const resolveCategoryId = (categoryValue: string) => {
+    if (!categoryValue) return null;
+    const asNumber = Number(categoryValue);
+    if (!Number.isNaN(asNumber) && asNumber > 0) {
+      const byId = categories.find((c) => c.id === asNumber);
+      if (byId) return byId.id;
+    }
+    const normalized = categoryValue.trim().toLowerCase();
+    const byName = categories.find(
+      (c) => c.name.trim().toLowerCase() === normalized
+    );
+    if (byName) return byName.id;
+
+    const partialMatches = categories.filter((c) => {
+      const catName = c.name.trim().toLowerCase();
+      return catName.includes(normalized) || normalized.includes(catName);
+    });
+    if (partialMatches.length === 1) return partialMatches[0].id;
+
+    return null;
+  };
+
+  const resolveSubcategory = (categoryId: number, subcategoryValue: string) => {
+    if (!subcategoryValue) return null;
+    const category = categories.find((c) => c.id === categoryId);
+    const subs = category?.subcategories || [];
+    if (subs.length === 0) return subcategoryValue;
+
+    const byId = subs.find((s) => s.id === subcategoryValue);
+    if (byId) return byId.id;
+
+    const byName = subs.find(
+      (s) => s.name.trim().toLowerCase() === subcategoryValue.trim().toLowerCase()
+    );
     return byName?.id || null;
+  };
+
+  const createProductFromExcelRow = async (
+    row: Record<string, unknown>,
+    productsCache: CatalogProduct[]
+  ) => {
+    const name = getRowValue(row, ["name", "productname", "product"]);
+    const categoryValue = getRowValue(row, ["category", "categoryid", "categoryname"]);
+    const subcategoryValue = getRowValue(row, [
+      "subcategory",
+      "subcategoryid",
+      "subcategoryname",
+    ]);
+    const priceValue = getRowValue(row, ["price", "fixedprice", "rate", "mrp"]);
+    const unitValue = getRowValue(row, ["unit"]) || "kg";
+    const minQuantityValue = getRowValue(row, [
+      "minimumquantity",
+      "minquantity",
+      "minqty",
+      "minimumqty",
+      "stock",
+    ]);
+
+    const categoryId = resolveCategoryId(categoryValue);
+    if (!categoryId) {
+      throw new Error(`category "${categoryValue || "missing"}" not found`);
+    }
+
+    const price = Number(priceValue);
+    if (Number.isNaN(price) || price < 0) {
+      throw new Error("invalid price");
+    }
+
+    const minimumQuantity = minQuantityValue ? Number(minQuantityValue) : 0.5;
+    if (Number.isNaN(minimumQuantity) || minimumQuantity < 0) {
+      throw new Error("invalid minimumQuantity");
+    }
+
+    const subcategory = subcategoryValue
+      ? resolveSubcategory(categoryId, subcategoryValue)
+      : null;
+
+    const formDataToSend = new FormData();
+    formDataToSend.append("name", name);
+    formDataToSend.append("category", categoryId.toString());
+    if (subcategory) {
+      formDataToSend.append("subcategory", String(subcategory));
+    }
+    formDataToSend.append("price", price.toString());
+    formDataToSend.append("unit", unitValue);
+    formDataToSend.append("stock", minimumQuantity.toString());
+    formDataToSend.append("isContractOnly", "true");
+    formDataToSend.append("isActive", "true");
+
+    const response = await api.post("/admin/products", formDataToSend, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+    });
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || "failed to create product");
+    }
+
+    const created = response.data.data;
+    const catalogProduct: CatalogProduct = {
+      id: Number(created.id),
+      name: created.name || name,
+      categoryId: Number(created.categoryId || categoryId),
+    };
+    // Keep in upload-session cache only — do not add to sidebar catalog (allProducts)
+    productsCache.push(catalogProduct);
+    return catalogProduct.id;
+  };
+
+  const showExcelImportResult = (
+    successCount: number,
+    updateCount: number,
+    createdCount: number,
+    failCount: number,
+    errors: string[]
+  ) => {
+    const importedTotal = successCount + updateCount;
+    let variant: "success" | "warning" | "error" = "success";
+    let title = "Excel import complete";
+    let summary = "";
+
+    if (importedTotal === 0) {
+      variant = "error";
+      title = "Excel import failed";
+      summary = "No rows were imported.";
+    } else if (failCount > 0) {
+      variant = "warning";
+      title = "Excel import completed with errors";
+      summary = `Imported ${importedTotal} product(s) for fixed pricing (${createdCount} new product(s) created, ${updateCount} updated). ${failCount} row(s) failed.`;
+    } else {
+      summary = `Successfully imported ${importedTotal} product(s) (${createdCount} new, ${updateCount} updated).`;
+    }
+
+    setExcelImportResult({ title, summary, errors, variant });
+    setExcelImportResultOpen(true);
+
+    if (variant === "success") {
+      toast.success(summary);
+    } else if (variant === "warning") {
+      toast.warning(summary);
+    } else {
+      toast.error(summary);
+    }
   };
 
   const handleDownloadPricingExcelTemplate = () => {
@@ -258,12 +489,20 @@ const Hotels = () => {
     const sampleProduct2 = allProducts[1]?.name || "Onion";
     const worksheet = XLSX.utils.json_to_sheet([
       {
-        product: sampleProduct,
-        fixedPrice: 40,
+        name: sampleProduct,
+        category: "VEGETABLES",
+        subcategory: "",
+        price: 40,
+        unit: "kg",
+        minimumQuantity: 0.5,
       },
       {
-        product: sampleProduct2,
-        fixedPrice: 30,
+        name: sampleProduct2,
+        category: "VEGETABLES",
+        subcategory: "",
+        price: 30,
+        unit: "kg",
+        minimumQuantity: 1,
       },
     ]);
     const workbook = XLSX.utils.book_new();
@@ -272,9 +511,10 @@ const Hotels = () => {
   };
 
   const applyExcelPricing = (
-    pricing: { productId: number; fixedPrice: number }[],
+    pricing: { productId: number; fixedPrice: number; productName?: string }[],
     successCount: number,
     updateCount: number,
+    createdCount: number,
     failCount: number,
     errors: string[]
   ) => {
@@ -283,21 +523,7 @@ const Hotels = () => {
       customerProductPricing: pricing,
     }));
 
-    if (successCount + updateCount === 0) {
-      toast.error(
-        errors.length
-          ? `No rows imported. ${errors.slice(0, 3).join("; ")}`
-          : "No valid rows found in Excel"
-      );
-    } else if (failCount > 0) {
-      toast.warning(
-        `Imported ${successCount} new, updated ${updateCount}. ${failCount} failed. ${errors.slice(0, 2).join("; ")}`
-      );
-    } else {
-      toast.success(
-        `Excel imported: ${successCount} new product(s)${updateCount ? `, ${updateCount} updated` : ""}`
-      );
-    }
+    showExcelImportResult(successCount, updateCount, createdCount, failCount, errors);
   };
 
   const handlePricingExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -316,13 +542,21 @@ const Hotels = () => {
       return;
     }
 
-    if (allProducts.length === 0) {
-      toast.error("Products not loaded yet. Please wait and try again.");
-      return;
+    if (categories.length === 0) {
+      await fetchCategories();
     }
 
     setIsExcelUploading(true);
     try {
+      let productsCache = [...allProducts];
+      if (productsCache.length === 0) {
+        const response = await api.get("/admin/products?limit=5000");
+        if (response.data.success) {
+          productsCache = response.data.data.products || [];
+          setAllProducts(productsCache);
+        }
+      }
+
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
       const firstSheetName = workbook.SheetNames[0];
@@ -344,32 +578,37 @@ const Hotels = () => {
       let successCount = 0;
       let failCount = 0;
       let updateCount = 0;
+      let createdCount = 0;
       const errors: string[] = [];
       const duplicateNames: string[] = [];
       const pricingMap = new Map<number, number>();
+      const productNameById = new Map<number, string>();
+      const existingPricing = formData.customerProductPricing || [];
       const existingIds = new Set(
-        (formData.customerProductPricing || []).map((p) => Number(p.productId))
+        existingPricing.map((p) => Number(p.productId))
       );
-
-      (formData.customerProductPricing || []).forEach((p) => {
-        pricingMap.set(Number(p.productId), Number(p.fixedPrice));
-      });
+      for (const p of existingPricing) {
+        if (p.productName) {
+          productNameById.set(Number(p.productId), p.productName);
+        }
+      }
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const rowNumber = i + 2;
         const productValue = getRowValue(row, [
+          "name",
           "product",
           "productname",
           "productid",
-          "name",
         ]);
         const priceValue = getRowValue(row, [
-          "fixedprice",
           "price",
+          "fixedprice",
           "rate",
           "mrp",
         ]);
+        const categoryValue = getRowValue(row, ["category", "categoryid", "categoryname"]);
 
         if (!productValue && !priceValue) continue;
 
@@ -377,8 +616,8 @@ const Hotels = () => {
           failCount += 1;
           errors.push(
             `Row ${rowNumber}: required fields missing (${[
-              !productValue ? "product" : "",
-              !priceValue ? "fixedPrice" : "",
+              !productValue ? "name" : "",
+              !priceValue ? "price" : "",
             ]
               .filter(Boolean)
               .join(", ")})`
@@ -386,19 +625,45 @@ const Hotels = () => {
           continue;
         }
 
-        const productId = resolveProductId(productValue);
-        if (!productId) {
-          failCount += 1;
-          errors.push(`Row ${rowNumber}: product "${productValue}" not found`);
-          continue;
-        }
-
         const fixedPrice = Number(priceValue);
         if (Number.isNaN(fixedPrice) || fixedPrice < 0) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: invalid fixedPrice`);
+          errors.push(`Row ${rowNumber}: invalid price`);
           continue;
         }
+
+        let productId = resolveProductId(productValue, productsCache, [
+          ...existingPricing,
+          ...Array.from(productNameById.entries()).map(([id, productName]) => ({
+            productId: id,
+            productName,
+          })),
+        ]);
+
+        if (!productId) {
+          if (!categoryValue) {
+            failCount += 1;
+            errors.push(
+              `Row ${rowNumber}: product "${productValue}" not found — add a category column to create it`
+            );
+            continue;
+          }
+          try {
+            productId = await createProductFromExcelRow(row, productsCache);
+            createdCount += 1;
+          } catch (createError) {
+            failCount += 1;
+            errors.push(
+              `Row ${rowNumber}: product "${productValue}" — ${getApiErrorMessage(createError, "failed to create")}`
+            );
+            continue;
+          }
+        }
+
+        productNameById.set(
+          productId,
+          productsCache.find((p) => p.id === productId)?.name || productValue
+        );
 
         if (existingIds.has(productId)) {
           const name = getProductName(productId);
@@ -415,6 +680,7 @@ const Hotels = () => {
       const newPricing = Array.from(pricingMap.entries()).map(([productId, fixedPrice]) => ({
         productId,
         fixedPrice,
+        productName: productNameById.get(productId) || getProductName(productId),
       }));
 
       if (duplicateNames.length > 0 && updateCount > 0) {
@@ -422,6 +688,7 @@ const Hotels = () => {
           pricing: newPricing,
           successCount,
           updateCount,
+          createdCount,
           failCount,
           errors,
           duplicateNames,
@@ -435,7 +702,7 @@ const Hotels = () => {
         return;
       }
 
-      applyExcelPricing(newPricing, successCount, updateCount, failCount, errors);
+      applyExcelPricing(newPricing, successCount, updateCount, createdCount, failCount, errors);
     } catch (error) {
       console.error("Excel upload error:", error);
       toast.error("Failed to process Excel file");
@@ -450,6 +717,7 @@ const Hotels = () => {
         pendingExcelPricing.pricing,
         pendingExcelPricing.successCount,
         pendingExcelPricing.updateCount,
+        pendingExcelPricing.createdCount,
         pendingExcelPricing.failCount,
         pendingExcelPricing.errors
       );
@@ -460,24 +728,27 @@ const Hotels = () => {
 
   const handleCancelAlreadyExists = () => {
     if (pendingExcelPricing) {
-      const existingIds = new Set(
-        (formData.customerProductPricing || []).map((p) => Number(p.productId))
+      const existingPricingMap = new Map<number, number>(
+        (formData.customerProductPricing || []).map((p) => [
+          Number(p.productId),
+          Number(p.fixedPrice),
+        ])
       );
-      const onlyNew = pendingExcelPricing.pricing.filter(
-        (p) => !existingIds.has(Number(p.productId))
-      );
-      if (onlyNew.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          customerProductPricing: [
-            ...(prev.customerProductPricing || []),
-            ...onlyNew,
-          ],
-        }));
-        toast.success(`Added ${onlyNew.length} new product(s). Existing prices were not changed.`);
-      } else {
-        toast.info("Existing product prices were not changed.");
-      }
+
+      // Replacement behavior: contract should contain only Excel rows.
+      // For products that already existed, keep the existing fixed price.
+      const replacedPricing = pendingExcelPricing.pricing.map((p) => {
+        const existingPrice = existingPricingMap.get(Number(p.productId));
+        if (existingPrice == null || Number.isNaN(existingPrice)) return p;
+        return { ...p, fixedPrice: existingPrice };
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        customerProductPricing: replacedPricing,
+      }));
+
+      toast.info("Excel imported. Existing prices were not changed.");
     }
     setPendingExcelPricing(null);
     setAlreadyExistsOpen(false);
@@ -486,25 +757,66 @@ const Hotels = () => {
   // Fetch all products when component mounts
   useEffect(() => {
     fetchAllProducts();
+    fetchCategories();
   }, []);
 
   // Debounce search so typing doesn't flood the API
   useEffect(() => {
+    if (skipSearchDebounceRef.current) return;
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm.trim());
     }, 400);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const mapApiHotel = (row: Partial<Hotel> & { id?: number }): Hotel => ({
+    id: Number(row.id),
+    hotelName: row.hotelName || "",
+    mobileNumber: String(row.mobileNumber || ""),
+    address: row.address || "",
+    gstNumber: row.gstNumber || undefined,
+    creditLimit: Number(row.creditLimit ?? 0),
+    isBlocked: !!row.isBlocked,
+    rateType: row.rateType || undefined,
+    city: row.city,
+    pinCode: row.pinCode,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    createdAt: row.createdAt || new Date().toISOString(),
+    updatedAt: row.updatedAt || new Date().toISOString(),
+  });
+
+  const applyHotelsResponse = (
+    response: { data?: { success?: boolean; data?: { hotels?: Hotel[]; pagination?: Partial<typeof pagination> } } },
+    prepend?: Hotel
+  ) => {
+    if (!response.data?.success) return;
+    let nextHotels = (response.data.data?.hotels || []).map((h) => mapApiHotel(h));
+    if (prepend?.id) {
+      nextHotels = [prepend, ...nextHotels.filter((h) => h.id !== prepend.id)];
+    }
+    setHotels(nextHotels);
+
+    const pg = response.data.data?.pagination;
+    if (pg) {
+      setPagination((prev) => ({
+        page: Number(pg.page) || prev.page,
+        limit: Number(pg.limit) || prev.limit,
+        total: Number(pg.total) || 0,
+        pages: Number(pg.pages) || 0,
+      }));
+    }
+  };
+
   // Fetch hotels from API
-  const fetchHotels = async (overrides?: { page?: number; search?: string }) => {
+  const fetchHotels = async (overrides?: { page?: number; search?: string; prepend?: Hotel }) => {
     const page = overrides?.page ?? pagination.page;
     const search = overrides?.search ?? debouncedSearchTerm;
     const fetchId = ++hotelsFetchIdRef.current;
 
     setIsLoading(true);
     try {
-      const params: any = {
+      const params: Record<string, string | number> = {
         page,
         limit: pagination.limit,
       };
@@ -516,29 +828,7 @@ const Hotels = () => {
       // Ignore stale responses so an older request cannot wipe a newer list
       if (fetchId !== hotelsFetchIdRef.current) return;
 
-      if (response.data.success) {
-        setHotels(response.data.data.hotels || []);
-        const nextPage = Number(response.data.data.pagination.page) || 1;
-        const nextLimit = Number(response.data.data.pagination.limit) || pagination.limit;
-        const nextTotal = Number(response.data.data.pagination.total) || 0;
-        const nextPages = Number(response.data.data.pagination.pages) || 0;
-        setPagination((prev) => {
-          if (
-            prev.page === nextPage &&
-            prev.limit === nextLimit &&
-            prev.total === nextTotal &&
-            prev.pages === nextPages
-          ) {
-            return prev;
-          }
-          return {
-            page: nextPage,
-            limit: nextLimit,
-            total: nextTotal,
-            pages: nextPages,
-          };
-        });
-      }
+      applyHotelsResponse(response, overrides?.prepend);
     } catch (error: any) {
       if (fetchId !== hotelsFetchIdRef.current) return;
       console.error("Error fetching customers:", error);
@@ -550,10 +840,25 @@ const Hotels = () => {
     }
   };
 
+  const refreshCustomerList = async (opts?: { prepend?: Hotel; keepSearch?: boolean }) => {
+    skipSearchDebounceRef.current = true;
+    if (!opts?.keepSearch) {
+      setSearchTerm("");
+      setDebouncedSearchTerm("");
+    }
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    await fetchHotels({
+      page: 1,
+      search: opts?.keepSearch ? debouncedSearchTerm : "",
+      prepend: opts?.prepend,
+    });
+    skipSearchDebounceRef.current = false;
+  };
+
   useEffect(() => {
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, debouncedSearchTerm, listRefreshKey]);
+  }, [pagination.page, debouncedSearchTerm]);
 
   const handleBlockToggle = async (hotel: Hotel) => {
     try {
@@ -604,7 +909,7 @@ const Hotels = () => {
   };
 
   const handleAddHotel = async (options?: { skipSameNameCheck?: boolean }) => {
-    if (!formData.hotelName || !formData.mobileNumber || !formData.address) {
+    if (!formData.hotelName || !formData.mobileNumber) {
       toast.error("Please fill in all required customer information fields");
       return;
     }
@@ -697,32 +1002,18 @@ const Hotels = () => {
       setSameNameMatches([]);
       setShowAddForm(false);
       resetForm();
-      setSearchTerm("");
-      setDebouncedSearchTerm("");
-      setPagination((prev) => ({ ...prev, page: 1 }));
 
-      if (createdUser?.id) {
-        setHotels((prev) => {
-          const withoutDup = prev.filter((h) => h.id !== createdUser.id);
-          return [
-            {
-              id: createdUser.id,
-              hotelName: createdUser.hotelName,
-              mobileNumber: createdUser.mobileNumber,
-              address: createdUser.address || formData.address,
-              gstNumber: createdUser.gstNumber || formData.gstNumber || undefined,
-              creditLimit: Number(createdUser.creditLimit ?? formData.creditLimit ?? 0),
-              isBlocked: !!createdUser.isBlocked,
-              rateType: createdUser.rateType || formData.rateType,
-              createdAt: createdUser.createdAt || new Date().toISOString(),
-              updatedAt: createdUser.updatedAt || new Date().toISOString(),
-            },
-            ...withoutDup,
-          ];
-        });
-      }
+      const createdHotel = createdUser?.id
+        ? mapApiHotel({
+            ...createdUser,
+            address: createdUser.address || formData.address,
+            gstNumber: createdUser.gstNumber || formData.gstNumber || undefined,
+            creditLimit: Number(createdUser.creditLimit ?? formData.creditLimit ?? 0),
+            rateType: createdUser.rateType || formData.rateType,
+          })
+        : undefined;
 
-      setListRefreshKey((k) => k + 1);
+      await refreshCustomerList({ prepend: createdHotel });
     } catch (error: any) {
       console.error("Error creating customer:", error);
       const apiMsg = error.response?.data?.message;
@@ -758,7 +1049,7 @@ const Hotels = () => {
   };
 
   const handleEditHotel = async () => {
-    if (!currentHotel || !formData.hotelName || !formData.address) {
+    if (!currentHotel || !formData.hotelName) {
       toast.error("Please fill in all required customer information fields");
       return;
     }
@@ -786,22 +1077,36 @@ const Hotels = () => {
 
     setIsLoading(true);
     try {
-      await api.put(`/admin/hotels/${currentHotel.id}`, {
+      const response = await api.put(`/admin/hotels/${currentHotel.id}`, {
         hotelName: formData.hotelName,
         address: formData.address,
         gstNumber: formData.gstNumber || undefined,
         creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
-        rateType: formData.rateType || undefined,
-        contractDuration: formData.rateType === 'Fixed Price' ? 'Custom' : undefined,
-        contractStartDate: formData.rateType === 'Fixed Price' ? formData.contractStartDate : undefined,
-        contractEndDate: formData.rateType === 'Fixed Price' ? formData.contractEndDate : undefined,
-        customerProductPricing: formData.customerProductPricing || undefined,
+        rateType: formData.rateType,
+        ...(formData.rateType === "Fixed Price"
+          ? {
+              contractDuration: "Custom",
+              contractStartDate: formData.contractStartDate,
+              contractEndDate: formData.contractEndDate,
+              customerProductPricing: (formData.customerProductPricing || []).map(
+                (p) => ({
+                  productId: Number(p.productId),
+                  fixedPrice: Number(p.fixedPrice),
+                })
+              ),
+            }
+          : {
+              // Explicitly clear Fixed contract when switching to Daily/Weekly
+              customerProductPricing: [],
+            }),
       });
-      toast.success("Customer updated successfully");
+      const savedRateType =
+        response.data?.data?.rateType || formData.rateType;
+      toast.success(`Customer updated (${savedRateType})`);
       setIsEditOpen(false);
       setCurrentHotel(null);
       resetForm();
-      fetchHotels();
+      await fetchHotels();
     } catch (error: any) {
       console.error("Error updating customer:", error);
       toast.error(error.response?.data?.message || "Failed to update customer");
@@ -817,6 +1122,15 @@ const Hotels = () => {
       const response = await api.get(`/admin/hotels/${hotel.id}`);
       const hotelData = response.data?.success ? response.data.data.hotel : hotel;
       const pricing = hotelData.customerProductPricing || [];
+      setCurrentHotel({
+        ...hotel,
+        ...hotelData,
+        address: hotelData.address || hotel.address,
+        city: hotelData.city,
+        pinCode: hotelData.pinCode,
+        latitude: hotelData.latitude,
+        longitude: hotelData.longitude,
+      });
       setFormData({
         hotelName: hotelData.hotelName,
         mobileNumber: hotelData.mobileNumber,
@@ -903,7 +1217,7 @@ const Hotels = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading && (hotels && hotels.length === 0) ? (
+                  {isLoading && hotels.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8">
                         Loading customers...
@@ -1036,7 +1350,7 @@ const Hotels = () => {
                 />
               </div>
               <div className="grid gap-2 md:col-span-2">
-                <Label htmlFor="address">Address *</Label>
+                <Label htmlFor="address">Address</Label>
                 <Input
                   id="address"
                   placeholder="e.g. 123 Main Street, Mumbai, MH"
@@ -1072,7 +1386,21 @@ const Hotels = () => {
                   <select
                     id="rateType"
                     value={formData.rateType}
-                    onChange={(e) => setFormData({ ...formData, rateType: e.target.value })}
+                    onChange={(e) => {
+                      const nextRateType = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        rateType: nextRateType,
+                        ...(nextRateType !== "Fixed Price"
+                          ? {
+                              customerProductPricing: [],
+                              contractStartDate: "",
+                              contractEndDate: "",
+                              contractDuration: "",
+                            }
+                          : {}),
+                      }));
+                    }}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Select Rate Type</option>
@@ -1175,7 +1503,7 @@ const Hotels = () => {
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here will apply only to this customer for the selected contract duration, regardless of future price changes. You can also upload an Excel file with columns: product, fixedPrice.
+                  Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically.
                 </p>
               </div>
 
@@ -1243,9 +1571,20 @@ const Hotels = () => {
             <Button 
               type="submit"
               onClick={handleAddHotel} 
-              disabled={isLoading || (formData.rateType === 'Fixed Price' && (!formData.contractStartDate || !formData.contractEndDate || formData.customerProductPricing.length === 0))}
+              disabled={
+                isLoading ||
+                isExcelUploading ||
+                (formData.rateType === 'Fixed Price' &&
+                  (!formData.contractStartDate ||
+                    !formData.contractEndDate ||
+                    formData.customerProductPricing.length === 0))
+              }
             >
-              {isLoading ? "Creating..." : "Create Customer Account"}
+              {isExcelUploading
+                ? "Uploading Excel..."
+                : isLoading
+                  ? "Creating..."
+                  : "Create Customer Account"}
             </Button>
           </div>
         </form>
@@ -1284,15 +1623,28 @@ const Hotels = () => {
                     className="bg-muted"
                   />
                 </div>
-                <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="edit-address">Address *</Label>
-                  <Input
-                    id="edit-address"
-                    placeholder="e.g. 123 Main Street, Mumbai, MH"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  />
-                </div>
+              <div className="grid gap-2 md:col-span-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  placeholder="e.g. 123 Main Street, Mumbai, MH"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                />
+                {currentHotel?.city || currentHotel?.latitude != null ? (
+                  <p className="text-xs text-muted-foreground">
+                    {[
+                      currentHotel?.city,
+                      currentHotel?.pinCode,
+                      currentHotel?.latitude != null && currentHotel?.longitude != null
+                        ? `GPS: ${Number(currentHotel.latitude).toFixed(5)}, ${Number(currentHotel.longitude).toFixed(5)}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
+              </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-gstNumber">GST Number</Label>
                   <Input
@@ -1321,7 +1673,21 @@ const Hotels = () => {
                     <select
                       id="edit-rateType"
                       value={formData.rateType}
-                      onChange={(e) => setFormData({ ...formData, rateType: e.target.value })}
+                      onChange={(e) => {
+                        const nextRateType = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          rateType: nextRateType,
+                          ...(nextRateType !== "Fixed Price"
+                            ? {
+                                customerProductPricing: [],
+                                contractStartDate: "",
+                                contractEndDate: "",
+                                contractDuration: "",
+                              }
+                            : {}),
+                        }));
+                      }}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <option value="">Select Rate Type</option>
@@ -1424,7 +1790,7 @@ const Hotels = () => {
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here will apply only to this customer for the selected contract duration, regardless of future price changes. You can also upload an Excel file with columns: product, fixedPrice.
+                    Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically.
                   </p>
                 </div>
 
@@ -1479,11 +1845,27 @@ const Hotels = () => {
           </div>
           <DialogFooter className="shrink-0 border-t px-6 py-4 bg-background">
             <Button variant="outline" onClick={() => {
+              if (isExcelUploading) return;
               setIsEditOpen(false);
               setCurrentHotel(null);
-            }} disabled={isLoading}>Cancel</Button>
-            <Button type="submit" onClick={handleEditHotel} disabled={isLoading || (formData.rateType === 'Fixed Price' && (!formData.contractStartDate || !formData.contractEndDate || formData.customerProductPricing.length === 0))}>
-              {isLoading ? "Updating..." : "Update Account"}
+            }} disabled={isLoading || isExcelUploading}>Cancel</Button>
+            <Button
+              type="submit"
+              onClick={handleEditHotel}
+              disabled={
+                isLoading ||
+                isExcelUploading ||
+                (formData.rateType === 'Fixed Price' &&
+                  (!formData.contractStartDate ||
+                    !formData.contractEndDate ||
+                    formData.customerProductPricing.length === 0))
+              }
+            >
+              {isExcelUploading
+                ? "Uploading Excel..."
+                : isLoading
+                  ? "Updating..."
+                  : "Update Account"}
             </Button>
           </DialogFooter>
           </form>
@@ -1644,6 +2026,34 @@ const Hotels = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={excelImportResultOpen} onOpenChange={setExcelImportResultOpen}>
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{excelImportResult?.title || "Excel import result"}</DialogTitle>
+            <DialogDescription className="text-left whitespace-pre-wrap break-words">
+              {excelImportResult?.summary}
+            </DialogDescription>
+          </DialogHeader>
+          {excelImportResult?.errors && excelImportResult.errors.length > 0 && (
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-md border bg-muted/40 p-3 max-h-64">
+              <p className="text-sm font-medium mb-2">Details:</p>
+              <ul className="text-sm space-y-1 list-disc pl-5">
+                {excelImportResult.errors.map((err, idx) => (
+                  <li key={`${err}-${idx}`} className="break-words">
+                    {err}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => setExcelImportResultOpen(false)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={alreadyExistsOpen} onOpenChange={setAlreadyExistsOpen}>
         <AlertDialogContent>
