@@ -580,14 +580,10 @@ const Hotels = () => {
 
     setIsExcelUploading(true);
     try {
-      let productsCache = [...allProducts];
-      if (productsCache.length === 0) {
-        const response = await api.get("/admin/products?limit=5000");
-        if (response.data.success) {
-          productsCache = response.data.data.products || [];
-          setAllProducts(productsCache);
-        }
-      }
+      // Session-only cache: Fixed Excel must NOT reuse sidebar catalog products
+      // (otherwise Daily/Weekly would see those SKUs). Only match this customer's
+      // existing contract rows + products created in this upload.
+      const productsCache: CatalogProduct[] = [];
 
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
@@ -1115,29 +1111,32 @@ const Hotels = () => {
 
     setIsLoading(true);
     try {
-      const response = await api.put(`/admin/hotels/${currentHotel.id}`, {
-        hotelName: formData.hotelName,
-        address: formData.address,
-        gstNumber: formData.gstNumber || undefined,
-        creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
-        rateType: formData.rateType,
-        ...(formData.rateType === "Fixed Price"
-          ? {
-              contractDuration: "Custom",
-              contractStartDate: formData.contractStartDate,
-              contractEndDate: formData.contractEndDate,
-              customerProductPricing: (formData.customerProductPricing || []).map(
-                (p) => ({
-                  productId: Number(p.productId),
-                  fixedPrice: Number(p.fixedPrice),
-                })
-              ),
-            }
-          : {
-              // Explicitly clear Fixed contract when switching to Daily/Weekly
-              customerProductPricing: [],
-            }),
-      });
+      const response = await api.put(
+        `/admin/hotels/${currentHotel.id}`,
+        {
+          hotelName: formData.hotelName,
+          address: formData.address,
+          gstNumber: formData.gstNumber || undefined,
+          creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
+          rateType: formData.rateType,
+          ...(formData.rateType === "Fixed Price"
+            ? {
+                contractDuration: "Custom",
+                contractStartDate: formData.contractStartDate,
+                contractEndDate: formData.contractEndDate,
+                customerProductPricing: (formData.customerProductPricing || []).map(
+                  (p) => ({
+                    productId: Number(p.productId),
+                    fixedPrice: Number(p.fixedPrice),
+                  })
+                ),
+              }
+            : {
+                customerProductPricing: [],
+              }),
+        },
+        { timeout: 180000 }
+      );
       const savedRateType =
         response.data?.data?.rateType || formData.rateType;
       toast.success(`Customer updated (${savedRateType})`);
