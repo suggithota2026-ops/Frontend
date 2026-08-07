@@ -603,6 +603,7 @@ const Hotels = () => {
         return;
       }
 
+      const MAX_EXCEL_ROWS = 50;
       let successCount = 0;
       let failCount = 0;
       let updateCount = 0;
@@ -621,6 +622,20 @@ const Hotels = () => {
         }
       }
 
+      type PendingCreate = {
+        rowNumber: number;
+        name: string;
+        categoryId: number;
+        subcategory: string | null;
+        price: number;
+        unit: string;
+        stock: number;
+        fixedPrice: number;
+      };
+      const pendingCreates: PendingCreate[] = [];
+      const readyPricing: { productId: number; fixedPrice: number; name: string }[] = [];
+
+      let dataRowCount = 0;
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const rowNumber = i + 2;
@@ -637,8 +652,30 @@ const Hotels = () => {
           "mrp",
         ]);
         const categoryValue = getRowValue(row, ["category", "categoryid", "categoryname"]);
+        const subcategoryValue = getRowValue(row, [
+          "subcategory",
+          "subcategoryid",
+          "subcategoryname",
+        ]);
+        const unitValue = getRowValue(row, ["unit"]) || "kg";
+        const minQuantityValue = getRowValue(row, [
+          "minimumquantity",
+          "minquantity",
+          "minqty",
+          "minimumqty",
+          "stock",
+        ]);
 
         if (!productValue && !priceValue) continue;
+
+        dataRowCount += 1;
+        if (dataRowCount > MAX_EXCEL_ROWS) {
+          failCount += 1;
+          errors.push(
+            `Row ${rowNumber}: skipped — max ${MAX_EXCEL_ROWS} products per upload. Split the file and upload again.`
+          );
+          continue;
+        }
 
         if (!productValue || !priceValue) {
           failCount += 1;
@@ -660,7 +697,7 @@ const Hotels = () => {
           continue;
         }
 
-        let productId = resolveProductId(productValue, productsCache, [
+        const productId = resolveProductId(productValue, productsCache, [
           ...existingPricing,
           ...Array.from(productNameById.entries()).map(([id, productName]) => ({
             productId: id,
@@ -668,47 +705,134 @@ const Hotels = () => {
           })),
         ]);
 
-        if (!productId) {
-          if (!categoryValue) {
-            failCount += 1;
-            errors.push(
-              `Row ${rowNumber}: product "${productValue}" not found — add a category column to create it`
-            );
-            continue;
-          }
-          try {
-            // Throttle creates (5 at a time) to avoid live rate-limit
-            if (createdCount > 0 && createdCount % 5 === 0) {
-              await new Promise((r) => setTimeout(r, 1200));
-            } else if (createdCount > 0) {
-              await new Promise((r) => setTimeout(r, 250));
-            }
-            productId = await createProductFromExcelRow(row, productsCache);
-            createdCount += 1;
-          } catch (createError) {
-            failCount += 1;
-            errors.push(
-              `Row ${rowNumber}: product "${productValue}" — ${getApiErrorMessage(createError, "failed to create")}`
-            );
-            continue;
-          }
+        if (productId) {
+          readyPricing.push({
+            productId,
+            fixedPrice,
+            name: productNameById.get(productId) || productValue,
+          });
+          continue;
         }
 
-        productNameById.set(
-          productId,
-          productsCache.find((p) => p.id === productId)?.name || productValue
+        if (!categoryValue) {
+          failCount += 1;
+          errors.push(
+            `Row ${rowNumber}: product "${productValue}" not found — add a category column to create it`
+          );
+          continue;
+        }
+
+        const categoryId = resolveCategoryId(categoryValue);
+        if (!categoryId) {
+          failCount += 1;
+          errors.push(
+            `Row ${rowNumber}: category "${categoryValue}" not found`
+          );
+          continue;
+        }
+
+        const stock = minQuantityValue ? Number(minQuantityValue) : 0.5;
+        if (Number.isNaN(stock) || stock < 0) {
+          failCount += 1;
+          errors.push(`Row ${rowNumber}: invalid minimumQuantity`);
+          continue;
+        }
+
+        const subcategory = subcategoryValue
+          ? resolveSubcategory(categoryId, subcategoryValue)
+          : null;
+
+        pendingCreates.push({
+          rowNumber,
+          name: productValue,
+          categoryId,
+          subcategory,
+          price: fixedPrice,
+          unit: unitValue,
+          stock,
+          fixedPrice,
+        });
+      }
+
+      if (dataRowCount > MAX_EXCEL_ROWS) {
+        toast.warning(
+          `Excel has ${dataRowCount} products. Only first ${MAX_EXCEL_ROWS} are processed per upload.`
         );
+      }
+
+      // One bulk API call for all new contract products (avoids 429 rate limit)
+      if (pendingCreates.length > 0) {
+        try {
+          const bulkRes = await api.post(
+            "/admin/products/bulk-contract",
+            {
+              products: pendingCreates.map((p) => ({
+                name: p.name,
+                categoryId: p.categoryId,
+                subcategory: p.subcategory,
+                price: p.price,
+                unit: p.unit,
+                stock: p.stock,
+                rowNumber: p.rowNumber,
+              })),
+            },
+            { timeout: 180000 }
+          );
+
+          const createdList = bulkRes.data?.data?.created || [];
+          const bulkErrors = bulkRes.data?.data?.errors || [];
+
+          for (const err of bulkErrors) {
+            failCount += 1;
+            errors.push(
+              `Row ${err.rowNumber}: product "${err.name || "?"}" — ${err.message || "failed"}`
+            );
+          }
+
+          const byRow = new Map<number, { id: number; name: string }>();
+          for (const c of createdList) {
+            byRow.set(Number(c.rowNumber), {
+              id: Number(c.id),
+              name: c.name || "",
+            });
+          }
+
+          for (const pending of pendingCreates) {
+            const created = byRow.get(pending.rowNumber);
+            if (!created) continue;
+            productsCache.push({
+              id: created.id,
+              name: created.name || pending.name,
+              categoryId: pending.categoryId,
+            });
+            readyPricing.push({
+              productId: created.id,
+              fixedPrice: pending.fixedPrice,
+              name: created.name || pending.name,
+            });
+            createdCount += 1;
+          }
+        } catch (bulkError) {
+          failCount += pendingCreates.length;
+          errors.push(
+            `Bulk create failed: ${getApiErrorMessage(bulkError, "too many requests or server error")}. Try max ${MAX_EXCEL_ROWS} products.`
+          );
+        }
+      }
+
+      for (const item of readyPricing) {
+        const productId = item.productId;
+        productNameById.set(productId, item.name);
 
         if (existingIds.has(productId)) {
-          const name = getProductName(productId);
-          if (!duplicateNames.includes(name)) duplicateNames.push(name);
+          if (!duplicateNames.includes(item.name)) duplicateNames.push(item.name);
           updateCount += 1;
         } else if (pricingMap.has(productId)) {
           updateCount += 1;
         } else {
           successCount += 1;
         }
-        pricingMap.set(productId, fixedPrice);
+        pricingMap.set(productId, item.fixedPrice);
       }
 
       const newPricing = Array.from(pricingMap.entries()).map(([productId, fixedPrice]) => ({
@@ -1540,7 +1664,7 @@ const Hotels = () => {
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically (in small batches to avoid rate limits — large files may take a minute).
+                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>50 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                 </p>
               </div>
 
@@ -1827,7 +1951,7 @@ const Hotels = () => {
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically (in small batches to avoid rate limits — large files may take a minute).
+                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>50 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                   </p>
                 </div>
 
