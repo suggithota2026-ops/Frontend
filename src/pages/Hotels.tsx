@@ -279,13 +279,24 @@ const Hotels = () => {
   };
 
   // Helper function to get product name by ID
-  const getProductName = (productId) => {
+  const getProductName = (productId: number) => {
     const fromPricing = (formData.customerProductPricing || []).find(
       (p) => Number(p.productId) === Number(productId)
     );
     if (fromPricing?.productName) return fromPricing.productName;
     const product = allProducts.find((p) => p.id === productId);
-    return product ? product.name : `Product ID: ${productId}`;
+    if (product?.name) return product.name;
+    return "—";
+  };
+
+  const buildCategoryMaps = () => {
+    const byId = new Map<number, CategoryOption>();
+    const byName = new Map<string, CategoryOption>();
+    for (const category of categories) {
+      byId.set(category.id, category);
+      byName.set(category.name.trim().toLowerCase(), category);
+    }
+    return { byId, byName };
   };
 
   const normalizeHeader = (value: unknown) =>
@@ -356,18 +367,19 @@ const Hotels = () => {
     return null;
   };
 
-  const resolveCategoryId = (categoryValue: string) => {
+  const resolveCategoryId = (
+    categoryValue: string,
+    maps?: ReturnType<typeof buildCategoryMaps>
+  ) => {
     if (!categoryValue) return null;
+    const { byId, byName } = maps || buildCategoryMaps();
     const asNumber = Number(categoryValue);
-    if (!Number.isNaN(asNumber) && asNumber > 0) {
-      const byId = categories.find((c) => c.id === asNumber);
-      if (byId) return byId.id;
+    if (!Number.isNaN(asNumber) && asNumber > 0 && byId.has(asNumber)) {
+      return asNumber;
     }
     const normalized = categoryValue.trim().toLowerCase();
-    const byName = categories.find(
-      (c) => c.name.trim().toLowerCase() === normalized
-    );
-    if (byName) return byName.id;
+    const byExactName = byName.get(normalized);
+    if (byExactName) return byExactName.id;
 
     const partialMatches = categories.filter((c) => {
       const catName = c.name.trim().toLowerCase();
@@ -378,106 +390,24 @@ const Hotels = () => {
     return null;
   };
 
-  const resolveSubcategory = (categoryId: number, subcategoryValue: string) => {
+  const resolveSubcategory = (
+    categoryId: number,
+    subcategoryValue: string,
+    maps?: ReturnType<typeof buildCategoryMaps>
+  ) => {
     if (!subcategoryValue) return null;
-    const category = categories.find((c) => c.id === categoryId);
+    const { byId } = maps || buildCategoryMaps();
+    const category = byId.get(categoryId);
     const subs = category?.subcategories || [];
     if (subs.length === 0) return subcategoryValue;
 
-    const byId = subs.find((s) => s.id === subcategoryValue);
-    if (byId) return byId.id;
+    const byIdMatch = subs.find((s) => s.id === subcategoryValue);
+    if (byIdMatch) return byIdMatch.id;
 
     const byName = subs.find(
       (s) => s.name.trim().toLowerCase() === subcategoryValue.trim().toLowerCase()
     );
     return byName?.id || null;
-  };
-
-  const createProductFromExcelRow = async (
-    row: Record<string, unknown>,
-    productsCache: CatalogProduct[]
-  ) => {
-    const name = getRowValue(row, ["name", "productname", "product"]);
-    const categoryValue = getRowValue(row, ["category", "categoryid", "categoryname"]);
-    const subcategoryValue = getRowValue(row, [
-      "subcategory",
-      "subcategoryid",
-      "subcategoryname",
-    ]);
-    const priceValue = getRowValue(row, ["price", "fixedprice", "rate", "mrp"]);
-    const unitValue = getRowValue(row, ["unit"]) || "kg";
-    const minQuantityValue = getRowValue(row, [
-      "minimumquantity",
-      "minquantity",
-      "minqty",
-      "minimumqty",
-      "stock",
-    ]);
-
-    const categoryId = resolveCategoryId(categoryValue);
-    if (!categoryId) {
-      throw new Error(`category "${categoryValue || "missing"}" not found`);
-    }
-
-    const price = Number(priceValue);
-    if (Number.isNaN(price) || price < 0) {
-      throw new Error("invalid price");
-    }
-
-    const minimumQuantity = minQuantityValue ? Number(minQuantityValue) : 0.5;
-    if (Number.isNaN(minimumQuantity) || minimumQuantity < 0) {
-      throw new Error("invalid minimumQuantity");
-    }
-
-    const subcategory = subcategoryValue
-      ? resolveSubcategory(categoryId, subcategoryValue)
-      : null;
-
-    const formDataToSend = new FormData();
-    formDataToSend.append("name", name);
-    formDataToSend.append("category", categoryId.toString());
-    if (subcategory) {
-      formDataToSend.append("subcategory", String(subcategory));
-    }
-    formDataToSend.append("price", price.toString());
-    formDataToSend.append("unit", unitValue);
-    formDataToSend.append("stock", minimumQuantity.toString());
-    formDataToSend.append("isActive", "true");
-    // Do NOT send isContractOnly in body — live Joi rejects it.
-    // Use query flag so newer backends can mark contract-only SKUs.
-
-    const postProduct = async () =>
-      api.post("/admin/products?contractOnly=1", formDataToSend, {
-        headers: { "Content-Type": "multipart/form-data" },
-        timeout: 60000,
-      });
-
-    let response;
-    try {
-      response = await postProduct();
-    } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      // Retry once after short wait on rate limit
-      if (status === 429) {
-        await new Promise((r) => setTimeout(r, 1500));
-        response = await postProduct();
-      } else {
-        throw err;
-      }
-    }
-
-    if (!response.data.success) {
-      throw new Error(response.data.message || "failed to create product");
-    }
-
-    const created = response.data.data;
-    const catalogProduct: CatalogProduct = {
-      id: Number(created.id),
-      name: created.name || name,
-      categoryId: Number(created.categoryId || categoryId),
-    };
-    productsCache.push(catalogProduct);
-    return catalogProduct.id;
   };
 
   const showExcelImportResult = (
@@ -577,13 +507,21 @@ const Hotels = () => {
     if (categories.length === 0) {
       await fetchCategories();
     }
+    const categoryMaps = buildCategoryMaps();
 
     setIsExcelUploading(true);
     try {
-      // Session-only cache: Fixed Excel must NOT reuse sidebar catalog products
-      // (otherwise Daily/Weekly would see those SKUs). Only match this customer's
-      // existing contract rows + products created in this upload.
+      // Session-only cache: match this customer's contract rows + products from this upload
       const productsCache: CatalogProduct[] = [];
+      for (const p of formData.customerProductPricing || []) {
+        if (p.productId && p.productName) {
+          productsCache.push({
+            id: Number(p.productId),
+            name: p.productName,
+            categoryId: 0,
+          });
+        }
+      }
 
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
@@ -603,7 +541,7 @@ const Hotels = () => {
         return;
       }
 
-      const MAX_EXCEL_ROWS = 50;
+      const MAX_EXCEL_ROWS = 100;
       let successCount = 0;
       let failCount = 0;
       let updateCount = 0;
@@ -722,7 +660,7 @@ const Hotels = () => {
           continue;
         }
 
-        const categoryId = resolveCategoryId(categoryValue);
+        const categoryId = resolveCategoryId(categoryValue, categoryMaps);
         if (!categoryId) {
           failCount += 1;
           errors.push(
@@ -739,7 +677,7 @@ const Hotels = () => {
         }
 
         const subcategory = subcategoryValue
-          ? resolveSubcategory(categoryId, subcategoryValue)
+          ? resolveSubcategory(categoryId, subcategoryValue, categoryMaps)
           : null;
 
         pendingCreates.push({
@@ -760,13 +698,13 @@ const Hotels = () => {
         );
       }
 
-      // Prefer 1 bulk request; if route missing (old deploy), create one-by-one safely
+      // Single bulk request — creates all customer_fixed products in one transaction
       if (pendingCreates.length > 0) {
-        let usedBulk = false;
         try {
           const bulkRes = await api.post(
             "/admin/products/bulk-contract",
             {
+              customerId: currentHotel?.id ?? null,
               products: pendingCreates.map((p) => ({
                 name: p.name,
                 categoryId: p.categoryId,
@@ -780,8 +718,8 @@ const Hotels = () => {
             { timeout: 180000 }
           );
 
-          usedBulk = true;
           const createdList = bulkRes.data?.data?.created || [];
+          const matchedList = bulkRes.data?.data?.matched || [];
           const bulkErrors = bulkRes.data?.data?.errors || [];
 
           for (const err of bulkErrors) {
@@ -792,7 +730,7 @@ const Hotels = () => {
           }
 
           const byRow = new Map<number, { id: number; name: string }>();
-          for (const c of createdList) {
+          for (const c of [...createdList, ...matchedList]) {
             byRow.set(Number(c.rowNumber), {
               id: Number(c.id),
               name: c.name || "",
@@ -812,56 +750,16 @@ const Hotels = () => {
               fixedPrice: pending.fixedPrice,
               name: created.name || pending.name,
             });
-            createdCount += 1;
-          }
-        } catch (bulkError) {
-          const status = (bulkError as { response?: { status?: number } })?.response
-            ?.status;
-          const msg = getApiErrorMessage(bulkError, "");
-          const routeMissing =
-            status === 404 || /route not found|not found/i.test(msg);
-
-          if (!routeMissing) {
-            failCount += pendingCreates.length;
-            errors.push(
-              `Bulk create failed: ${msg || "server error"}. Max ${MAX_EXCEL_ROWS} products per upload.`
-            );
-          } else {
-            // Fallback: create sequentially (works on older backends)
-            for (const pending of pendingCreates) {
-              try {
-                if (createdCount > 0) {
-                  await new Promise((r) => setTimeout(r, 400));
-                }
-                const rowAsRecord: Record<string, unknown> = {
-                  name: pending.name,
-                  category: pending.categoryId,
-                  subcategory: pending.subcategory || "",
-                  price: pending.price,
-                  unit: pending.unit,
-                  minimumQuantity: pending.stock,
-                };
-                const productId = await createProductFromExcelRow(
-                  rowAsRecord,
-                  productsCache
-                );
-                readyPricing.push({
-                  productId,
-                  fixedPrice: pending.fixedPrice,
-                  name: pending.name,
-                });
-                createdCount += 1;
-              } catch (createError) {
-                failCount += 1;
-                errors.push(
-                  `Row ${pending.rowNumber}: product "${pending.name}" — ${getApiErrorMessage(createError, "failed to create")}`
-                );
-              }
+            if (createdList.some((c: { rowNumber: number }) => Number(c.rowNumber) === pending.rowNumber)) {
+              createdCount += 1;
             }
           }
+        } catch (bulkError) {
+          failCount += pendingCreates.length;
+          errors.push(
+            `Bulk create failed: ${getApiErrorMessage(bulkError, "server error")}. Max ${MAX_EXCEL_ROWS} products per upload.`
+          );
         }
-
-        void usedBulk;
       }
 
       for (const item of readyPricing) {
@@ -1346,7 +1244,8 @@ const Hotels = () => {
         contractDuration: "Custom",
         contractStartDate: toInputDate(pricing[0]?.contractStartDate),
         contractEndDate: toInputDate(pricing[0]?.contractEndDate),
-        customerProductPricing: pricing,
+        customerProductPricing:
+          hotelData.rateType === "Fixed Price" ? pricing : [],
       });
       setIsEditOpen(true);
     } catch (error: any) {
@@ -1708,7 +1607,7 @@ const Hotels = () => {
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>50 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>100 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                 </p>
               </div>
 
@@ -1995,7 +1894,7 @@ const Hotels = () => {
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>50 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>100 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                   </p>
                 </div>
 
