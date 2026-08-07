@@ -760,8 +760,9 @@ const Hotels = () => {
         );
       }
 
-      // One bulk API call for all new contract products (avoids 429 rate limit)
+      // Prefer 1 bulk request; if route missing (old deploy), create one-by-one safely
       if (pendingCreates.length > 0) {
+        let usedBulk = false;
         try {
           const bulkRes = await api.post(
             "/admin/products/bulk-contract",
@@ -769,7 +770,7 @@ const Hotels = () => {
               products: pendingCreates.map((p) => ({
                 name: p.name,
                 categoryId: p.categoryId,
-                subcategory: p.subcategory,
+                subcategory: p.subcategory || undefined,
                 price: p.price,
                 unit: p.unit,
                 stock: p.stock,
@@ -779,6 +780,7 @@ const Hotels = () => {
             { timeout: 180000 }
           );
 
+          usedBulk = true;
           const createdList = bulkRes.data?.data?.created || [];
           const bulkErrors = bulkRes.data?.data?.errors || [];
 
@@ -813,11 +815,53 @@ const Hotels = () => {
             createdCount += 1;
           }
         } catch (bulkError) {
-          failCount += pendingCreates.length;
-          errors.push(
-            `Bulk create failed: ${getApiErrorMessage(bulkError, "too many requests or server error")}. Try max ${MAX_EXCEL_ROWS} products.`
-          );
+          const status = (bulkError as { response?: { status?: number } })?.response
+            ?.status;
+          const msg = getApiErrorMessage(bulkError, "");
+          const routeMissing =
+            status === 404 || /route not found|not found/i.test(msg);
+
+          if (!routeMissing) {
+            failCount += pendingCreates.length;
+            errors.push(
+              `Bulk create failed: ${msg || "server error"}. Max ${MAX_EXCEL_ROWS} products per upload.`
+            );
+          } else {
+            // Fallback: create sequentially (works on older backends)
+            for (const pending of pendingCreates) {
+              try {
+                if (createdCount > 0) {
+                  await new Promise((r) => setTimeout(r, 400));
+                }
+                const rowAsRecord: Record<string, unknown> = {
+                  name: pending.name,
+                  category: pending.categoryId,
+                  subcategory: pending.subcategory || "",
+                  price: pending.price,
+                  unit: pending.unit,
+                  minimumQuantity: pending.stock,
+                };
+                const productId = await createProductFromExcelRow(
+                  rowAsRecord,
+                  productsCache
+                );
+                readyPricing.push({
+                  productId,
+                  fixedPrice: pending.fixedPrice,
+                  name: pending.name,
+                });
+                createdCount += 1;
+              } catch (createError) {
+                failCount += 1;
+                errors.push(
+                  `Row ${pending.rowNumber}: product "${pending.name}" — ${getApiErrorMessage(createError, "failed to create")}`
+                );
+              }
+            }
+          }
         }
+
+        void usedBulk;
       }
 
       for (const item of readyPricing) {
