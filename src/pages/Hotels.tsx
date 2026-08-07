@@ -541,7 +541,7 @@ const Hotels = () => {
         return;
       }
 
-      const MAX_EXCEL_ROWS = 100;
+      const MAX_EXCEL_ROWS = 500;
       let successCount = 0;
       let failCount = 0;
       let updateCount = 0;
@@ -698,67 +698,79 @@ const Hotels = () => {
         );
       }
 
-      // Single bulk request — creates all customer_fixed products in one transaction
+      // Bulk create in chunks — one HTTP request per chunk (no per-row calls)
       if (pendingCreates.length > 0) {
-        try {
-          const bulkRes = await api.post(
-            "/admin/products/bulk-contract",
-            {
-              customerId: currentHotel?.id ?? null,
-              products: pendingCreates.map((p) => ({
-                name: p.name,
-                categoryId: p.categoryId,
-                subcategory: p.subcategory || undefined,
-                price: p.price,
-                unit: p.unit,
-                stock: p.stock,
-                rowNumber: p.rowNumber,
-              })),
-            },
-            { timeout: 180000 }
-          );
+        const BULK_CHUNK = 200;
+        for (let offset = 0; offset < pendingCreates.length; offset += BULK_CHUNK) {
+          const chunk = pendingCreates.slice(offset, offset + BULK_CHUNK);
+          try {
+            const bulkRes = await api.post(
+              "/admin/products/bulk-contract",
+              {
+                customerId: currentHotel?.id ?? null,
+                products: chunk.map((p) => ({
+                  name: p.name,
+                  categoryId: p.categoryId,
+                  subcategory: p.subcategory || undefined,
+                  price: p.price,
+                  unit: p.unit,
+                  stock: p.stock,
+                  rowNumber: p.rowNumber,
+                })),
+              },
+              { timeout: 300000 }
+            );
 
-          const createdList = bulkRes.data?.data?.created || [];
-          const matchedList = bulkRes.data?.data?.matched || [];
-          const bulkErrors = bulkRes.data?.data?.errors || [];
+            const createdList = bulkRes.data?.data?.created || [];
+            const matchedList = bulkRes.data?.data?.matched || [];
+            const bulkErrors = bulkRes.data?.data?.errors || [];
 
-          for (const err of bulkErrors) {
-            failCount += 1;
+            for (const err of bulkErrors) {
+              failCount += 1;
+              errors.push(
+                `Row ${err.rowNumber}: product "${err.name || "?"}" — ${err.message || "failed"}`
+              );
+            }
+
+            const byRow = new Map<number, { id: number; name: string; isNew: boolean }>();
+            for (const c of createdList) {
+              byRow.set(Number(c.rowNumber), {
+                id: Number(c.id),
+                name: c.name || "",
+                isNew: true,
+              });
+            }
+            for (const c of matchedList) {
+              byRow.set(Number(c.rowNumber), {
+                id: Number(c.id),
+                name: c.name || "",
+                isNew: false,
+              });
+            }
+
+            for (const pending of chunk) {
+              const created = byRow.get(pending.rowNumber);
+              if (!created) continue;
+              productsCache.push({
+                id: created.id,
+                name: created.name || pending.name,
+                categoryId: pending.categoryId,
+              });
+              readyPricing.push({
+                productId: created.id,
+                fixedPrice: pending.fixedPrice,
+                name: created.name || pending.name,
+              });
+              if (created.isNew) {
+                createdCount += 1;
+              }
+            }
+          } catch (bulkError) {
+            failCount += chunk.length;
             errors.push(
-              `Row ${err.rowNumber}: product "${err.name || "?"}" — ${err.message || "failed"}`
+              `Bulk create failed (rows ${chunk[0]?.rowNumber}-${chunk[chunk.length - 1]?.rowNumber}): ${getApiErrorMessage(bulkError, "server error")}`
             );
           }
-
-          const byRow = new Map<number, { id: number; name: string }>();
-          for (const c of [...createdList, ...matchedList]) {
-            byRow.set(Number(c.rowNumber), {
-              id: Number(c.id),
-              name: c.name || "",
-            });
-          }
-
-          for (const pending of pendingCreates) {
-            const created = byRow.get(pending.rowNumber);
-            if (!created) continue;
-            productsCache.push({
-              id: created.id,
-              name: created.name || pending.name,
-              categoryId: pending.categoryId,
-            });
-            readyPricing.push({
-              productId: created.id,
-              fixedPrice: pending.fixedPrice,
-              name: created.name || pending.name,
-            });
-            if (createdList.some((c: { rowNumber: number }) => Number(c.rowNumber) === pending.rowNumber)) {
-              createdCount += 1;
-            }
-          }
-        } catch (bulkError) {
-          failCount += pendingCreates.length;
-          errors.push(
-            `Bulk create failed: ${getApiErrorMessage(bulkError, "server error")}. Max ${MAX_EXCEL_ROWS} products per upload.`
-          );
         }
       }
 
@@ -1607,7 +1619,7 @@ const Hotels = () => {
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>100 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>500 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                 </p>
               </div>
 
@@ -1894,7 +1906,7 @@ const Hotels = () => {
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>100 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>500 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                   </p>
                 </div>
 

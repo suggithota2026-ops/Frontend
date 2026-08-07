@@ -602,10 +602,19 @@ const Products = () => {
       const byId = categories.find((c) => c.id === asNumber);
       if (byId) return byId.id;
     }
+    const normalized = categoryValue.trim().toLowerCase();
     const byName = categories.find(
-      (c) => c.name.trim().toLowerCase() === categoryValue.trim().toLowerCase()
+      (c) => c.name.trim().toLowerCase() === normalized
     );
-    return byName?.id || null;
+    if (byName) return byName.id;
+
+    const partialMatches = categories.filter((c) => {
+      const catName = c.name.trim().toLowerCase();
+      return catName.includes(normalized) || normalized.includes(catName);
+    });
+    if (partialMatches.length === 1) return partialMatches[0].id;
+
+    return null;
   };
 
   const resolveSubcategory = (categoryId: number, subcategoryValue: string) => {
@@ -630,7 +639,7 @@ const Products = () => {
       {
         name: "Tomato",
         category: sampleCategory,
-        subcategory: sampleSubcategory,
+        subcategory: sampleSubcategory || "",
         price: 40,
         unit: "kg",
         minimumQuantity: 100,
@@ -638,7 +647,7 @@ const Products = () => {
       {
         name: "Onion",
         category: sampleCategory,
-        subcategory: sampleSubcategory,
+        subcategory: "",
         price: 30,
         unit: "kg",
         minimumQuantity: 80,
@@ -691,25 +700,43 @@ const Products = () => {
       }
 
       const headerKeys = Object.keys(rows[0] || {}).map((header) => normalizeHeader(header));
-      const hasMinimumQuantityColumn = headerKeys.some((header) =>
-        [
-          "minimumquantity",
-          "minquantity",
-          "minqty",
-          "minimumqty",
-        ].includes(header)
+      const hasNameColumn = headerKeys.some((header) =>
+        ["name", "productname", "product"].includes(header)
+      );
+      const hasCategoryColumn = headerKeys.some((header) =>
+        ["category", "categoryid", "categoryname"].includes(header)
+      );
+      const hasPriceColumn = headerKeys.some((header) =>
+        ["price", "mrp", "rate"].includes(header)
       );
 
-      if (!hasMinimumQuantityColumn) {
+      if (!hasNameColumn || !hasCategoryColumn || !hasPriceColumn) {
+        const missing = [
+          !hasNameColumn ? "name" : "",
+          !hasCategoryColumn ? "category" : "",
+          !hasPriceColumn ? "price" : "",
+        ].filter(Boolean);
         toast.error(
-          "Minimum Quantity column is required in Excel. Please add a 'minimumQuantity' column and try again."
+          `Excel must include required columns: ${missing.join(", ")}. Subcategory, unit and minimumQuantity are optional.`
         );
         return;
       }
 
       let successCount = 0;
       let failCount = 0;
+      let updateCount = 0;
       const errors: string[] = [];
+      const pendingCreates: Array<{
+        rowNumber: number;
+        name: string;
+        categoryId: number;
+        subcategory: string | null;
+        price: number;
+        unit: string;
+        stock: number;
+      }> = [];
+
+      const MAX_EXCEL_ROWS = 500;
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -722,7 +749,7 @@ const Products = () => {
           "subcategoryname",
         ]);
         const priceValue = getRowValue(row, ["price", "mrp", "rate"]);
-        const unitValue = getRowValue(row, ["unit"]);
+        const unitValue = getRowValue(row, ["unit"]) || "kg";
         const minQuantityValue = getRowValue(row, [
           "minimumquantity",
           "minquantity",
@@ -730,82 +757,134 @@ const Products = () => {
           "minimumqty",
         ]);
 
-        const missingFields: string[] = [];
-        if (!name) missingFields.push("name");
-        if (!categoryValue) missingFields.push("category");
-        if (!subcategoryValue) missingFields.push("subcategory");
-        if (!priceValue) missingFields.push("price");
-        if (!unitValue) missingFields.push("unit");
-        if (!minQuantityValue) missingFields.push("minimumQuantity");
+        // Empty row — skip silently
+        if (!name && !priceValue && !categoryValue) continue;
 
-        if (missingFields.length > 0) {
+        if (pendingCreates.length + failCount >= MAX_EXCEL_ROWS) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: required fields missing (${missingFields.join(", ")})`);
+          errors.push(
+            `Row ${rowNumber}: skipped — max ${MAX_EXCEL_ROWS} products per upload. Split the file and upload again.`
+          );
+          continue;
+        }
+
+        // name, category, price are mandatory — skip row and continue with others
+        const missingRequired: string[] = [];
+        if (!name) missingRequired.push("name");
+        if (!categoryValue) missingRequired.push("category");
+        if (!priceValue) missingRequired.push("price");
+
+        if (missingRequired.length > 0) {
+          failCount += 1;
+          errors.push(
+            `Row ${rowNumber}: skipped — missing required (${missingRequired.join(", ")})`
+          );
           continue;
         }
 
         const categoryId = resolveCategoryId(categoryValue);
         if (!categoryId) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: category "${categoryValue}" not found`);
-          continue;
-        }
-
-        const subcategory = resolveSubcategory(categoryId, subcategoryValue);
-        if (!subcategory) {
-          failCount += 1;
-          errors.push(`Row ${rowNumber}: subcategory "${subcategoryValue}" not found`);
+          errors.push(`Row ${rowNumber}: skipped — category "${categoryValue}" not found`);
           continue;
         }
 
         const price = Number(priceValue);
         if (Number.isNaN(price) || price < 0) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: invalid price`);
+          errors.push(`Row ${rowNumber}: skipped — invalid price`);
           continue;
         }
 
-        const minimumQuantity = Number(minQuantityValue);
+        // subcategory optional — map if present, otherwise null
+        let subcategory: string | null = null;
+        if (subcategoryValue) {
+          subcategory = resolveSubcategory(categoryId, subcategoryValue);
+          if (!subcategory) {
+            // Invalid subcategory name — still create product without it
+            subcategory = null;
+          }
+        }
+
+        const minimumQuantity = minQuantityValue ? Number(minQuantityValue) : 0.5;
         if (Number.isNaN(minimumQuantity) || minimumQuantity < 0) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: Minimum Quantity is mandatory and must be a valid number`);
+          errors.push(`Row ${rowNumber}: skipped — invalid minimumQuantity`);
           continue;
         }
 
+        pendingCreates.push({
+          rowNumber,
+          name,
+          categoryId,
+          subcategory,
+          price,
+          unit: unitValue,
+          stock: minimumQuantity,
+        });
+      }
+
+      if (pendingCreates.length === 0) {
+        toast.error(
+          errors.length
+            ? `No products uploaded. Every data row is missing name, category or price (or category not found).`
+            : "No valid product rows found. Required columns: name, category, price."
+        );
+        if (errors.length) console.warn("Excel upload errors:", errors);
+        return;
+      }
+
+      // Single bulk request (chunked if needed) — no per-row API calls
+      const BULK_CHUNK = 200;
+      for (let offset = 0; offset < pendingCreates.length; offset += BULK_CHUNK) {
+        const chunk = pendingCreates.slice(offset, offset + BULK_CHUNK);
         try {
-          const formDataToSend = new FormData();
-          formDataToSend.append("name", name);
-          formDataToSend.append("category", categoryId.toString());
-          formDataToSend.append("subcategory", subcategory);
-          formDataToSend.append("price", price.toString());
-          formDataToSend.append("unit", unitValue);
-          formDataToSend.append("stock", minimumQuantity.toString());
-          formDataToSend.append("isActive", "true");
-          formDataToSend.append("isContractOnly", "false");
+          const bulkRes = await api.post(
+            "/admin/products/bulk-catalog",
+            {
+              products: chunk.map((p) => ({
+                name: p.name,
+                categoryId: p.categoryId,
+                subcategory: p.subcategory || undefined,
+                price: p.price,
+                unit: p.unit,
+                stock: p.stock,
+                rowNumber: p.rowNumber,
+              })),
+            },
+            { timeout: 300000 }
+          );
 
-          const response = await api.post("/admin/products", formDataToSend, {
-            headers: { "Content-Type": "multipart/form-data" },
-            timeout: 60000,
-          });
+          const createdList = bulkRes.data?.data?.created || [];
+          const matchedList = bulkRes.data?.data?.matched || [];
+          const bulkErrors = bulkRes.data?.data?.errors || [];
 
-          if (response.data.success) {
-            successCount += 1;
-          } else {
+          successCount += createdList.length;
+          updateCount += matchedList.length;
+          for (const err of bulkErrors) {
             failCount += 1;
-            errors.push(`Row ${rowNumber}: ${response.data.message || "failed"}`);
+            errors.push(
+              `Row ${err.rowNumber}: product "${err.name || "?"}" — ${err.message || "failed"}`
+            );
           }
-        } catch (error) {
-          failCount += 1;
-          errors.push(`Row ${rowNumber}: ${getApiErrorMessage(error, "failed to create")}`);
+        } catch (bulkError) {
+          failCount += chunk.length;
+          errors.push(
+            `Bulk create failed (rows ${chunk[0]?.rowNumber}-${chunk[chunk.length - 1]?.rowNumber}): ${getApiErrorMessage(bulkError, "server error")}`
+          );
         }
       }
 
       await fetchProducts(filterSubcategory);
 
       if (successCount > 0 && failCount === 0) {
-        toast.success(`${successCount} product(s) uploaded successfully`);
-      } else if (successCount > 0) {
-        toast.warning(`${successCount} uploaded, ${failCount} failed`);
+        toast.success(
+          `${successCount} product(s) uploaded successfully${updateCount ? ` (${updateCount} already existed)` : ""}`
+        );
+      } else if (successCount > 0 || updateCount > 0) {
+        toast.warning(
+          `${successCount} created, ${updateCount} matched existing, ${failCount} row(s) skipped. Name, category and price are required.`
+        );
         if (errors.length) console.warn("Excel upload errors:", errors);
       } else {
         toast.error(errors[0] || "No products were uploaded");
