@@ -541,6 +541,25 @@ const Hotels = () => {
         return;
       }
 
+      const headerKeys = Object.keys(rows[0] || {}).map((header) => normalizeHeader(header));
+      const hasNameColumn = headerKeys.some((header) =>
+        ["name", "product", "productname", "productid"].includes(header)
+      );
+      const hasPriceColumn = headerKeys.some((header) =>
+        ["price", "fixedprice", "rate", "mrp"].includes(header)
+      );
+
+      if (!hasNameColumn || !hasPriceColumn) {
+        const missing = [
+          !hasNameColumn ? "name" : "",
+          !hasPriceColumn ? "price" : "",
+        ].filter(Boolean);
+        toast.error(
+          `Excel must include required columns: ${missing.join(", ")}. Category is required for new products; subcategory is optional.`
+        );
+        return;
+      }
+
       const MAX_EXCEL_ROWS = 500;
       let successCount = 0;
       let failCount = 0;
@@ -604,7 +623,7 @@ const Hotels = () => {
           "stock",
         ]);
 
-        if (!productValue && !priceValue) continue;
+        if (!productValue && !priceValue && !categoryValue) continue;
 
         dataRowCount += 1;
         if (dataRowCount > MAX_EXCEL_ROWS) {
@@ -615,15 +634,14 @@ const Hotels = () => {
           continue;
         }
 
-        if (!productValue || !priceValue) {
+        // name + price required — skip row and continue with others
+        const missingRequired: string[] = [];
+        if (!productValue) missingRequired.push("name");
+        if (!priceValue) missingRequired.push("price");
+        if (missingRequired.length > 0) {
           failCount += 1;
           errors.push(
-            `Row ${rowNumber}: required fields missing (${[
-              !productValue ? "name" : "",
-              !priceValue ? "price" : "",
-            ]
-              .filter(Boolean)
-              .join(", ")})`
+            `Row ${rowNumber}: skipped — missing required (${missingRequired.join(", ")})`
           );
           continue;
         }
@@ -631,7 +649,7 @@ const Hotels = () => {
         const fixedPrice = Number(priceValue);
         if (Number.isNaN(fixedPrice) || fixedPrice < 0) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: invalid price`);
+          errors.push(`Row ${rowNumber}: skipped — invalid price`);
           continue;
         }
 
@@ -655,7 +673,7 @@ const Hotels = () => {
         if (!categoryValue) {
           failCount += 1;
           errors.push(
-            `Row ${rowNumber}: product "${productValue}" not found — add a category column to create it`
+            `Row ${rowNumber}: skipped — product "${productValue}" needs category to create`
           );
           continue;
         }
@@ -664,7 +682,7 @@ const Hotels = () => {
         if (!categoryId) {
           failCount += 1;
           errors.push(
-            `Row ${rowNumber}: category "${categoryValue}" not found`
+            `Row ${rowNumber}: skipped — category "${categoryValue}" not found`
           );
           continue;
         }
@@ -672,13 +690,15 @@ const Hotels = () => {
         const stock = minQuantityValue ? Number(minQuantityValue) : 0.5;
         if (Number.isNaN(stock) || stock < 0) {
           failCount += 1;
-          errors.push(`Row ${rowNumber}: invalid minimumQuantity`);
+          errors.push(`Row ${rowNumber}: skipped — invalid minimumQuantity`);
           continue;
         }
 
-        const subcategory = subcategoryValue
-          ? resolveSubcategory(categoryId, subcategoryValue, categoryMaps)
-          : null;
+        // subcategory optional — create without it if missing/invalid
+        let subcategory: string | null = null;
+        if (subcategoryValue) {
+          subcategory = resolveSubcategory(categoryId, subcategoryValue, categoryMaps);
+        }
 
         pendingCreates.push({
           rowNumber,
@@ -696,6 +716,16 @@ const Hotels = () => {
         toast.warning(
           `Excel has ${dataRowCount} products. Only first ${MAX_EXCEL_ROWS} are processed per upload.`
         );
+      }
+
+      if (pendingCreates.length === 0 && readyPricing.length === 0) {
+        toast.error(
+          errors.length
+            ? "No products imported. Every data row is missing name/price (or category for new products)."
+            : "No valid product rows found. Required: name, price (and category for new products)."
+        );
+        if (errors.length) console.warn("Excel upload errors:", errors);
+        return;
       }
 
       // Bulk create in chunks — one HTTP request per chunk (no per-row calls)
@@ -1686,7 +1716,7 @@ const Hotels = () => {
             </Button>
             <Button 
               type="submit"
-              onClick={handleAddHotel} 
+              onClick={() => handleAddHotel()} 
               disabled={
                 isLoading ||
                 isExcelUploading ||
