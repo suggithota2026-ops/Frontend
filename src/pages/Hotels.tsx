@@ -442,13 +442,29 @@ const Hotels = () => {
     formDataToSend.append("price", price.toString());
     formDataToSend.append("unit", unitValue);
     formDataToSend.append("stock", minimumQuantity.toString());
-    formDataToSend.append("isContractOnly", "true");
     formDataToSend.append("isActive", "true");
+    // Do NOT send isContractOnly in body — live Joi rejects it.
+    // Use query flag so newer backends can mark contract-only SKUs.
 
-    const response = await api.post("/admin/products", formDataToSend, {
-      headers: { "Content-Type": "multipart/form-data" },
-      timeout: 60000,
-    });
+    const postProduct = async () =>
+      api.post("/admin/products?contractOnly=1", formDataToSend, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000,
+      });
+
+    let response;
+    try {
+      response = await postProduct();
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      // Retry once after short wait on rate limit
+      if (status === 429) {
+        await new Promise((r) => setTimeout(r, 1500));
+        response = await postProduct();
+      } else {
+        throw err;
+      }
+    }
 
     if (!response.data.success) {
       throw new Error(response.data.message || "failed to create product");
@@ -460,7 +476,6 @@ const Hotels = () => {
       name: created.name || name,
       categoryId: Number(created.categoryId || categoryId),
     };
-    // Keep in upload-session cache only — do not add to sidebar catalog (allProducts)
     productsCache.push(catalogProduct);
     return catalogProduct.id;
   };
@@ -666,6 +681,12 @@ const Hotels = () => {
             continue;
           }
           try {
+            // Throttle creates (5 at a time) to avoid live rate-limit
+            if (createdCount > 0 && createdCount % 5 === 0) {
+              await new Promise((r) => setTimeout(r, 1200));
+            } else if (createdCount > 0) {
+              await new Promise((r) => setTimeout(r, 250));
+            }
             productId = await createProductFromExcelRow(row, productsCache);
             createdCount += 1;
           } catch (createError) {
@@ -1520,7 +1541,7 @@ const Hotels = () => {
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically.
+                  Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically (in small batches to avoid rate limits — large files may take a minute).
                 </p>
               </div>
 
@@ -1807,7 +1828,7 @@ const Hotels = () => {
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically.
+                    Prices set here apply only to this Fixed Price customer for the contract period. New products from Excel are contract-only and will not appear in the Daily/Weekly catalog. Upload Excel using template columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>. Missing products are created automatically (in small batches to avoid rate limits — large files may take a minute).
                   </p>
                 </div>
 
