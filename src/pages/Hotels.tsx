@@ -1649,7 +1649,7 @@ const Hotels = () => {
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>500 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                 </p>
               </div>
 
@@ -1936,7 +1936,7 @@ const Hotels = () => {
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Max <strong>500 products</strong> per upload — split larger files. Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
                   </p>
                 </div>
 
