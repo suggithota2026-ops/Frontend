@@ -1577,7 +1577,7 @@ const Hotels = () => {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="gstNumber">GST Number (optional)</Label>
+                  <Label htmlFor="gstNumber">GST Number (Optional)</Label>
                   <Input
                     id="gstNumber"
                     placeholder="e.g. 29ABCDE1234F1Z5"
@@ -1862,7 +1862,7 @@ const Hotels = () => {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-gstNumber">GST Number (optional)</Label>
+                  <Label htmlFor="edit-gstNumber">GST Number (Optional)</Label>
                   <Input
                     id="edit-gstNumber"
                     placeholder="e.g. 29ABCDE1234F1Z5"
