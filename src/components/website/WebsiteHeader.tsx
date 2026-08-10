@@ -37,7 +37,7 @@ export const WebsiteHeader = memo(function WebsiteHeader() {
           <Link to="/" className="group flex items-center" onClick={() => setIsMenuOpen(false)}>
             <div className="rounded-full bg-transparent shadow-lg transition-transform duration-300 group-hover:scale-105">
               <img
-                src="/Invoice.png"
+                src="/prk-smile-logo.png"
                 alt="Suggi Thota Logo"
                 width={160}
                 height={64}
