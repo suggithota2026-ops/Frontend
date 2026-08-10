@@ -1567,7 +1567,7 @@ const Hotels = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email (optional)</Label>
+                  <Label htmlFor="email">Email (Optional)</Label>
                   <Input
                     id="email"
                     type="email"
