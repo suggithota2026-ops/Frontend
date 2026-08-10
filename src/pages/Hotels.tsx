@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { Plus, MoreHorizontal, Trash2, Ban, CheckCircle, Search, Edit, ArrowLeft, Upload, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import {
@@ -53,6 +54,7 @@ interface Hotel {
   latitude?: number;
   longitude?: number;
   gstNumber?: string;
+  email?: string;
   creditLimit: number;
   isBlocked: boolean;
   rateType?: string;
@@ -83,6 +85,9 @@ interface CatalogProduct {
   categoryId?: number;
 }
 
+const GST_NUMBER_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const Hotels = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -103,6 +108,7 @@ const Hotels = () => {
     hotelName: "",
     mobileNumber: "",
     address: "",
+    email: "",
     gstNumber: "",
     creditLimit: "",
     rateType: "",
@@ -161,6 +167,7 @@ const Hotels = () => {
       hotelName: "",
       mobileNumber: "",
       address: "",
+      email: "",
       gstNumber: "",
       creditLimit: "",
       rateType: "",
@@ -917,6 +924,7 @@ const Hotels = () => {
     mobileNumber: String(row.mobileNumber || ""),
     address: row.address || "",
     gstNumber: row.gstNumber || undefined,
+    email: row.email || undefined,
     creditLimit: Number(row.creditLimit ?? 0),
     isBlocked: !!row.isBlocked,
     rateType: row.rateType || undefined,
@@ -1050,9 +1058,70 @@ const Hotels = () => {
     }
   };
 
+  const validateOptionalContactFields = () => {
+    const trimmedGst = formData.gstNumber.trim();
+    if (trimmedGst && !GST_NUMBER_PATTERN.test(trimmedGst)) {
+      toast.error("Please enter a valid GST number or leave it blank");
+      return false;
+    }
+
+    const trimmedEmail = formData.email.trim();
+    if (trimmedEmail && !EMAIL_PATTERN.test(trimmedEmail)) {
+      toast.error("Please enter a valid email address or leave it blank");
+      return false;
+    }
+
+    return true;
+  };
+
+  const validateRequiredCustomerFields = (mode: "add" | "edit" = "add") => {
+    const trimmedName = formData.hotelName.trim();
+    if (!trimmedName) {
+      toast.error("Please enter customer name");
+      return false;
+    }
+
+    if (mode === "add") {
+      const trimmedMobile = formData.mobileNumber.trim();
+      if (!trimmedMobile) {
+        toast.error("Please enter mobile number");
+        return false;
+      }
+
+      const normalizedMobile = trimmedMobile.replace(/\D/g, "");
+      if (normalizedMobile.length !== 10) {
+        toast.error("Please enter a valid 10-digit mobile number");
+        return false;
+      }
+    }
+
+    return validateOptionalContactFields();
+  };
+
+  const handleCancelAdd = () => {
+    resetForm();
+    setShowAddForm(false);
+  };
+
+  const handleCancelEdit = () => {
+    if (isLoading || isExcelUploading) return;
+    setIsEditOpen(false);
+    setCurrentHotel(null);
+    resetForm();
+  };
+
+  const handleAddFormSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    handleAddHotel();
+  };
+
+  const handleEditFormSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    handleEditHotel();
+  };
+
   const handleAddHotel = async (options?: { skipSameNameCheck?: boolean }) => {
-    if (!formData.hotelName || !formData.mobileNumber) {
-      toast.error("Please fill in all required customer information fields");
+    if (!validateRequiredCustomerFields("add")) {
       return;
     }
 
@@ -1078,11 +1147,6 @@ const Hotels = () => {
     }
 
     const normalizedMobile = (formData.mobileNumber || "").replace(/\D/g, "");
-    if (normalizedMobile.length !== 10) {
-      toast.error("Please enter correct mobile number");
-      return;
-    }
-
     const trimmedName = formData.hotelName.trim();
 
     setIsLoading(true);
@@ -1114,7 +1178,8 @@ const Hotels = () => {
         hotelName: trimmedName,
         mobileNumber: normalizedMobile,
         address: formData.address?.trim(),
-        gstNumber: formData.gstNumber ? formData.gstNumber.trim().toUpperCase() : undefined,
+        email: formData.email.trim() ? formData.email.trim().toLowerCase() : undefined,
+        gstNumber: formData.gstNumber.trim() ? formData.gstNumber.trim().toUpperCase() : undefined,
         creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
         rateType: formData.rateType || undefined,
         contractDuration: formData.rateType === 'Fixed Price' ? 'Custom' : undefined,
@@ -1177,7 +1242,9 @@ const Hotels = () => {
       } else if (detailText.includes("mobilenumber")) {
         toast.error("Please enter correct mobile number");
       } else if (detailText.includes("gstnumber")) {
-        toast.error("Please enter correct GST number");
+        toast.error("Please enter a valid GST number or leave it blank");
+      } else if (detailText.includes("email")) {
+        toast.error("Please enter a valid email address or leave it blank");
       } else if (detailText.includes("address")) {
         toast.error("Please enter correct address");
       } else if (detailText.includes("hotelname")) {
@@ -1191,8 +1258,11 @@ const Hotels = () => {
   };
 
   const handleEditHotel = async () => {
-    if (!currentHotel || !formData.hotelName) {
-      toast.error("Please fill in all required customer information fields");
+    if (!currentHotel) {
+      return;
+    }
+
+    if (!validateRequiredCustomerFields("edit")) {
       return;
     }
 
@@ -1224,7 +1294,8 @@ const Hotels = () => {
         {
           hotelName: formData.hotelName,
           address: formData.address,
-          gstNumber: formData.gstNumber || undefined,
+          email: formData.email.trim() ? formData.email.trim().toLowerCase() : null,
+          gstNumber: formData.gstNumber.trim() ? formData.gstNumber.trim().toUpperCase() : null,
           creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
           rateType: formData.rateType,
           ...(formData.rateType === "Fixed Price"
@@ -1280,6 +1351,7 @@ const Hotels = () => {
         hotelName: hotelData.hotelName,
         mobileNumber: hotelData.mobileNumber,
         address: hotelData.address,
+        email: hotelData.email || "",
         gstNumber: hotelData.gstNumber || "",
         creditLimit: String(hotelData.creditLimit ?? ""),
         rateType: hotelData.rateType || "",
@@ -1453,19 +1525,17 @@ const Hotels = () => {
         </>
       ) : (
         /* Add Customer Form Page */
-        <form ref={addFormRef} className="space-y-6">
+        <form ref={addFormRef} className="space-y-6" onSubmit={handleAddFormSubmit}>
           {/* Header */}
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                resetForm();
-                setShowAddForm(false);
-              }}
+              type="button"
+              aria-label="Back to customers"
+              onClick={handleCancelAdd}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Customers
+              <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Add New Customer Account</h1>
@@ -1495,22 +1565,35 @@ const Hotels = () => {
                   onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
                 />
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email (optional)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="e.g. customer@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="gstNumber">GST Number (optional)</Label>
+                  <Input
+                    id="gstNumber"
+                    placeholder="e.g. 29ABCDE1234F1Z5"
+                    value={formData.gstNumber}
+                    onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
+                  />
+                </div>
+              </div>
               <div className="grid gap-2 md:col-span-2">
                 <Label htmlFor="address">Address</Label>
-                <Input
+                <Textarea
                   id="address"
                   placeholder="e.g. 123 Main Street, Mumbai, MH"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="gstNumber">GST Number</Label>
-                <Input
-                  id="gstNumber"
-                  placeholder="e.g. 29ABCDE1234F1Z5"
-                  value={formData.gstNumber}
-                  onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
+                  rows={3}
                 />
               </div>
             </div>
@@ -1520,13 +1603,7 @@ const Hotels = () => {
           <div className="bg-white rounded-lg border p-6">
             <h2 className="text-xl font-semibold mb-4">Pricing & Contract Configuration</h2>
             <div className="grid gap-4">
-              <div
-                className={
-                  formData.rateType === "Fixed Price"
-                    ? "grid gap-4 sm:grid-cols-3"
-                    : "grid gap-2"
-                }
-              >
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="grid gap-2">
                   <Label htmlFor="rateType">Rate Type *</Label>
                   <select
@@ -1705,18 +1782,15 @@ const Hotels = () => {
           {/* Form Actions */}
           <div className="flex justify-end gap-3">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => {
-                resetForm();
-                setShowAddForm(false);
-              }}
+              onClick={handleCancelAdd}
               disabled={isLoading}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               type="submit"
-              onClick={() => handleAddHotel()} 
               disabled={
                 isLoading ||
                 isExcelUploading ||
@@ -1736,9 +1810,16 @@ const Hotels = () => {
         </form>
       )}
       {/* Edit Hotel Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog
+        open={isEditOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelEdit();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
-          <form ref={editFormRef} className="flex flex-col max-h-[90vh] min-h-0">
+          <form ref={editFormRef} className="flex flex-col max-h-[90vh] min-h-0" onSubmit={handleEditFormSubmit}>
             <DialogHeader className="px-6 pr-12 pt-6 pb-4 shrink-0 border-b">
               <DialogTitle>Edit Customer Account</DialogTitle>
               <DialogDescription>
@@ -1769,13 +1850,35 @@ const Hotels = () => {
                     className="bg-muted"
                   />
                 </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-email">Email (optional)</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    placeholder="e.g. customer@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-gstNumber">GST Number (optional)</Label>
+                  <Input
+                    id="edit-gstNumber"
+                    placeholder="e.g. 29ABCDE1234F1Z5"
+                    value={formData.gstNumber}
+                    onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
+                  />
+                </div>
+              </div>
               <div className="grid gap-2 md:col-span-2">
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
+                <Label htmlFor="edit-address">Address</Label>
+                <Textarea
+                  id="edit-address"
                   placeholder="e.g. 123 Main Street, Mumbai, MH"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  rows={3}
                 />
                 {currentHotel?.city || currentHotel?.latitude != null ? (
                   <p className="text-xs text-muted-foreground">
@@ -1791,15 +1894,6 @@ const Hotels = () => {
                   </p>
                 ) : null}
               </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-gstNumber">GST Number</Label>
-                  <Input
-                    id="edit-gstNumber"
-                    placeholder="e.g. 29ABCDE1234F1Z5"
-                    value={formData.gstNumber}
-                    onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
-                  />
-                </div>
               </div>
             </div>
 
@@ -1807,13 +1901,7 @@ const Hotels = () => {
             <div className="border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Pricing & Contract Configuration</h3>
               <div className="grid gap-4">
-                <div
-                  className={
-                    formData.rateType === "Fixed Price"
-                      ? "grid gap-4 sm:grid-cols-3"
-                      : "grid gap-2"
-                  }
-                >
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div className="grid gap-2">
                     <Label htmlFor="edit-rateType">Rate Type *</Label>
                     <select
@@ -1990,14 +2078,11 @@ const Hotels = () => {
             )}
           </div>
           <DialogFooter className="shrink-0 border-t px-6 py-4 bg-background">
-            <Button variant="outline" onClick={() => {
-              if (isExcelUploading) return;
-              setIsEditOpen(false);
-              setCurrentHotel(null);
-            }} disabled={isLoading || isExcelUploading}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={isLoading || isExcelUploading}>
+              Cancel
+            </Button>
             <Button
               type="submit"
-              onClick={handleEditHotel}
               disabled={
                 isLoading ||
                 isExcelUploading ||
