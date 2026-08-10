@@ -215,6 +215,9 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                 <div className="flex items-center">
                     <img src="/Invoice.png" alt="PRK SMILES" className="h-20 w-auto object-contain" crossOrigin="anonymous" />
                 </div>
+                <div className="flex flex-1 px-4">
+                    <img src="/suggi-thota-logo.png" alt="Suggi Thota" className="h-20 w-auto object-contain" crossOrigin="anonymous" />
+                </div>
                 <div className="text-right">
                     {businessDetails.name && (
                         <h1 className="text-2xl font-bold text-gray-900">{businessDetails.name}</h1>
