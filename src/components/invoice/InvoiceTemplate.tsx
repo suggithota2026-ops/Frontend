@@ -213,7 +213,7 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
             {/* Header */}
             <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
                 <div className="flex items-center">
-                    <img src="/Invoice.png" alt="PRK SMILES" className="h-20 w-auto object-contain" crossOrigin="anonymous" />
+                    <img src="/prk-smile-logo.png" alt="PRK SMILES" className="h-20 w-auto object-contain" crossOrigin="anonymous" />
                 </div>
                 <div className="flex flex-1 px-4">
                     <img src="/suggi-thota-logo.png" alt="Suggi Thota" className="h-20 w-auto object-contain" crossOrigin="anonymous" />
