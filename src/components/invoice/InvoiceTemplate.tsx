@@ -194,6 +194,19 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
         return parts.join(", ");
     };
 
+    // ST-YY/YY-#### using Indian financial year (Apr–Mar) and order id as sequence
+    const getInvoiceNumber = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth(); // 0 = Jan
+        const fyStart = month >= 3 ? year : year - 1;
+        const fyEnd = fyStart + 1;
+        const yyStart = String(fyStart).slice(-2);
+        const yyEnd = String(fyEnd).slice(-2);
+        const seq = order.id.toString().padStart(4, '0');
+        return `ST-${yyStart}/${yyEnd}-${seq}`;
+    };
+
     // Don't render anything while loading to prevent PDF generation with loading state
     if (isLoading) {
         return (
@@ -278,7 +291,7 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                 <div className="w-1/3 p-3">
                     <div className="grid grid-cols-2 gap-y-1 text-xs">
                         <div className="font-semibold text-gray-600">Invoice No:</div>
-                        <div className="font-bold">{`INV-${new Date().getFullYear()}-${order.id.toString().padStart(4, '0')}`}</div>
+                        <div className="font-bold">{getInvoiceNumber()}</div>
 
                         <div className="font-semibold text-gray-600">Invoice Date:</div>
                         <div>{getInvoiceDate()}</div>
@@ -342,47 +355,56 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                 </tbody>
             </table>
 
-            {/* Totals */}
-            <div data-invoice-keep-together className="flex justify-end mb-8">
+            {/* Totals + footer stay packable into leftover page space */}
+            <div data-invoice-keep-together className="flex justify-end mb-3">
                 <div className="w-1/2">
-                    <div className="flex justify-between border-b border-gray-300 py-2">
+                    <div className="flex justify-between border-b border-gray-300 py-1.5">
                         <span className="font-semibold text-sm">Sub Total</span>
                         <span className="text-sm">₹{(order.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between border-b border-gray-300 py-2">
+                    <div className="flex justify-between border-b border-gray-300 py-1.5">
                         <span className="font-semibold text-sm">Delivery Charge</span>
                         <span className="text-sm">₹{(order.deliveryCharge || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between border-b border-gray-300 py-2">
+                    <div className="flex justify-between border-b border-gray-300 py-1.5">
                         <span className="font-semibold text-sm">CGST (0%)</span>
                         <span className="text-sm">₹0.00</span>
                     </div>
-                    <div className="flex justify-between border-b border-gray-300 py-2">
+                    <div className="flex justify-between border-b border-gray-300 py-1.5">
                         <span className="font-semibold text-sm">SGST (0%)</span>
                         <span className="text-sm">₹0.00</span>
                     </div>
-                    <div className="flex justify-between border-b-2 border-gray-800 py-2 text-lg font-bold bg-gray-50 px-2 mt-1">
+                    <div className="flex justify-between border-b-2 border-gray-800 py-1.5 text-lg font-bold bg-gray-50 px-2 mt-1">
                         <span>Grand Total</span>
                         <span>₹{getTotal().toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="text-xs mt-2 px-2 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-left">
+                    <div className="text-xs mt-1.5 px-2 py-1.5 bg-gray-50 border border-gray-200 text-gray-700 text-left">
                         <span className="font-semibold">Amount in words: </span>
                         {amountInWords(getTotal())} Only
                     </div>
                 </div>
             </div>
 
-            {/* Footer */}
-            <div data-invoice-keep-together className="mt-auto pt-8 border-t-2 border-gray-800">
-                <div className="flex justify-between items-end">
-                    <div className="text-xs text-gray-600 max-w-[60%]">
-                        <p className="font-bold mb-1">Terms & Conditions:</p>
-                        <p>1. Goods once sold will not be taken back.</p>
-                        <p>2. Interest @ 18% p.a. will be charged if the bill is not paid within the due date.</p>
-                        <p>3. All disputes are subject to Bangalore Jurisdiction only.</p>
+            {/* Footer — kept as one PDF block (no mid-page split) */}
+            <div data-invoice-keep-together className="pt-3 pb-1 border-t-2 border-gray-800">
+                <div className="flex justify-between items-end gap-6">
+                    <div className="text-sm text-gray-900 max-w-[60%]">
+                        <p className="font-bold text-gray-900 mb-1">Bank Details</p>
+                        <div className="grid grid-cols-[120px_1fr] gap-y-0.5 gap-x-2 leading-snug">
+                            <span className="font-bold text-gray-800">Account No</span>
+                            <span>50200078960351</span>
+                            <span className="font-bold text-gray-800">Account Name</span>
+                            <span>PRK SMILE ID GREENS</span>
+                            <span className="font-bold text-gray-800">Bank Name</span>
+                            <span>HDFC BANK</span>
+                            <span className="font-bold text-gray-800">Branch Name</span>
+                            <span>JP NAGAR</span>
+                            <span className="font-bold text-gray-800">IFSC Code</span>
+                            <span>HDFC0004140</span>
+                        </div>
                     </div>
-                    <div className="text-center">
-                        <p className="font-bold mb-8">For {businessDetails.name}</p>
+                    <div className="text-center min-w-[160px]">
+                        <p className="font-bold mb-6">For {businessDetails.name}</p>
                         <p className="text-xs border-t border-gray-400 pt-1 px-4">Authorized Signatory</p>
                     </div>
                 </div>

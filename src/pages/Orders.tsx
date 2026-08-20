@@ -566,10 +566,11 @@ const Orders = () => {
       const pageHeightPx = Math.floor(pageHeight * pxPerMm);
       // Keep items away from page edges so rows don't look "touched"/cut
       const topMarginMm = 8;
-      const bottomMarginMm = 10;
+      const bottomMarginMm = 6;
       const topMarginPx = Math.floor(topMarginMm * pxPerMm);
       const bottomMarginPx = Math.floor(bottomMarginMm * pxPerMm);
       const rowGapPadPx = Math.floor(4 * pxPerMm); // breathing room under last row on a page
+      const softBottomMarginPx = Math.floor(3 * pxPerMm); // allow trailing footer to use more of the page
       const rootRect = element.getBoundingClientRect();
 
       const rows = Array.from(element.querySelectorAll('[data-invoice-item-row]')).map((row) => {
@@ -591,6 +592,8 @@ const Orders = () => {
       const snapEndY = (startY: number, maxEnd: number) => {
         let endY = Math.min(maxEnd, canvas.height);
         const tolerance = 4;
+        // Soft limit: let bank-details/footer use leftover whitespace on the current page
+        const softMaxEnd = Math.min(startY + pageHeightPx - softBottomMarginPx, canvas.height);
 
         // Include whole rows only — if a row doesn't fully fit, move entire row to next page
         let lastFittedBottom: number | null = null;
@@ -615,24 +618,36 @@ const Orders = () => {
               Math.floor(nextRow.top) // never pull in the next row
             );
           } else {
-            endY = Math.min(Math.ceil(endY + rowGapPadPx), canvas.height);
+            endY = Math.min(Math.ceil(endY + rowGapPadPx), softMaxEnd, canvas.height);
           }
 
           const hasMoreRows = rows.some((row) => row.bottom > endY + 1);
           if (!hasMoreRows) {
-            for (const block of keepBlocks) {
-              if (block.top >= endY - tolerance && block.bottom <= maxEnd + tolerance) {
-                endY = Math.ceil(block.bottom);
-              }
-            }
-            if (canvas.height - startY <= pageHeightPx - bottomMarginPx + tolerance) {
+            // Pack totals + bank details into leftover space on this page whenever they fit
+            if (canvas.height <= softMaxEnd + tolerance) {
               endY = canvas.height;
+            } else {
+              for (const block of keepBlocks) {
+                if (block.top >= endY - tolerance && block.bottom <= softMaxEnd + tolerance) {
+                  endY = Math.ceil(block.bottom);
+                }
+              }
             }
           }
         } else {
           const nextRow = rows.find((row) => row.bottom > startY + 1);
           if (!nextRow) {
-            endY = Math.min(maxEnd, canvas.height);
+            // No item rows left — pack remaining keep blocks onto this page if they fit
+            if (canvas.height <= softMaxEnd + tolerance) {
+              endY = canvas.height;
+            } else {
+              endY = Math.min(softMaxEnd, canvas.height);
+              for (const block of keepBlocks) {
+                if (block.top >= startY - tolerance && block.bottom <= softMaxEnd + tolerance) {
+                  endY = Math.max(endY, Math.ceil(block.bottom));
+                }
+              }
+            }
           } else if (nextRow.bottom - startY <= pageHeightPx - bottomMarginPx + tolerance) {
             endY = Math.ceil(nextRow.bottom + rowGapPadPx);
           } else {
@@ -640,8 +655,16 @@ const Orders = () => {
           }
         }
 
+        // Never split keep-together blocks: fully on this page, or wholly on the next
         for (const block of keepBlocks) {
-          if (endY > block.top + tolerance && endY < block.bottom - tolerance && block.top > startY + tolerance) {
+          const startsOnThisPage = block.top > startY + tolerance;
+          const wouldSplit = endY > block.top + tolerance && endY < block.bottom - tolerance;
+          const startsButDoesNotFit =
+            block.top >= startY - tolerance &&
+            block.top < endY - tolerance &&
+            block.bottom > softMaxEnd + tolerance;
+
+          if (startsOnThisPage && (wouldSplit || startsButDoesNotFit)) {
             endY = Math.floor(block.top);
           }
         }
