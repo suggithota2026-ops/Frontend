@@ -54,6 +54,11 @@ import api from "@/api/axios";
 import { toast } from "sonner";
 import type { AxiosError } from "axios";
 import { compressImageFile } from "@/utils/compressImage";
+import {
+  extractEmbeddedImagesByRow,
+  getExcelImageColumnIndex,
+  resolveExcelRowImage,
+} from "@/utils/excelProductImages";
 
 interface Subcategory {
   id: string;
@@ -643,6 +648,7 @@ const Products = () => {
         price: 40,
         unit: "kg",
         minimumQuantity: 100,
+        image: "https://example.com/tomato.jpg",
       },
       {
         name: "Onion",
@@ -651,6 +657,7 @@ const Products = () => {
         price: 30,
         unit: "kg",
         minimumQuantity: 80,
+        image: "",
       },
     ]);
     const workbook = XLSX.utils.book_new();
@@ -682,15 +689,19 @@ const Products = () => {
     setIsExcelUploading(true);
     try {
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
+      const workbook = XLSX.read(buffer, { type: "array", cellHTML: false });
       const firstSheetName = workbook.SheetNames[0];
       if (!firstSheetName) {
         toast.error("Excel file has no sheets");
         return;
       }
 
+      const sheet = workbook.Sheets[firstSheetName];
+      const imageCol = getExcelImageColumnIndex(sheet);
+      const embeddedByRow = await extractEmbeddedImagesByRow(buffer);
+
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-        workbook.Sheets[firstSheetName],
+        sheet,
         { defval: "" }
       );
 
@@ -717,7 +728,7 @@ const Products = () => {
           !hasPriceColumn ? "price" : "",
         ].filter(Boolean);
         toast.error(
-          `Excel must include required columns: ${missing.join(", ")}. Subcategory, unit and minimumQuantity are optional.`
+          `Excel must include required columns: ${missing.join(", ")}. Subcategory, unit, minimumQuantity and image are optional.`
         );
         return;
       }
@@ -734,6 +745,7 @@ const Products = () => {
         price: number;
         unit: string;
         stock: number;
+        image: string;
       }> = [];
 
       const MAX_EXCEL_ROWS = 500;
@@ -755,6 +767,13 @@ const Products = () => {
           "minquantity",
           "minqty",
           "minimumqty",
+        ]);
+        const imageCellFallback = getRowValue(row, [
+          "image",
+          "imageurl",
+          "images",
+          "photo",
+          "picture",
         ]);
 
         // Empty row — skip silently
@@ -813,6 +832,14 @@ const Products = () => {
           continue;
         }
 
+        const imageValue = await resolveExcelRowImage({
+          sheet,
+          excelRow: rowNumber,
+          imageCol,
+          cellFallback: imageCellFallback,
+          embeddedByRow,
+        });
+
         pendingCreates.push({
           rowNumber,
           name,
@@ -821,6 +848,7 @@ const Products = () => {
           price,
           unit: unitValue,
           stock: minimumQuantity,
+          image: imageValue || "",
         });
       }
 
@@ -834,8 +862,11 @@ const Products = () => {
         return;
       }
 
-      // Single bulk request (chunked if needed) — no per-row API calls
-      const BULK_CHUNK = 200;
+      // Smaller chunks when rows carry data-URL images (base64) to stay under body limit
+      const hasInlineImages = pendingCreates.some((p) =>
+        String(p.image || "").startsWith("data:image/")
+      );
+      const BULK_CHUNK = hasInlineImages ? 15 : 200;
       for (let offset = 0; offset < pendingCreates.length; offset += BULK_CHUNK) {
         const chunk = pendingCreates.slice(offset, offset + BULK_CHUNK);
         try {
@@ -849,6 +880,7 @@ const Products = () => {
                 price: p.price,
                 unit: p.unit,
                 stock: p.stock,
+                image: p.image || undefined,
                 rowNumber: p.rowNumber,
               })),
             },

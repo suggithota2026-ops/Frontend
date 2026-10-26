@@ -43,6 +43,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import api from "@/api/axios";
+import {
+  extractEmbeddedImagesByRow,
+  getExcelImageColumnIndex,
+  resolveExcelRowImage,
+} from "@/utils/excelProductImages";
 
 interface Hotel {
   id: number;
@@ -464,6 +469,7 @@ const Hotels = () => {
         price: 40,
         unit: "kg",
         minimumQuantity: 0.5,
+        image: "https://example.com/tomato.jpg",
       },
       {
         name: sampleProduct2,
@@ -472,6 +478,7 @@ const Hotels = () => {
         price: 30,
         unit: "kg",
         minimumQuantity: 1,
+        image: "",
       },
     ]);
     const workbook = XLSX.utils.book_new();
@@ -531,15 +538,19 @@ const Hotels = () => {
       }
 
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
+      const workbook = XLSX.read(buffer, { type: "array", cellHTML: false });
       const firstSheetName = workbook.SheetNames[0];
       if (!firstSheetName) {
         toast.error("Excel file has no sheets");
         return;
       }
 
+      const sheet = workbook.Sheets[firstSheetName];
+      const imageCol = getExcelImageColumnIndex(sheet);
+      const embeddedByRow = await extractEmbeddedImagesByRow(buffer);
+
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-        workbook.Sheets[firstSheetName],
+        sheet,
         { defval: "" }
       );
 
@@ -595,8 +606,15 @@ const Hotels = () => {
         unit: string;
         stock: number;
         fixedPrice: number;
+        image: string;
       };
       const pendingCreates: PendingCreate[] = [];
+      const pendingImageUpdates: {
+        id: number;
+        name: string;
+        image: string;
+        rowNumber: number;
+      }[] = [];
       const readyPricing: { productId: number; fixedPrice: number; name: string }[] = [];
 
       let dataRowCount = 0;
@@ -629,6 +647,13 @@ const Hotels = () => {
           "minimumqty",
           "stock",
         ]);
+        const imageCellFallback = getRowValue(row, [
+          "image",
+          "imageurl",
+          "images",
+          "photo",
+          "picture",
+        ]);
 
         if (!productValue && !priceValue && !categoryValue) continue;
 
@@ -660,6 +685,14 @@ const Hotels = () => {
           continue;
         }
 
+        const imageValue = await resolveExcelRowImage({
+          sheet,
+          excelRow: rowNumber,
+          imageCol,
+          cellFallback: imageCellFallback,
+          embeddedByRow,
+        });
+
         const productId = resolveProductId(productValue, productsCache, [
           ...existingPricing,
           ...Array.from(productNameById.entries()).map(([id, productName]) => ({
@@ -669,11 +702,20 @@ const Hotels = () => {
         ]);
 
         if (productId) {
+          const resolvedName = productNameById.get(productId) || productValue;
           readyPricing.push({
             productId,
             fixedPrice,
-            name: productNameById.get(productId) || productValue,
+            name: resolvedName,
           });
+          if (imageValue) {
+            pendingImageUpdates.push({
+              id: productId,
+              name: resolvedName,
+              image: imageValue,
+              rowNumber,
+            });
+          }
           continue;
         }
 
@@ -716,6 +758,7 @@ const Hotels = () => {
           unit: unitValue,
           stock,
           fixedPrice,
+          image: imageValue || "",
         });
       }
 
@@ -737,7 +780,10 @@ const Hotels = () => {
 
       // Bulk create in chunks — one HTTP request per chunk (no per-row calls)
       if (pendingCreates.length > 0) {
-        const BULK_CHUNK = 200;
+        const hasInlineImages = pendingCreates.some((p) =>
+          String(p.image || "").startsWith("data:image/")
+        );
+        const BULK_CHUNK = hasInlineImages ? 15 : 200;
         for (let offset = 0; offset < pendingCreates.length; offset += BULK_CHUNK) {
           const chunk = pendingCreates.slice(offset, offset + BULK_CHUNK);
           try {
@@ -752,6 +798,7 @@ const Hotels = () => {
                   price: p.price,
                   unit: p.unit,
                   stock: p.stock,
+                  image: p.image || undefined,
                   rowNumber: p.rowNumber,
                 })),
               },
@@ -806,6 +853,33 @@ const Hotels = () => {
             failCount += chunk.length;
             errors.push(
               `Bulk create failed (rows ${chunk[0]?.rowNumber}-${chunk[chunk.length - 1]?.rowNumber}): ${getApiErrorMessage(bulkError, "server error")}`
+            );
+          }
+        }
+      }
+
+      // Update images on products that already existed in this customer's pricing
+      if (pendingImageUpdates.length > 0) {
+        const BULK_CHUNK = 200;
+        for (let offset = 0; offset < pendingImageUpdates.length; offset += BULK_CHUNK) {
+          const chunk = pendingImageUpdates.slice(offset, offset + BULK_CHUNK);
+          try {
+            await api.post(
+              "/admin/products/bulk-contract",
+              {
+                customerId: currentHotel?.id ?? null,
+                products: chunk.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  image: p.image,
+                  rowNumber: p.rowNumber,
+                })),
+              },
+              { timeout: 300000 }
+            );
+          } catch (imageError) {
+            errors.push(
+              `Image update failed (rows ${chunk[0]?.rowNumber}-${chunk[chunk.length - 1]?.rowNumber}): ${getApiErrorMessage(imageError, "server error")}`
             );
           }
         }
@@ -1726,7 +1800,7 @@ const Hotels = () => {
 
               <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                  Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>, <strong>image</strong> (optional URL or Insert Picture).
                 </p>
               </div>
 
@@ -2024,7 +2098,7 @@ const Hotels = () => {
 
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>.
+                    Prices set here apply only to this Fixed Price customer. Excel creates contract-only products (hidden from Products sidebar and Daily/Weekly app). Columns: <strong>name</strong>, <strong>category</strong>, <strong>subcategory</strong> (optional), <strong>price</strong>, <strong>unit</strong>, <strong>minimumQuantity</strong>, <strong>image</strong> (optional URL or Insert Picture).
                   </p>
                 </div>
 
