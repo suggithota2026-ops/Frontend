@@ -555,7 +555,7 @@ const WebsiteContact = () => {
                   Get It On Google Play
                 </p>
                 <a
-                  href="https://play.google.com/store/apps/details?id=com.prksmile"
+                  href="https://play.google.com/store/apps/details?id=com.suggithota"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-2 inline-block border-b-2 border-blue-100 pb-1 text-lg font-black text-blue-600 transition-colors hover:text-blue-800"

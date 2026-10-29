@@ -125,7 +125,7 @@ export default function HomeBelowFold() {
 
             <div className="mb-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <a
-                href="https://play.google.com/store/apps/details?id=com.prksmile"
+                href="https://play.google.com/store/apps/details?id=com.suggithota"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex transition-transform duration-300 hover:scale-105"

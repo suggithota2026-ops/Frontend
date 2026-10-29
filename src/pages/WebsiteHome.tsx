@@ -69,7 +69,7 @@ const WebsiteHome = () => {
                 </p>
 
                 <a
-                  href="https://play.google.com/store/apps/details?id=com.prksmile"
+                  href="https://play.google.com/store/apps/details?id=com.suggithota"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex rounded-lg border-2 border-white bg-black/35 px-8 py-4 text-lg font-semibold text-white shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-white hover:text-gray-900 active:scale-[0.99]"
