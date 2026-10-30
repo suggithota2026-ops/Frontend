@@ -31,44 +31,48 @@ export const WebsiteHeader = memo(function WebsiteHeader() {
     to === "/" ? pathname === "/" : pathname.startsWith(to);
 
   return (
-    <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-green-950">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex h-20 items-center justify-between gap-4 md:h-24">
-          <Link to="/" className="group flex items-center" onClick={() => setIsMenuOpen(false)}>
-            <div className="rounded-full bg-transparent shadow-lg transition-transform duration-300 group-hover:scale-105">
-              <img
-                src="/prk-smile-logo.png"
-                alt="Suggi Thota Logo"
-                width={160}
-                height={64}
-                decoding="async"
-                loading="lazy"
-                fetchPriority="low"
-                className="h-12 w-auto max-w-[130px] object-contain md:h-16 md:max-w-[160px]"
-              />
-            </div>
+    <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-100 bg-white shadow-sm">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+        <div className="flex h-[72px] items-center justify-between gap-4 md:h-[88px]">
+          <Link to="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
+            <img
+              src="/prk-smile-logo.png"
+              alt="Suggi Thota Logo"
+              width={160}
+              height={64}
+              decoding="async"
+              loading="lazy"
+              fetchPriority="low"
+              className="h-[58px] w-auto max-w-[170px] object-contain md:h-[68px] md:max-w-[200px]"
+            />
           </Link>
 
-          <nav className="ml-auto hidden items-center space-x-8 md:flex">
+          <nav className="ml-auto hidden items-center gap-8 md:flex">
             {nav.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
                 className={[
-                  "group relative text-lg transition-all duration-300",
-                  "text-white hover:text-green-200",
-                  isActive(item.to) ? "font-semibold" : "font-medium",
+                  "relative py-1 text-[15px] transition-colors duration-200",
+                  isActive(item.to)
+                    ? "font-semibold text-green-700"
+                    : "font-medium text-slate-700 hover:text-green-700",
                 ].join(" ")}
               >
                 {item.label}
-                <span className="absolute bottom-0 left-0 h-0.5 w-0 bg-green-200 transition-all duration-300 group-hover:w-full" />
+                <span
+                  className={[
+                    "absolute -bottom-0.5 left-0 h-0.5 rounded-full bg-green-600 transition-all duration-300",
+                    isActive(item.to) ? "w-full" : "w-0",
+                  ].join(" ")}
+                />
               </Link>
             ))}
           </nav>
 
           <button
             type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10 md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-800 transition-colors hover:bg-green-50 md:hidden"
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMenuOpen}
             onClick={() => setIsMenuOpen((open) => !open)}
@@ -78,7 +82,7 @@ export const WebsiteHeader = memo(function WebsiteHeader() {
         </div>
 
         {isMenuOpen ? (
-          <nav className="border-t border-white/10 pb-4 pt-2 md:hidden">
+          <nav className="border-t border-green-100 pb-4 pt-2 md:hidden">
             <div className="flex flex-col gap-1">
               {nav.map((item) => (
                 <Link
@@ -88,8 +92,8 @@ export const WebsiteHeader = memo(function WebsiteHeader() {
                   className={[
                     "rounded-lg px-3 py-3 text-base transition-colors",
                     isActive(item.to)
-                      ? "bg-white/10 font-semibold text-white"
-                      : "font-medium text-white/90 hover:bg-white/5 hover:text-white",
+                      ? "bg-green-50 font-semibold text-green-700"
+                      : "font-medium text-slate-700 hover:bg-green-50",
                   ].join(" ")}
                 >
                   {item.label}

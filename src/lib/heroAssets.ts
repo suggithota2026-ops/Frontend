@@ -14,6 +14,9 @@ export const CONTACT_HERO_WIDTHS = [480, 640, 1024] as const;
 
 export const ABOUT_HERO_WIDTHS = [640, 1024] as const;
 
+export const APP_BANNER_BASE = "Fresh_Produce_App_Banner";
+export const APP_BANNER_WIDTHS = [640, 1024, 1600, 2086] as const;
+
 export function resolveHeroBase(pathname: string): string | null {
   if (pathname === "/" || pathname === "") return HERO_BY_PATH["/"];
   if (pathname.startsWith("/about")) return HERO_BY_PATH["/about"];
@@ -24,6 +27,9 @@ export function resolveHeroBase(pathname: string): string | null {
 export function getHeroWidths(base: string): readonly number[] {
   if (base === HERO_BY_PATH["/contact"]) return CONTACT_HERO_WIDTHS;
   if (base === HERO_BY_PATH["/about"]) return ABOUT_HERO_WIDTHS;
+  // No 480w export exists for this image.
+  if (base === "healthy-vegetables-old-dark-background") return ABOUT_HERO_WIDTHS;
+  if (base === APP_BANNER_BASE) return APP_BANNER_WIDTHS;
   return HERO_WIDTHS;
 }
 

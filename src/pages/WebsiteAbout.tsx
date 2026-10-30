@@ -1,43 +1,13 @@
 import { Link } from "react-router-dom";
+import { Check, Eye, Quote, Target } from "lucide-react";
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 import { LazyWebsiteFooter } from "@/components/website/LazyWebsiteFooter";
 import { OptimizedHero, OptimizedImage } from "@/components/website/OptimizedHero";
+import { Eyebrow } from "@/components/website/PlayStoreBadge";
 import { HERO_SIZES } from "@/lib/heroAssets";
+import { STORY_STATS, WHY_CHOOSE } from "@/components/website/siteContent";
 
 const ABOUT_HERO_BASE = "healthy-vegetables-wooden-table-optimized";
-
-const WHY_CHOOSE = [
-  {
-    title: "Deep Market Expertise",
-    desc: "Backed by in-depth knowledge of market trends, seasonal availability, and sourcing practices.",
-    icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-  },
-  {
-    title: "Farm-to-Customer Freshness",
-    desc: "Direct sourcing minimizes handling time and preserves freshness, quality, and nutritional value.",
-    icon: "M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z",
-  },
-  {
-    title: "Reliable Partner",
-    desc: "Preferred supplier for restaurants & PGs, known for consistent quality and bulk capability.",
-    icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
-  },
-  {
-    title: "Wholesale & Retail",
-    desc: "Flexible sourcing and distribution model tailored to both commercial and household needs.",
-    icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z",
-  },
-  {
-    title: "Quality & Hygiene",
-    desc: "Every batch is inspected to meet strict standards, ensuring only market-grade vegetables reach you.",
-    icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
-  },
-  {
-    title: "Transparent Pricing",
-    desc: "Fair, competitive pricing without compromising quality—benefiting both farmers and customers.",
-    icon: "M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm-3 12v-1.5c0-1 3-1.5 3-1.5s3 .5 3 1.5V20H9z",
-  },
-] as const;
 
 const MISSION_POINTS = [
   "Deliver fresh, high-quality vegetables sourced directly from farmers.",
@@ -74,6 +44,21 @@ const TEAM = [
   },
 ] as const;
 
+const EXPERTISE_POINTS = [
+  "Specializing in both Wholesale and Retail supply",
+  "Meeting daily demands of Commercial Kitchens & Households",
+  "Efficient supply chain with Timely Deliveries",
+  "Preferred supplier for Restaurants, PGs, Hostels & Catering businesses",
+] as const;
+
+function CheckBadge() {
+  return (
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+    </span>
+  );
+}
+
 const WebsiteAbout = () => {
   return (
     <div className="min-h-screen text-slate-900">
@@ -81,7 +66,7 @@ const WebsiteAbout = () => {
 
       <main>
         {/* Hero — real <img> for LCP (CSS backgrounds are discovered too late) */}
-        <section className="relative flex min-h-[70vh] items-center overflow-hidden pt-24">
+        <section className="relative flex min-h-[60vh] items-center overflow-hidden pt-20">
           <OptimizedHero
             base={ABOUT_HERO_BASE}
             width={1400}
@@ -90,17 +75,15 @@ const WebsiteAbout = () => {
             priority
             className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/10" />
 
-          <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="text-left text-white">
-              <p className="mb-4 font-bold uppercase tracking-widest text-green-400">
-                Established 2020
-              </p>
-              <h1 className="mb-6 font-heading text-5xl font-extrabold leading-tight md:text-7xl">
-                Our Story
+          <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="max-w-2xl text-left text-white">
+              <Eyebrow tone="dark">Established 2020</Eyebrow>
+              <h1 className="mb-6 mt-5 font-heading text-5xl font-bold leading-tight md:text-7xl">
+                Our <span className="text-green-400">Story</span>
               </h1>
-              <p className="mb-8 max-w-2xl text-xl font-light leading-relaxed text-gray-200 md:text-2xl">
+              <p className="text-xl leading-relaxed text-gray-200 md:text-2xl">
                 Delivering freshness, quality, and reliability from farm to your
                 doorstep across Bengaluru.
               </p>
@@ -109,39 +92,37 @@ const WebsiteAbout = () => {
         </section>
 
         {/* Story Intro */}
-        <section className="overflow-hidden bg-white py-24" id="about">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
+        <section className="overflow-hidden bg-white py-12 sm:py-14" id="about">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
               <div>
-                <div className="mb-6 inline-block rounded-full border border-green-100 bg-green-50 px-4 py-1 text-sm font-semibold uppercase tracking-wider text-green-600">
-                  A Unit Of PRK Smile
+                <div className="mb-6 flex flex-wrap items-center gap-4">
+                  <img
+                    src="/suggi-thota-logo.png"
+                    alt="Suggi Thota logo"
+                    width={192}
+                    height={96}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-16 w-auto object-contain"
+                  />
+                  <Eyebrow>A Unit Of PRK Smile</Eyebrow>
                 </div>
-                <img
-                  src="/suggi-thota-logo.png"
-                  alt="Suggi Thota logo"
-                  width={192}
-                  height={96}
-                  loading="lazy"
-                  decoding="async"
-                  className="mb-6 h-24 w-auto object-contain"
-                />
-                <h2 className="mb-8 font-heading text-4xl font-bold leading-tight text-gray-900 md:text-5xl">
-                  PRK Smile (Suggi Thota)
+                <h2 className="mb-6 font-heading text-3xl font-bold leading-tight text-slate-900 md:text-4xl">
+                  PRK Smile <span className="text-green-600">(Suggi Thota)</span>
                 </h2>
-                <div className="space-y-6 text-lg text-gray-600">
+                <div className="space-y-5 text-lg leading-relaxed text-slate-600">
                   <p>
                     PRK Smile (Suggi Thota) is a Bengaluru-based vegetable sourcing
                     and supply company committed to delivering freshness, quality,
                     and reliability. Founded in 2020 by{" "}
-                    <span className="font-semibold italic text-green-600">
-                      Mr. Ishwar Gowda
-                    </span>
+                    <span className="font-semibold text-green-700">Mr. Ishwar Gowda</span>
                     , PRK Smile has grown steadily over the past 5 years, earning a
                     strong reputation as a trusted partner.
                   </p>
-                  <p className="rounded-r-xl border-l-4 border-green-500 bg-gray-50 py-4 pl-6 italic">
+                  <p className="border-l-4 border-green-500 pl-5 italic text-slate-700">
                     &ldquo;We are thrilled to introduce{" "}
-                    <span className="font-bold text-green-700">Suggi Thota</span>
+                    <span className="font-bold not-italic text-green-700">Suggi Thota</span>
                     —our new online vegetable ordering platform, bringing the freshest
                     produce directly to your fingertips.&rdquo;
                   </p>
@@ -152,143 +133,84 @@ const WebsiteAbout = () => {
                     standards.
                   </p>
                 </div>
-              </div>
 
-              <div className="relative">
-                <div className="rotate-3 transform rounded-3xl bg-gradient-to-br from-green-500 to-yellow-400 p-1 shadow-2xl transition-transform duration-500 hover:rotate-0">
-                  <div className="rounded-[1.4rem] bg-white p-10 text-center">
-                    <div className="mx-auto mb-8 flex h-24 w-24 -rotate-6 items-center justify-center rounded-2xl bg-green-100">
-                      <svg
-                        className="h-12 w-12 text-green-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                        />
-                      </svg>
+                <div className="mt-8 grid grid-cols-3 divide-x divide-green-100">
+                  {STORY_STATS.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="px-2 text-center first:pl-0 sm:px-4"
+                    >
+                      <div className="text-2xl font-bold text-green-600 sm:text-3xl">{stat.value}</div>
+                      <div className="mt-1 text-xs font-medium text-slate-500 sm:text-sm">{stat.label}</div>
                     </div>
-                    <h3 className="text-6xl font-black text-gray-900">5+</h3>
-                    <p className="mt-2 text-xl font-bold uppercase tracking-widest text-green-600">
-                      Years of Excellence
-                    </p>
-                    <div className="mt-8 grid grid-cols-2 gap-4 border-t border-gray-100 pt-8">
-                      <div>
-                        <div className="text-2xl font-bold text-gray-900">100%</div>
-                        <div className="text-sm text-gray-500">Freshness</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-gray-900">Direct</div>
-                        <div className="text-sm text-gray-500">From Farm</div>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="absolute -bottom-6 -right-6 h-32 w-32 animate-pulse rounded-full bg-yellow-400/30 blur-xl" />
-                <div className="absolute -left-6 -top-6 h-32 w-32 animate-pulse rounded-full bg-green-400/30 blur-xl" />
               </div>
+
+              <OptimizedImage
+                base="top-view-tasty-fruits-arrangement-optimized"
+                alt="Fresh produce from Suggi Thota"
+                width={1024}
+                height={683}
+                className="h-[320px] w-full rounded-3xl object-cover shadow-xl sm:h-[460px]"
+              />
             </div>
           </div>
         </section>
 
         {/* Market Expertise */}
-        <section className="bg-gray-50 py-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
-              <div className="order-2 lg:order-1">
-                <OptimizedImage
-                  base="healthy-vegetables-old-dark-background"
-                  alt="Suggi Thota Fresh Produce"
-                  width={1000}
-                  height={1500}
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="h-[500px] w-full rounded-3xl object-cover shadow-2xl"
-                />
-              </div>
-
-              <div className="order-1 lg:order-2">
-                <h2 className="mb-8 font-heading text-3xl font-bold leading-tight text-gray-900 md:text-4xl">
-                  Deep Market Expertise &amp; Sourcing
+        <section className="bg-[#f4f8f2] py-12 sm:py-14">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
+              <div>
+                <h2 className="mb-6 font-heading text-3xl font-bold leading-tight text-slate-900 md:text-4xl">
+                  Deep Market Expertise <span className="text-green-600">&amp; Sourcing</span>
                 </h2>
-                <p className="mb-8 text-lg leading-relaxed text-gray-600">
+                <p className="mb-8 text-lg leading-relaxed text-slate-600">
                   Our hands-on experience and strong relationships with farmers and
                   wholesale markets enable{" "}
-                  <span className="font-bold uppercase text-green-600">
-                    Suggi Thota
-                  </span>{" "}
+                  <span className="font-bold uppercase text-green-600">Suggi Thota</span>{" "}
                   to source the best-quality vegetables directly from farms and
                   trusted mandis.
                 </p>
 
-                <div className="space-y-4">
-                  {[
-                    "Specializing in both Wholesale and Retail supply",
-                    "Meeting daily demands of Commercial Kitchens & Households",
-                    "Efficient supply chain with Timely Deliveries",
-                    "Preferred supplier for Restaurants, PGs, Hostels & Catering businesses",
-                  ].map((item) => (
-                    <div
+                <ul className="space-y-3">
+                  {EXPERTISE_POINTS.map((item) => (
+                    <li
                       key={item}
-                      className="flex items-center space-x-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow duration-300 hover:shadow-md"
+                      className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] transition-shadow duration-300 hover:shadow-md"
                     >
-                      <div className="rounded-full bg-green-500 p-1">
-                        <svg
-                          className="h-4 w-4 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="3"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      </div>
-                      <span className="font-medium text-gray-700">{item}</span>
-                    </div>
+                      <CheckBadge />
+                      <span className="font-medium text-slate-700">{item}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
+
+              <OptimizedImage
+                base="healthy-vegetables-old-dark-background"
+                alt="Suggi Thota Fresh Produce"
+                width={1000}
+                height={1500}
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="h-[360px] w-full rounded-3xl object-cover shadow-xl sm:h-[500px]"
+              />
             </div>
           </div>
         </section>
 
         {/* Vision & Mission */}
-        <section className="relative overflow-hidden py-24">
-          <div className="absolute inset-0 origin-right skew-y-3 transform bg-green-900" />
-          <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 gap-16 md:grid-cols-2">
-              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 text-white backdrop-blur-lg sm:p-8 md:p-12">
-                <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400">
-                  <svg
-                    className="h-8 w-8 text-green-900"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
+        <section className="bg-white py-12 sm:py-14">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8">
+              <div className="rounded-[2rem] bg-gradient-to-br from-green-800 to-green-950 p-8 text-white shadow-xl sm:p-10">
+                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-green-300 ring-1 ring-white/15">
+                  <Eye className="h-7 w-7" />
                 </div>
-                <h3 className="mb-6 text-3xl font-bold">Our Vision</h3>
-                <p className="text-lg font-light leading-relaxed text-green-50">
+                <h3 className="mb-4 font-heading text-3xl font-bold">
+                  Our <span className="text-green-300">Vision</span>
+                </h3>
+                <p className="text-lg leading-relaxed text-green-50/90">
                   To become Bengaluru&apos;s most trusted vegetable sourcing and
                   supply partner, recognized for freshness, ethical sourcing, and
                   service excellence—connecting farmers to customers through a
@@ -296,30 +218,20 @@ const WebsiteAbout = () => {
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 text-white backdrop-blur-lg sm:p-8 md:p-12">
-                <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-400">
-                  <svg
-                    className="h-8 w-8 text-green-900"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
+              <div className="rounded-[2rem] bg-[#f4f8f2] p-8 shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] sm:p-10">
+                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-600 text-white">
+                  <Target className="h-7 w-7" />
                 </div>
-                <h3 className="mb-6 text-3xl font-bold">Our Mission</h3>
-                <ul className="space-y-4 text-green-50">
+                <h3 className="mb-4 font-heading text-3xl font-bold text-slate-900">
+                  Our <span className="text-green-600">Mission</span>
+                </h3>
+                <ul className="space-y-3">
                   {MISSION_POINTS.map((point) => (
-                    <li key={point} className="flex items-start space-x-3">
-                      <span className="mt-1.5 text-yellow-400">•</span>
-                      <span className="text-lg font-light leading-snug">
-                        {point}
+                    <li key={point} className="flex items-start gap-3">
+                      <span className="mt-0.5">
+                        <CheckBadge />
                       </span>
+                      <span className="text-lg leading-snug text-slate-700">{point}</span>
                     </li>
                   ))}
                 </ul>
@@ -329,47 +241,32 @@ const WebsiteAbout = () => {
         </section>
 
         {/* Why Choose Us */}
-        <section className="bg-white py-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-20 text-center">
-              <div className="mb-4 inline-block rounded-full border border-red-100 bg-red-50 px-4 py-1 text-sm font-semibold uppercase tracking-widest text-red-600">
-                Why Choose Us
-              </div>
-              <h2 className="mb-6 font-heading text-4xl font-extrabold text-gray-900 md:text-5xl">
-                Beyond Supply—We Deliver{" "}
-                <span className="italic text-green-600">Trust</span>
+        <section className="bg-[#f4f8f2] py-12 sm:py-14">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mb-8 text-center">
+              <Eyebrow>Why Choose Us</Eyebrow>
+              <h2 className="mb-5 mt-5 font-heading text-3xl font-bold text-slate-900 md:text-5xl">
+                Beyond Supply, We Deliver <span className="text-green-600">Trust</span>
               </h2>
-              <p className="mx-auto max-w-3xl text-xl font-light leading-relaxed text-gray-500">
+              <p className="mx-auto max-w-3xl text-lg leading-relaxed text-slate-600">
                 With over 5 years of proven excellence, we understand the critical
                 role fresh produce plays in your business and daily operations.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:gap-10 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {WHY_CHOOSE.map((item) => (
                 <div
                   key={item.title}
-                  className="group rounded-3xl border border-gray-100 bg-white p-6 transition-all duration-500 hover:-translate-y-2 hover:border-green-200 hover:shadow-2xl sm:p-8"
+                  className="group rounded-3xl bg-white p-7 shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                 >
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 transition-colors duration-300 group-hover:bg-green-600 group-hover:text-white">
-                    <svg
-                      className="h-7 w-7"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d={item.icon}
-                      />
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 transition-colors duration-300 group-hover:bg-green-600 group-hover:text-white">
+                    <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} />
                     </svg>
                   </div>
-                  <h4 className="mb-3 text-xl font-bold text-gray-900">
-                    {item.title}
-                  </h4>
-                  <p className="leading-relaxed text-gray-500">{item.desc}</p>
+                  <h4 className="mb-2 font-heading text-xl font-bold text-slate-900">{item.title}</h4>
+                  <p className="leading-relaxed text-slate-600">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -377,50 +274,46 @@ const WebsiteAbout = () => {
         </section>
 
         {/* Founder’s Message */}
-        <section className="relative overflow-hidden bg-gray-900 py-24">
-          <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-green-500/10 blur-3xl" />
-          <div className="absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-yellow-500/10 blur-3xl" />
-          <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-16 text-center">
-              <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
-                Founder&apos;s Message
-              </h2>
-              <div className="mx-auto h-1 w-24 bg-green-500" />
-            </div>
-            <div className="relative rounded-[3rem] border border-white/10 bg-white/5 p-10 backdrop-blur-sm md:p-16">
-              <svg
-                className="absolute left-8 top-8 h-16 w-16 text-white/5"
-                fill="currentColor"
-                viewBox="0 0 32 32"
-                aria-hidden
-              >
-                <path d="M10 8c-4.418 0-8 3.582-8 8s3.582 8 8 8c1.105 0 2-.895 2-2s-.895-2-2-2c-2.209 0-4-1.791-4-4s1.791-4 4-4c1.105 0 2-.895 2-2s-.895-2-2-2zM24 8c-4.418 0-8 3.582-8 8s3.582 8 8 8c1.105 0 2-.895 2-2s-.895-2-2-2c-2.209 0-4-1.791-4-4s1.791-4 4-4c1.105 0 2-.895 2-2s-.895-2-2-2z" />
-              </svg>
-              <div className="space-y-6 text-xl font-light italic leading-relaxed text-gray-300">
-                <p>
-                  &ldquo;PRK SMILE (Suggi Thota) was founded in 2020 with a simple
-                  yet powerful vision—to deliver fresh, reliable, and fairly sourced
-                  vegetables to businesses and households across Bengaluru.&rdquo;
-                </p>
-                <p>
-                  &ldquo;Having spent years closely observing the Indian vegetable
-                  market, I developed a deep understanding of sourcing practices and
-                  seasonality. This knowledge has helped us build strong
-                  relationships with farmers, enabling us to maintain consistency
-                  and freshness.&rdquo;
-                </p>
-                <p>
-                  &ldquo;As we continue to grow, our focus remains unchanged—to
-                  strengthen the farm-to-customer supply chain, support our farmer
-                  partners, and provide dependable service to our customers every
-                  day.&rdquo;
-                </p>
-              </div>
-              <div className="mt-12 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">Ishwar Gowda</div>
-                  <div className="font-medium text-green-400">
-                    Founder &amp; CEO, PRK Smile
+        <section className="bg-white py-12 sm:py-14">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-green-900 to-green-950 p-8 shadow-2xl sm:p-12 md:p-16">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-green-500/15 blur-3xl" />
+              <Quote className="absolute right-8 top-8 h-20 w-20 text-white/5" aria-hidden />
+              <div className="relative">
+                <Eyebrow tone="dark">Founder&apos;s Message</Eyebrow>
+                <div className="mt-8 space-y-6 text-lg italic leading-relaxed text-green-50/90 md:text-xl">
+                  <p>
+                    &ldquo;PRK SMILE (Suggi Thota) was founded in 2020 with a simple
+                    yet powerful vision—to deliver fresh, reliable, and fairly sourced
+                    vegetables to businesses and households across Bengaluru.&rdquo;
+                  </p>
+                  <p>
+                    &ldquo;Having spent years closely observing the Indian vegetable
+                    market, I developed a deep understanding of sourcing practices and
+                    seasonality. This knowledge has helped us build strong
+                    relationships with farmers, enabling us to maintain consistency
+                    and freshness.&rdquo;
+                  </p>
+                  <p>
+                    &ldquo;As we continue to grow, our focus remains unchanged—to
+                    strengthen the farm-to-customer supply chain, support our farmer
+                    partners, and provide dependable service to our customers every
+                    day.&rdquo;
+                  </p>
+                </div>
+                <div className="mt-10 flex items-center gap-4 border-t border-white/10 pt-8">
+                  <img
+                    src="/avatar-male.png"
+                    alt="Ishwar Gowda"
+                    width={56}
+                    height={56}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-14 w-14 rounded-full bg-white/10 object-contain p-1 ring-2 ring-green-400/50"
+                  />
+                  <div>
+                    <div className="text-xl font-bold text-white">Ishwar Gowda</div>
+                    <div className="font-medium text-green-300">Founder &amp; CEO, PRK Smile</div>
                   </div>
                 </div>
               </div>
@@ -429,65 +322,59 @@ const WebsiteAbout = () => {
         </section>
 
         {/* Team */}
-        <section className="bg-gray-50 py-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-20 text-center">
-              <h2 className="mb-6 font-heading text-4xl font-extrabold text-gray-900 md:text-5xl">
-                Meet Our Team
+        <section className="bg-[#f4f8f2] py-12 sm:py-14">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mb-8 text-center">
+              <h2 className="mb-4 font-heading text-3xl font-bold text-slate-900 md:text-5xl">
+                Meet Our <span className="text-green-600">Team</span>
               </h2>
-              <p className="mx-auto max-w-2xl text-xl text-gray-500">
+              <p className="mx-auto max-w-2xl text-lg text-slate-600">
                 The dedicated professionals driving our mission forward.
               </p>
             </div>
 
-            <div className="-mx-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-              <div className="flex w-max gap-6">
-                {TEAM.map((member) => (
-                  <div
-                    key={member.name}
-                    className="group relative w-[260px] shrink-0 overflow-hidden rounded-3xl bg-white shadow-lg transition-all duration-500 hover:shadow-2xl sm:w-[280px]"
-                  >
-                    <div
-                      className={`h-2 scale-x-0 transform transition-transform duration-500 group-hover:scale-x-100 ${member.accent}`}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {TEAM.map((member) => (
+                <div
+                  key={member.name}
+                  className="group relative overflow-hidden rounded-3xl bg-white p-8 text-center shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className={`absolute inset-x-0 top-0 h-1.5 ${member.accent}`} />
+                  <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-green-50 p-2 ring-4 ring-white shadow-md">
+                    <img
+                      src={member.gender === "female" ? "/avatar-female.png" : "/avatar-male.png"}
+                      alt={member.name}
+                      width={96}
+                      height={96}
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                      decoding="async"
                     />
-                    <div className="p-8 text-center">
-                      <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gray-100 p-2 transition-all duration-500 group-hover:scale-105">
-                        <img
-                          src={member.gender === "female" ? "/avatar-female.png" : "/avatar-male.png"}
-                          alt={member.name}
-                          width={96}
-                          height={96}
-                          className="h-full w-full object-contain"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      </div>
-                      <h4 className="mb-2 text-xl font-bold text-gray-900">
-                        {member.name}
-                      </h4>
-                      <p className="mt-4 border-t border-gray-100 pt-4 text-sm font-medium text-green-600">
-                        {member.role}
-                      </p>
-                    </div>
                   </div>
-                ))}
-              </div>
+                  <h4 className="text-lg font-bold text-slate-900">{member.name}</h4>
+                  <p className="mt-3 border-t border-green-100 pt-3 text-sm font-medium text-green-700">
+                    {member.role}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* CTA — no contact form; link to Contact page */}
-        <section className="bg-green-600 py-20">
-          <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-            <h2 className="mb-8 font-heading text-3xl font-bold text-white md:text-5xl">
-              Ready to experience farm-fresh quality?
-            </h2>
-            <Link
-              to="/contact"
-              className="inline-block rounded-full bg-white px-10 py-4 text-lg font-bold text-green-700 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-yellow-400 hover:text-green-900"
-            >
-              Contact Us Now
-            </Link>
+        <section className="bg-white py-10 sm:py-12">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="flex flex-col items-center justify-between gap-6 rounded-[2rem] bg-gradient-to-r from-green-600 to-emerald-600 px-8 py-12 text-center shadow-xl shadow-green-600/20 md:flex-row md:px-14 md:text-left">
+              <h2 className="font-heading text-3xl font-bold text-white md:text-4xl">
+                Ready to experience farm-fresh quality?
+              </h2>
+              <Link
+                to="/contact"
+                className="inline-flex shrink-0 items-center rounded-xl bg-white px-8 py-4 text-lg font-bold text-green-700 shadow-lg transition-all duration-300 hover:bg-green-50"
+              >
+                Contact Us Now
+              </Link>
+            </div>
           </div>
         </section>
       </main>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { WebsiteHeader } from "@/components/website/WebsiteHeader";
 import { LazyWebsiteFooter } from "@/components/website/LazyWebsiteFooter";
-import { OptimizedHero } from "@/components/website/OptimizedHero";
+import { OptimizedHero, OptimizedImage } from "@/components/website/OptimizedHero";
 import { CONTACT_HERO_SIZES } from "@/lib/heroAssets";
 
 const CONTACT_HERO_BASE = "top-view-tasty-fruits-arrangement-optimized";
@@ -138,7 +138,7 @@ const WebsiteContact = () => {
       "w-full rounded-xl border bg-[#f8fbf6] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400",
       "outline-none transition-all duration-200",
       "focus:border-green-600 focus:bg-white focus:ring-2 focus:ring-green-600/15",
-      hasError ? "border-red-400 bg-red-50/50" : "border-green-100 hover:border-green-300",
+      hasError ? "border-red-400 bg-red-50/50" : "border-transparent bg-[#f3f7f1] hover:border-green-300",
     ].join(" ");
 
   const labelClass = "mb-1.5 block text-sm font-semibold text-slate-700";
@@ -149,7 +149,7 @@ const WebsiteContact = () => {
 
       <main>
         {/* Hero */}
-        <section className="relative flex h-[520px] items-center overflow-hidden pt-24">
+        <section className="relative flex h-[440px] items-center overflow-hidden pt-20">
           <OptimizedHero
             base={CONTACT_HERO_BASE}
             width={1280}
@@ -159,27 +159,29 @@ const WebsiteContact = () => {
             className="absolute inset-0 h-full w-full object-cover object-center"
             pictureClassName="absolute inset-0"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 to-black/60" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/45 to-black/70" />
 
-          <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="relative z-10 mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
             <div className="text-center text-white">
               <h1 className="font-heading text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
-                Contact PRK Smile
+                Contact <span className="text-green-400">PRK Smile</span>
               </h1>
-              <p className="mx-auto mt-4 max-w-3xl text-xl text-gray-200">
+              <p className="mx-auto mt-4 max-w-3xl text-lg text-gray-200 sm:text-xl">
                 We&apos;d love to hear from you. Send us a message and we&apos;ll
                 respond as soon as possible.
               </p>
 
-              <div className="mx-auto mt-8 max-w-md rounded-xl bg-white/10 p-6 backdrop-blur-sm">
-                <p className="text-sm font-medium text-green-300">Email Us Directly</p>
+              <div className="mx-auto mt-10 max-w-md">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-green-300">
+                  Email Us Directly
+                </p>
                 <a
                   href="mailto:prksmilegroups2020@gmail.com"
-                  className="mt-2 block break-words text-xl font-bold text-white transition-colors hover:text-green-200 md:text-2xl"
+                  className="mt-3 block break-words text-xl font-bold text-white underline decoration-green-400/60 decoration-2 underline-offset-8 transition-colors hover:text-green-200 md:text-2xl"
                 >
                   prksmilegroups2020@gmail.com
                 </a>
-                <p className="mt-2 text-sm text-gray-300">
+                <p className="mt-4 text-sm text-gray-300">
                   Quick response guaranteed within 24 hours
                 </p>
               </div>
@@ -188,27 +190,32 @@ const WebsiteContact = () => {
         </section>
 
         {/* Form */}
-        <section className="relative overflow-hidden bg-[#f3f7f1] py-10 sm:py-14 [content-visibility:auto]">
-          <div className="pointer-events-none absolute -left-24 top-10 h-48 w-48 rounded-full bg-green-200/40 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 bottom-0 h-56 w-56 rounded-full bg-lime-200/30 blur-3xl" />
-
-          <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <div className="overflow-hidden rounded-2xl border border-green-100/80 bg-white/95 shadow-[0_16px_40px_-24px_rgba(22,101,52,0.35)]">
-              <div className="flex flex-col gap-1 border-b border-green-100 bg-gradient-to-r from-green-800 to-green-600 px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-8 sm:py-5">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-green-100">
+        <section className="relative overflow-hidden bg-[#f4f8f2] py-10 sm:py-12 [content-visibility:auto]">
+          <div className="relative z-10 mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="grid grid-cols-1 overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-green-900/5 lg:grid-cols-5">
+              <div className="relative min-h-[220px] lg:col-span-2">
+                <OptimizedImage
+                  base="healthy-vegetables-wooden-table-optimized"
+                  alt="Fresh vegetables"
+                  width={1024}
+                  height={683}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-green-950/90 via-green-950/50 to-green-950/10" />
+                <div className="absolute inset-x-0 bottom-0 p-7 text-white sm:p-8">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-green-300">
                     Get in touch
                   </p>
-                  <h2 className="font-heading text-xl font-bold text-white sm:text-2xl">
+                  <h2 className="mt-1 font-heading text-2xl font-bold sm:text-3xl">
                     Send us a message
                   </h2>
+                  <p className="mt-2 text-sm text-green-100 sm:text-base">
+                    We usually reply within 24 hours.
+                  </p>
                 </div>
-                <p className="text-xs text-green-50/90 sm:max-w-xs sm:text-right sm:text-sm">
-                  We usually reply within 24 hours.
-                </p>
               </div>
 
-              <div className="p-5 sm:p-7 lg:p-8">
+              <div className="p-5 sm:p-8 lg:col-span-3 lg:p-10">
                 {isSubmitted ? (
                   <div className="mx-auto max-w-lg py-4 text-center">
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
@@ -245,7 +252,7 @@ const WebsiteContact = () => {
                     ) : null}
 
                     <form onSubmit={submit} className="space-y-4">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         <div>
                           <label className={labelClass}>
                             Name <span className="text-red-500">*</span>
@@ -277,23 +284,7 @@ const WebsiteContact = () => {
                           ) : null}
                         </div>
 
-                        <div>
-                          <label className={labelClass}>
-                            Email <span className="font-normal text-slate-400">(optional)</span>
-                          </label>
-                          <input
-                            type="email"
-                            value={formData.email}
-                            onChange={onChange("email")}
-                            className={fieldClass(!!errors.email)}
-                            placeholder="you@example.com"
-                          />
-                          {errors.email ? (
-                            <p className="mt-1 text-xs text-red-600">{errors.email}</p>
-                          ) : null}
-                        </div>
-
-                        <div className="sm:col-span-2 lg:col-span-3">
+                        <div className="col-span-2">
                           <label className={labelClass}>
                             Address <span className="text-red-500">*</span>
                           </label>
@@ -342,6 +333,22 @@ const WebsiteContact = () => {
 
                         <div>
                           <label className={labelClass}>
+                            Email <span className="font-normal text-slate-400">(optional)</span>
+                          </label>
+                          <input
+                            type="email"
+                            value={formData.email}
+                            onChange={onChange("email")}
+                            className={fieldClass(!!errors.email)}
+                            placeholder="you@example.com"
+                          />
+                          {errors.email ? (
+                            <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                          ) : null}
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>
                             Landmark{" "}
                             <span className="font-normal text-slate-400">(optional)</span>
                           </label>
@@ -353,7 +360,7 @@ const WebsiteContact = () => {
                           />
                         </div>
 
-                        <div className="sm:col-span-2 lg:col-span-3">
+                        <div className="col-span-2">
                           <label className={labelClass}>
                             Message <span className="text-red-500">*</span>
                           </label>
@@ -377,7 +384,7 @@ const WebsiteContact = () => {
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className="inline-flex items-center justify-center rounded-full bg-green-700 px-10 py-3 text-sm font-bold text-white shadow-md shadow-green-700/20 transition-all hover:scale-[1.02] hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+                          className="inline-flex items-center justify-center self-start rounded-full bg-green-700 px-8 py-3 text-sm sm:self-auto sm:px-10 font-bold text-white shadow-md shadow-green-700/20 transition-all hover:scale-[1.02] hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
                         >
                           {isSubmitting ? "Sending…" : "Send Message"}
                         </button>
@@ -391,14 +398,13 @@ const WebsiteContact = () => {
         </section>
 
         {/* Official Contact Details */}
-        <section className="relative overflow-hidden bg-gray-50 py-24 [content-visibility:auto]">
+        <section className="relative overflow-hidden bg-white py-12 sm:py-14 [content-visibility:auto]">
           <div className="pointer-events-none absolute left-0 top-0 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-green-100 opacity-30 blur-3xl" />
-          <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-16 text-center">
-              <h2 className="font-heading text-4xl font-extrabold text-gray-900">
-                Official Contact Details
+          <div className="relative z-10 mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mb-8 text-center">
+              <h2 className="font-heading text-3xl font-bold text-slate-900 md:text-4xl">
+                Official <span className="text-green-600">Contact Details</span>
               </h2>
-              <div className="mx-auto mt-4 h-1.5 w-24 rounded-full bg-green-500" />
               <p className="mx-auto mt-6 max-w-2xl text-xl font-light italic text-gray-600">
                 &quot;Connecting farmers to your doorstep with integrity and professional
                 care.&quot;
@@ -407,7 +413,7 @@ const WebsiteContact = () => {
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
               {/* Address */}
-              <div className="group rounded-3xl border-b-4 border-green-500 bg-white p-8 shadow-md transition-all duration-500 hover:shadow-2xl">
+              <div className="group rounded-3xl bg-white p-8 shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                 <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 transition-all duration-300 group-hover:bg-green-600 group-hover:text-white">
                   <svg
                     className="h-7 w-7"
@@ -449,8 +455,8 @@ const WebsiteContact = () => {
               </div>
 
               {/* Call */}
-              <div className="group rounded-3xl border-b-4 border-yellow-400 bg-white p-8 shadow-md transition-all duration-500 hover:shadow-2xl">
-                <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-50 text-yellow-600 transition-all duration-300 group-hover:bg-yellow-400 group-hover:text-white">
+              <div className="group rounded-3xl bg-white p-8 shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 transition-all duration-300 group-hover:bg-green-600 group-hover:text-white">
                   <svg
                     className="h-7 w-7"
                     fill="none"
@@ -495,8 +501,8 @@ const WebsiteContact = () => {
               </div>
 
               {/* Email */}
-              <div className="group rounded-3xl border-b-4 border-red-500 bg-white p-8 shadow-md transition-all duration-500 hover:shadow-2xl">
-                <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600 transition-all duration-300 group-hover:bg-red-600 group-hover:text-white">
+              <div className="group rounded-3xl bg-white p-8 shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 transition-all duration-300 group-hover:bg-green-600 group-hover:text-white">
                   <svg
                     className="h-7 w-7"
                     fill="none"
@@ -532,8 +538,8 @@ const WebsiteContact = () => {
               </div>
 
               {/* Download App */}
-              <div className="group rounded-3xl border-b-4 border-blue-500 bg-white p-8 shadow-md transition-all duration-500 hover:shadow-2xl">
-                <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white">
+              <div className="group rounded-3xl bg-white p-8 shadow-[0_24px_60px_-30px_rgba(20,83,45,0.35)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 transition-all duration-300 group-hover:bg-green-600 group-hover:text-white">
                   <svg
                     className="h-7 w-7"
                     fill="none"
@@ -558,7 +564,7 @@ const WebsiteContact = () => {
                   href="https://play.google.com/store/apps/details?id=com.suggithota"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block border-b-2 border-blue-100 pb-1 text-lg font-black text-blue-600 transition-colors hover:text-blue-800"
+                  className="mt-2 inline-block rounded-lg bg-green-600 px-4 py-2 text-base font-bold text-white transition-colors hover:bg-green-700"
                 >
                   Download Now
                 </a>

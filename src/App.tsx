@@ -59,6 +59,7 @@ function AppShell() {
 
   useEffect(() => {
     ensureLcpBoot(pathname);
+    window.scrollTo(0, 0);
   }, [pathname]);
 
   if (isAdminContext(pathname)) {

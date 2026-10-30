@@ -6,7 +6,7 @@ const WebsiteFooter = lazy(() =>
 
 export function LazyWebsiteFooter() {
   return (
-    <Suspense fallback={<footer className="h-40 bg-slate-950" aria-hidden />}>
+    <Suspense fallback={<footer className="h-40 bg-[#0f2e1a]" aria-hidden />}>
       <WebsiteFooter />
     </Suspense>
   );
